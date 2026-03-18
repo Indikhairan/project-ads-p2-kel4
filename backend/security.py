@@ -3,7 +3,7 @@ import os
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from fastapi import HTTPException, status
-from database import db
+from backend.database import get_db
 
 load_dotenv()
 
