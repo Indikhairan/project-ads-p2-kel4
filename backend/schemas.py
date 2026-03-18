@@ -4,15 +4,15 @@ from datetime import datetime
 
 class TiketBase(BaseModel):
     id_layanan: str
-    data_request: Dict[str, Any] # Disamakan dengan model
+    data_request: Dict[str, Any]
     file_lampiran: Optional[str] = None
 
 class TiketCreate(TiketBase):
-    email_mahasiswa: EmailStr
+    pass
 
 class TiketResponse(TiketBase):
-    id_tiket: str # Mengikuti model
-    waktu_submit: datetime # Mengikuti model
+    id_tiket: str
+    waktu_submit: datetime
     status: str
     email_mahasiswa: str
 

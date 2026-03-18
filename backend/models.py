@@ -3,120 +3,111 @@ from sqlalchemy.orm import relationship
 from backend.database import Base
 from datetime import datetime
 
-# --- 1. USER INHERITANCE HIERARCHY ---
+# --- 1. USER INHERITANCE ---
 class User(Base):
     __tablename__ = "users"
     email = Column(String, primary_key=True)
-    namaLengkap = Column(String, nullable=False)
-    role = Column(String) # 'mahasiswa', 'staff', 'admin'
+    nama_lengkap = Column(String, nullable=False)
+    role = Column(String)  # 'mahasiswa', 'staff', 'admin'
+    
     __mapper_args__ = {
         'polymorphic_identity': 'user',
         'polymorphic_on': role
     }
     
-    # Semua user punya log aktivitas
     activities = relationship("AuditLog", back_populates="aktor")
 
 class Mahasiswa(User):
     __tablename__ = "mahasiswa"
     email = Column(String, ForeignKey('users.email'), primary_key=True)
     nim = Column(String, unique=True)
-    programStudi = Column(String)
+    program_studi = Column(String)
     departemen = Column(String)
     fakultas = Column(String)
     semester = Column(Integer)
 
     __mapper_args__ = {'polymorphic_identity': 'mahasiswa'}
     
-    # Relasi Association: Mahasiswa mengajukan banyak Tiket
     tikets = relationship("TiketLayanan", back_populates="pengaju")
-    # Relasi Association: Mahasiswa memiliki banyak ChatbotSession
     sessions = relationship("ChatbotSession", back_populates="mahasiswa")
 
 class StaffAkademik(User):
     __tablename__ = "staff_akademik"
     email = Column(String, ForeignKey('users.email'), primary_key=True)
     nip = Column(String, unique=True)
-    unitKerja = Column(String)
+    unit_kerja = Column(String)
 
     __mapper_args__ = {'polymorphic_identity': 'staff'}
     
-    # Relasi Association: Staff memproses banyak Tiket
     tikets_diproses = relationship("TiketLayanan", back_populates="pemroses")
 
 class AdminSistem(User):
-    __mapper_args__ = {
-        'polymorphic_identity': 'admin',
-    }
+    __mapper_args__ = {'polymorphic_identity': 'admin'}
 
-    def can_monitor_logs(self):
-        return True
-
-# --- 2. LAYANAN & TIKET (Aggregation & Composition) ---
+# --- 2. LAYANAN & TIKET ---
 class Layanan(Base):
     __tablename__ = "layanan"
-    idLayanan = Column(String, primary_key=True)
-    namaLayanan = Column(String)
-    tipeOutput = Column(String)
-    unitPenanggungJawab = Column(String)
+    id_layanan = Column(String, primary_key=True)
+    nama_layanan = Column(String)
+    tipe_output = Column(String)
+    unit_penanggung_jawab = Column(String)
     
-    # Relasi Aggregation: Layanan memiliki banyak Tiket
     tikets = relationship("TiketLayanan", back_populates="layanan")
 
 class TiketLayanan(Base):
     __tablename__ = "tiket_layanan"
-    id_tiket = Column(String, primary_key=True) # Sebelumnya idTiket
-    waktu_submit = Column(DateTime, default=datetime.utcnow) # Sebelumnya waktuSubmit
-    status = Column(String, default="Pending")
-    data_request = Column(JSON) # Sebelumnya dataRequest
+    id_tiket = Column(String, primary_key=True)
+    waktu_submit = Column(DateTime, default=datetime.utcnow)
+    status = Column(String, default="Open")
+    data_request = Column(JSON)
     file_lampiran = Column(String, nullable=True)
 
-    # Foreign Keys untuk Relasi
+    # Foreign Keys
     email_mahasiswa = Column(String, ForeignKey('mahasiswa.email'))
     email_staff = Column(String, ForeignKey('staff_akademik.email'), nullable=True)
-    id_layanan = Column(String, ForeignKey('layanan.idLayanan'))
+    id_layanan = Column(String, ForeignKey('layanan.id_layanan'))
 
-    # Relasi balik
+    # Relasi
     pengaju = relationship("Mahasiswa", back_populates="tikets")
     pemroses = relationship("StaffAkademik", back_populates="tikets_diproses")
     layanan = relationship("Layanan", back_populates="tikets")
-    
-    # Relasi Composition: Tiket menghasilkan banyak Notifikasi (cascade delete)
     notifikasi = relationship("Notifikasi", back_populates="tiket", cascade="all, delete-orphan")
 
 # --- 3. FITUR PENDUKUNG ---
 class Notifikasi(Base):
     __tablename__ = "notifikasi"
-    idNotifikasi = Column(String, primary_key=True)
+    id_notifikasi = Column(String, primary_key=True)
     pesan = Column(String)
     waktu = Column(DateTime, default=datetime.utcnow)
-    isRead = Column(Boolean, default=False)
-    id_tiket = Column(String, ForeignKey('tiket_layanan.idTiket'))
+    is_read = Column(Boolean, default=False)
+    id_tiket = Column(String, ForeignKey('tiket_layanan.id_tiket'))
 
     tiket = relationship("TiketLayanan", back_populates="notifikasi")
 
-class ChatbotSession(Base):
-    __tablename__ = "chatbot_sessions"
-    idChat = Column(String, primary_key=True)
-    email_mahasiswa = Column(String, ForeignKey('mahasiswa.email'))
-    pesanUser = Column(String)
-    waktuKirim = Column(DateTime, default=datetime.utcnow)
-    id_keyword_terdeteksi = Column(String, ForeignKey('knowledge_base.idKeyword'), nullable=True)
-    mahasiswa = relationship("Mahasiswa", back_populates="sessions")
-    knowledge = relationship("KnowledgeBase") # Untuk mempermudah join data jawaban
-
 class KnowledgeBase(Base):
     __tablename__ = "knowledge_base"
-    idKeyword = Column(String, primary_key=True)
-    kataKunci = Column(String)
+    id_keyword = Column(String, primary_key=True)
+    kata_kunci = Column(String)
     jawaban = Column(String)
+
+class ChatbotSession(Base):
+    __tablename__ = "chatbot_sessions"
+    id_chat = Column(String, primary_key=True)
+    email_mahasiswa = Column(String, ForeignKey('mahasiswa.email'))
+    pesan_user = Column(String)
+    waktu_kirim = Column(DateTime, default=datetime.utcnow)
+    id_keyword_terdeteksi = Column(String, ForeignKey('knowledge_base.id_keyword'), nullable=True)
+    
+    mahasiswa = relationship("Mahasiswa", back_populates="sessions")
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
-    idLog = Column(Integer, primary_key=True, autoincrement=True)
+    id_log = Column(Integer, primary_key=True, autoincrement=True)
     waktu = Column(DateTime, default=datetime.utcnow)
-    emailAktor = Column(String, ForeignKey('users.email'))
-    roleAktor = Column(String)
+    email_aktor = Column(String, ForeignKey('users.email'))
+    role_aktor = Column(String)
     aksi = Column(String)
     status = Column(String)
-    ipAddress = Column(String)
+    ip_address = Column(String)
+
+    aktor = relationship("User", back_populates="activities")
