@@ -1,0 +1,12 @@
+# Folder hasil kompilasi
+__pycache__/
+*.py[cod]
+# Database lokal 
+*.db
+*.sqlite3
+# (password/key)
+.env
+# Folder virtual environment
+venv/
+env/
+.venv-1/
