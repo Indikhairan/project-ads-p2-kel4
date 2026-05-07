@@ -1,6 +1,6 @@
 import React from "react";
 
-export const TopNavigationSection = () => {
+export const TopNavigationSection = ({ onBuatTiket }) => {
   return (
     <header className="w-full bg-white border-b border-gray-200 flex items-center justify-between px-8 py-3">
       <div className="flex items-center gap-4">
@@ -8,8 +8,14 @@ export const TopNavigationSection = () => {
         <div className="w-px h-6 bg-gray-300" />
         <nav className="flex gap-6 font-medium text-[#130962] text-sm">
           <span className="cursor-pointer border-b-2 border-[#130962] pb-0.5">Home</span>
-          <span className="cursor-pointer text-gray-400 hover:text-[#130962] transition-colors">+ Buat Tiket</span>
-          <span className="cursor-pointer text-gray-400 hover:text-[#130962] transition-colors">Riwayat Tiket</span>
+          <span
+            onClick={onBuatTiket}
+            className="cursor-pointer text-gray-400 hover:text-[#130962] transition-colors">
+              + Buat Tiket
+              </span>
+          <span className="cursor-pointer text-gray-400 hover:text-[#130962] transition-colors">
+            Riwayat Tiket
+            </span>
         </nav>
       </div>
       <div className="flex items-center gap-3">
@@ -24,3 +30,4 @@ export const TopNavigationSection = () => {
     </header>
   );
 };
+
