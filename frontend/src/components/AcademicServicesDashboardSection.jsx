@@ -45,10 +45,11 @@ export const AcademicServicesDashboardSection = () => {
         <p className="text-gray-400 text-sm text-center mb-5">
           Ajukan permohonan layanan akademik Anda dengan mudah dan cepat
         </p>
-        <div className="w-full max-w-[700px] h-[180px] bg-gray-100 rounded-lg flex flex-col items-center justify-center text-gray-400 text-sm border border-dashed border-gray-300 gap-2">
-          <span className="text-2xl">🖼️</span>
-          <span className="text-xs">Diagram panduan pembuatan tiket</span>
-        </div>
+        <img
+          src="/src/assets/infografis-panduan.png"
+          alt="Panduan Penggunaan Web SAPA IPB"
+          className="w-full max-w-[700px] object-contain rounded-lg"
+        />
       </section>
 
       <div className="w-full border-t border-gray-200" />
