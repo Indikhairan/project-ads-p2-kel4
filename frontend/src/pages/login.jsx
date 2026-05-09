@@ -41,7 +41,7 @@ export const LoginPage = () => {
         {/* Tombol Sign In */}
         <button
           onClick={handleSignIn}
-          className="w-full py-3.5 bg-[#1a237e] text-white rounded-full font-medium text-lg hover:bg-[#283593] transition-colors shadow-lg mb-4"
+          className="w-[280px] py-2.5 bg-[#1a237e] text-white rounded-full font-medium text-base hover:bg-[#283593] transition-colors shadow-lg mb-5"
         >
           Sign in with Google
         </button>

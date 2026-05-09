@@ -1,4 +1,6 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
+import infografisPanduan from "../assets/infografis-panduan.png";
 
 const summaryCards = [
   { count: "12", title: "Tiket Dibuat", description: "Total seluruh tiket", iconBg: "bg-[#fff7cb]", emoji: "📑" },
@@ -34,10 +36,12 @@ const StatusBadge = ({ status }) => {
 };
 
 export const AcademicServicesDashboardSection = () => {
+  const navigate = useNavigate();
+
   return (
     <div className="w-full flex flex-col gap-5">
 
-      {/* Portal Banner - tanpa card, langsung di background */}
+      {/* Portal Banner */}
       <section className="w-full flex flex-col items-center py-6">
         <h1 className="font-bold text-[#130962] text-xl text-center mb-1">
           Portal Layanan Akademik
@@ -46,7 +50,7 @@ export const AcademicServicesDashboardSection = () => {
           Ajukan permohonan layanan akademik Anda dengan mudah dan cepat
         </p>
         <img
-          src="/src/assets/infografis-panduan.png"
+          src={infografisPanduan}
           alt="Panduan Penggunaan Web SAPA IPB"
           className="w-full max-w-[700px] object-contain rounded-lg"
         />
@@ -80,7 +84,10 @@ export const AcademicServicesDashboardSection = () => {
       <section className="w-full bg-white rounded-xl border border-gray-100 p-5">
         <div className="flex justify-between items-center mb-4">
           <h2 className="font-semibold text-[#130962] text-base">Tiket Terakhir Anda</h2>
-          <button className="text-[#130962] text-xs hover:underline font-medium flex items-center gap-1">
+          <button
+            onClick={() => navigate("/riwayat")}
+            className="text-[#130962] text-xs hover:underline font-medium flex items-center gap-1"
+          >
             Lihat Semua →
           </button>
         </div>
@@ -88,6 +95,7 @@ export const AcademicServicesDashboardSection = () => {
           {tickets.map((ticket) => (
             <article
               key={ticket.id}
+              onClick={() => navigate(`/tiket/${ticket.id}`)}
               className="w-full border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between gap-4 bg-white hover:bg-gray-50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">
