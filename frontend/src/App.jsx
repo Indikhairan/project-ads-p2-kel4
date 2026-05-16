@@ -7,6 +7,8 @@ import { RiwayatTiketPage } from "./pages/RiwayatTiketPage";
 import { DetailTiketPage } from "./pages/DetailTiketPage";
 import { HomepageStaff } from "./pages/HomepageStaff";
 import { DetailTiketStaff } from "./pages/DetailTiketStaff";
+import { KnowledgeBasePage } from "./pages/KnowledgeBasePage";
+import { DashboardKeamanan } from "./pages/DashboardKeamanan";
 
 function App() {
   return (
@@ -22,6 +24,8 @@ function App() {
         <Route path="/tiket/:id" element={<DetailTiketPage />} />
         <Route path="/staff/dashboard" element={<HomepageStaff />} />
         <Route path="/staff/tiket/:id" element={<DetailTiketStaff />} />
+        <Route path="/staff/knowledge-base" element={<KnowledgeBasePage />} />
+        <Route path="/admin/dashboard" element={<DashboardKeamanan />} />
       </Routes>
     </BrowserRouter>
   );
