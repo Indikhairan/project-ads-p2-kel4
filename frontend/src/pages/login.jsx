@@ -1,41 +1,59 @@
-import logo from "../assets/Logo_IPB.png";
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import image5 from "../assets/image-5.png";
 
-const Login = () => {
+export const LoginPage = () => {
+  const navigate = useNavigate();
+
+  const handleSignIn = () => {
+    navigate("/dashboard");
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#243B91] to-white">
+    <main
+      className="w-full min-h-screen flex items-center justify-center px-4 py-10"
+      style={{
+        background: "linear-gradient(180deg, #1a237e 0%, #3949ab 40%, #e8eaf6 100%)",
+      }}
+    >
+      <section className="w-full max-w-[500px] bg-white rounded-[20px] shadow-2xl flex flex-col items-center py-12 px-8">
 
-      <div className="w-[1120px] h-[661px] bg-white rounded-xl shadow-lg flex flex-col items-center justify-center">
-
-        {/* Logo */}
-        <img 
-          src={logo} 
-          alt="Logo IPB" 
-          className="w-[120px] mb-6"
-        />
-
-        {/* Title */}
-        <h1 className="text-6xl font-extrabold text-[#140963] drop-shadow-md leading-none">
-          SAPA IPB
+        {/* Judul */}
+        <h1
+          className="font-extrabold text-[#130962] tracking-widest mb-3 text-6xl"
+          style={{
+            textShadow: "3px 3px 0px #7986cb, 6px 6px 0px rgba(100,100,200,0.3)",
+          }}
+        >
+          SAPAIPB
         </h1>
-
-        {/* Subtitle */}
-        <p className="text-xl mb-8">
+        <p className="text-lg text-gray-800 mb-10 font-normal">
           Sarana Akses Layanan Akademik
         </p>
 
-        {/* Button */}
-        <button className="w-[394px] h-[51px] bg-[#140963] text-white rounded-2xl text-lg hover:opacity-90 transition">
+        {/* Logo IPB */}
+        <img
+          src={image5}
+          alt="Logo IPB"
+          className="w-[130px] h-[130px] object-contain mb-10"
+        />
+
+        {/* Tombol Sign In */}
+        <button
+          onClick={handleSignIn}
+          className="w-[280px] py-2.5 bg-[#1a237e] text-white rounded-full font-medium text-base hover:bg-[#283593] transition-colors shadow-lg mb-5"
+        >
           Sign in with Google
         </button>
 
-        {/* Note */}
-        <p className="text-black/60 text-sm italic mt-6 text-center">
+        {/* Disclaimer */}
+        <p className="text-sm italic text-gray-400">
           Akses sistem dibatasi. Hanya untuk email resmi kampus
         </p>
 
-      </div>
-    </div>
+      </section>
+    </main>
   );
 };
 
-export default Login;
+export default LoginPage;
