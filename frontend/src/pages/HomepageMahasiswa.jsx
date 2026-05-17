@@ -12,7 +12,10 @@ export const HomepageMahasiswa = () => {
 
   return (
     <main className="bg-[#f8f9fa] w-full min-h-screen flex flex-col relative">
-      <TopNavigationSection onBuatTiket={() => setShowForm(true)} />
+      <TopNavigationSection
+        onBuatTiket={() => setShowForm(true)}
+        formOpen={showForm}
+      />
       <div className="flex-1 flex flex-col w-full max-w-[1000px] mx-auto px-6 mt-4 gap-4 pb-20">
         <WelcomeBannerSection />
         <AcademicServicesDashboardSection />

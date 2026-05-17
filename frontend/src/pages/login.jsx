@@ -19,12 +19,7 @@ export const LoginPage = () => {
       <section className="w-full max-w-[500px] bg-white rounded-[20px] shadow-2xl flex flex-col items-center py-12 px-8">
 
         {/* Judul */}
-        <h1
-          className="font-extrabold text-[#130962] tracking-widest mb-3 text-6xl"
-          style={{
-            textShadow: "3px 3px 0px #7986cb, 6px 6px 0px rgba(100,100,200,0.3)",
-          }}
-        >
+        <h1 className="font-extrabold text-[#130962] tracking-widest mb-3 text-6xl">
           SAPAIPB
         </h1>
         <p className="text-lg text-gray-800 mb-10 font-normal">
