@@ -3,8 +3,10 @@ import React, { useState, useRef } from "react";
 const KATEGORI_OPTIONS = ["Persuratan", "Informasi", "Lainnya"];
 const JENIS_SURAT_OPTIONS = [
   "Surat Keterangan Mahasiswa Aktif",
-  "Surat Izin Penelitian",
-  "Surat Rekomendasi",
+  "Surat Izin Akademik",
+  "Surat Perubahan KRS",
+  "Surat Rekomendasi Beasiswa",
+  "Permohonan Surat Magang"
 ];
 
 // Komponen dropdown arrow SVG
