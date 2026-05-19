@@ -1,25 +1,28 @@
+import os
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
+from google.oauth2 import id_token
+from google.auth.transport import requests
+from dotenv import load_dotenv
+
 from backend.database import get_db
 from backend import models, security
+
+load_dotenv()
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 
 router = APIRouter(
     prefix="/auth",
     tags=["Auth"]
 )
 
-
 # ─── SCHEMAS ──────────────────────────────────────────────────────────────────
 
 class GoogleLoginPayload(BaseModel):
-    """Payload dari frontend setelah Google OAuth callback."""
-    email: str
-    nama_lengkap: str
-    # Field opsional – diisi kalau user sudah terdaftar di DB
-    role: Optional[str] = None
-
+    """Payload dari frontend HARUS HANYA token Google. Jangan terima email mentah."""
+    google_id_token: str
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -27,7 +30,6 @@ class TokenResponse(BaseModel):
     role: str
     email: str
     nama_lengkap: str
-
 
 class UserProfile(BaseModel):
     email: str
@@ -48,46 +50,53 @@ class UserProfile(BaseModel):
 
 
 # ─── POST /auth/login ─────────────────────────────────────────────────────────
-# Dipanggil frontend setelah Google OAuth berhasil.
-# Frontend kirim email + nama dari Google, backend cek DB dan keluarkan JWT.
 
 @router.post("/login", response_model=TokenResponse)
 def login(payload: GoogleLoginPayload, request: Request, db: Session = Depends(get_db)):
     """
-    Login via Google OAuth.
-    - Cek apakah email terdaftar di database.
-    - Jika ya → keluarkan JWT dengan role yang sesuai.
-    - Jika tidak → daftar otomatis sebagai mahasiswa (bisa disesuaikan).
+    Login via Google OAuth yang AMAN.
     """
-    # Validasi domain email kampus
-    if not payload.email.endswith("@apps.ipb.ac.id"):
+    try:
+        # 1. VERIFIKASI KE GOOGLE (Mencegah pemalsuan email)
+        idinfo = id_token.verify_oauth2_token(
+            payload.google_id_token, 
+            requests.Request(), 
+            GOOGLE_CLIENT_ID
+        )
+        # 2. Ambil email dan nama yang VALID dari server Google
+        email_google = idinfo.get("email")
+        nama_google = idinfo.get("name")
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token Google tidak valid atau sudah kadaluarsa.")
+
+    # 3. Validasi domain email kampus
+    if not email_google.endswith("@apps.ipb.ac.id"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Akses ditolak. Hanya email resmi kampus (@apps.ipb.ac.id) yang diperbolehkan."
         )
 
-    # Cari user di DB
-    user = db.query(models.User).filter(models.User.email == payload.email).first()
+    # 4. Cari user di DB (Menggunakan email valid dari Google)
+    user = db.query(models.User).filter(models.User.email == email_google).first()
 
     if not user:
-        # Auto-register sebagai mahasiswa (role default)
-        # Di produksi: admin yang assign role, atau perlu kode registrasi
+        # Auto-register sebagai mahasiswa
         new_user = models.User(
-            email=payload.email,
-            nama_lengkap=payload.nama_lengkap,
+            email=email_google,
+            nama_lengkap=nama_google,
             role="mahasiswa"
         )
         db.add(new_user)
         # Buat entry mahasiswa
         new_mhs = models.Mahasiswa(
-            email=payload.email,
+            email=email_google,
         )
         db.add(new_mhs)
         db.commit()
         db.refresh(new_user)
         user = new_user
 
-    # Buat JWT
+    # 5. Buat JWT
     token_data = {
         "email": user.email,
         "nama_lengkap": user.nama_lengkap,
@@ -95,7 +104,7 @@ def login(payload: GoogleLoginPayload, request: Request, db: Session = Depends(g
     }
     token = security.create_access_token(token_data)
 
-    # Accounting
+    # 6. Accounting / Audit Log
     security.log_activity(
         db=db,
         email=user.email,
@@ -115,13 +124,9 @@ def login(payload: GoogleLoginPayload, request: Request, db: Session = Depends(g
 
 
 # ─── POST /auth/logout ────────────────────────────────────────────────────────
-
+# (Sama persis seperti kodenya Kira, tidak ada perubahan)
 @router.post("/logout")
 def logout(request: Request, db: Session = Depends(get_db)):
-    """
-    Logout — catat aktivitas ke audit log.
-    JWT invalidation dilakukan di sisi client (hapus token dari storage).
-    """
     user_data = security.extract_token(request)
 
     security.log_activity(
@@ -138,16 +143,9 @@ def logout(request: Request, db: Session = Depends(get_db)):
 
 
 # ─── GET /auth/me ─────────────────────────────────────────────────────────────
-
+# (Sama persis seperti kodenya Kira, tidak ada perubahan)
 @router.get("/me", response_model=UserProfile)
 def get_profile(request: Request, db: Session = Depends(get_db)):
-    """
-    Ambil profil user yang sedang login.
-    Digunakan frontend untuk:
-    - Menampilkan nama di WelcomeBanner
-    - Menentukan routing (mahasiswa → /dashboard, staff → /staff/dashboard)
-    - Mengisi field otomatis di FormPengajuanTiket (nama, NIM, prodi, dll)
-    """
     user_data = security.extract_token(request)
     email = user_data["email"]
 
