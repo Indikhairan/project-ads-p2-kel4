@@ -49,6 +49,11 @@ const ITEMS_PER_PAGE = 3;
 // Navbar khusus admin
 const TopNavigationAdmin = () => {
   const navigate = useNavigate();
+  const handleLogout = () => {
+    localStorage.removeItem("sapa_ipb_token");
+    localStorage.removeItem("sapa_ipb_role");
+    navigate("/");
+  };
   return (
     <header className="w-full bg-white border-b border-gray-200 flex items-center justify-between px-8 py-3">
       <div className="flex items-center gap-3">
@@ -64,7 +69,7 @@ const TopNavigationAdmin = () => {
           </svg>
         </button>
         <button
-          onClick={() => navigate("/")}
+          onClick={handleLogout}
           className="flex items-center gap-1.5 bg-red-600 text-white px-3 py-1.5 rounded-full font-semibold text-xs hover:bg-red-700 transition-colors"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

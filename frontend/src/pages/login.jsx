@@ -11,9 +11,16 @@ export const LoginPage = () => {
   // Kalau ada, langsung tendang ke dashboard tanpa harus login lagi!
   useEffect(() => {
     const token = localStorage.getItem("sapa_ipb_token");
-    if (token) {
-      navigate("/dashboard");
-    }
+    const role = localStorage.getItem("sapa_ipb_role");
+    if (token && role) {
+      if (role === "admin") {
+        navigate("/admin/dashboard");
+      } else if (role === "staff") {
+        navigate("/staff/dashboard");
+      } else {
+        navigate("/dashboard");
+      }
+  }
   }, [navigate]);
   
   // Fungsi ini dipanggil otomatis oleh komponen <GoogleLogin /> bawaan
@@ -31,10 +38,18 @@ export const LoginPage = () => {
       });
 
       const data = await response.json();
+      console.log("Cek isi paket dari backend:", data);
 
       if (response.ok) {
         localStorage.setItem("sapa_ipb_token", data.access_token);
+        localStorage.setItem("sapa_ipb_role", data.role);
+        if (data.role === "admin") {
+        navigate("/admin/dashboard");
+      } else if (data.role === "staff") {
+        navigate("/staff/dashboard");
+      } else {
         navigate("/dashboard");
+      }
       } else {
         alert("Akses ditolak:\n" + JSON.stringify(data.detail, null, 2));
       }
