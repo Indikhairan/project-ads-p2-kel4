@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { GoogleLogin } from "@react-oauth/google"; // <-- Ubah import ini
+import { GoogleLogin } from "@react-oauth/google";
 import image5 from "../assets/image-5.png";
 
 export const LoginPage = () => {
@@ -11,8 +11,16 @@ export const LoginPage = () => {
   // Kalau ada, langsung tendang ke dashboard tanpa harus login lagi!
   useEffect(() => {
     const token = localStorage.getItem("sapa_ipb_token");
-    if (token) {
-      navigate("/dashboard");
+    const role = localStorage.getItem("sapa_ipb_role");
+    
+    if (token && role) {
+      if (role === "admin") {
+        navigate("/admin/dashboard");
+      } else if (role === "staff") {
+        navigate("/staff/dashboard");
+      } else {
+        navigate("/dashboard");
+      }
     }
   }, [navigate]);
   
@@ -27,14 +35,23 @@ export const LoginPage = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ google_id_token: credentialResponse.credential }), // <-- Perhatikan ini
+        body: JSON.stringify({ google_id_token: credentialResponse.credential }),
       });
 
       const data = await response.json();
+      console.log("Cek isi paket dari backend:", data);
 
       if (response.ok) {
         localStorage.setItem("sapa_ipb_token", data.access_token);
-        navigate("/dashboard");
+        localStorage.setItem("sapa_ipb_role", data.role);
+        
+        if (data.role === "admin") {
+          navigate("/admin/dashboard");
+        } else if (data.role === "staff") {
+          navigate("/staff/dashboard");
+        } else {
+          navigate("/dashboard");
+        }
       } else {
         alert("Akses ditolak:\n" + JSON.stringify(data.detail, null, 2));
       }
@@ -82,7 +99,7 @@ export const LoginPage = () => {
                 alert("Gagal memunculkan pop-up Google.");
               }}
               useOneTap={false}
-              shape="pill"      // Biar bentuknya tetap melengkung kayak desain Indi
+              shape="pill"      // Biar bentuknya tetap melengkung
               size="large"      // Biar ukurannya proporsional
               width="280"       // Lebar sesuai tombol sebelumnya
             />
