@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import tiket, notifikasi, auth, update, chatbot
+from .routers import tiket, notifikasi, auth, update, chatbot, knowledge_base, admin_security
 from .database import engine
 from . import models
 
