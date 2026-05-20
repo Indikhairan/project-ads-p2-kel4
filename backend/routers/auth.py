@@ -54,46 +54,55 @@ class UserProfile(BaseModel):
 @router.post("/login", response_model=TokenResponse)
 def login(payload: GoogleLoginPayload, request: Request, db: Session = Depends(get_db)):
     """
-    Login via Google OAuth yang AMAN.
+    Login via Google OAuth yang AMAN
     """
     try:
-        # 1. VERIFIKASI KE GOOGLE (Mencegah pemalsuan email)
+        # 1. VERIFIKASI KE GOOGLE
         idinfo = id_token.verify_oauth2_token(
             payload.google_id_token, 
             requests.Request(), 
             GOOGLE_CLIENT_ID
         )
-        # 2. Ambil email dan nama yang VALID dari server Google
         email_google = idinfo.get("email")
         nama_google = idinfo.get("name")
     except ValueError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token Google tidak valid atau sudah kadaluarsa.")
 
-    # 3. Validasi domain email kampus
+    # 2. Validasi domain email kampus
     if not email_google.endswith("@apps.ipb.ac.id"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Akses ditolak. Hanya email resmi kampus (@apps.ipb.ac.id) yang diperbolehkan."
         )
 
-    # 4. Cari user di DB (Menggunakan email valid dari Google)
+    # 3. Cari user di DB
     user = db.query(models.User).filter(models.User.email == email_google).first()
 
     if not user:
-        # 1. ADMIN PERTAMA (Genesis Account)
-        admin_emails = [
-            "admin@apps.ipb.ac.id" # Emailmu sebagai pemegang kunci pertama
-        ]
+        # --- DAFTAR EMAIL KHUSUS ---
+        # Ganti dengan email IPB asli milik teman-temanmu
+        admin_emails = ["ccmuthia@apps.ipb.ac.id"] 
+        staff_emails = ["indikhairan@apps.ipb.ac.id"]
+        # ---------------------------
 
         if email_google in admin_emails:
+            # Daftarkan Mutica sebagai Admin
             new_user = models.StaffAkademik(
                 email=email_google,
                 nama_lengkap=nama_google,
-                role="admin",      # Langsung jadi admin biasa
-                nip="00000000"     # NIP default untuk admin awal
+                role="admin",
+                nip="00000000" # NIP default admin
+            )
+        elif email_google in staff_emails:
+            # Daftarkan Indi sebagai Staff
+            new_user = models.StaffAkademik(
+                email=email_google,
+                nama_lengkap=nama_google,
+                role="staff",
+                nip="11111111" # NIP default staff
             )
         else:
-            # Auto-registrasi untuk Mahasiswa
+            # Sisa email lainnya (termasuk kamu) otomatis jadi Mahasiswa
             new_user = models.Mahasiswa(
                 email=email_google,
                 nama_lengkap=nama_google,
@@ -105,7 +114,7 @@ def login(payload: GoogleLoginPayload, request: Request, db: Session = Depends(g
         db.refresh(new_user)
         user = new_user
 
-    # 5. Buat JWT
+    # 5. Buat JWT Murni
     token_data = {
         "email": user.email,
         "nama_lengkap": user.nama_lengkap,
@@ -133,7 +142,6 @@ def login(payload: GoogleLoginPayload, request: Request, db: Session = Depends(g
 
 
 # ─── POST /auth/logout ────────────────────────────────────────────────────────
-# (Sama persis seperti kodenya Kira, tidak ada perubahan)
 @router.post("/logout")
 def logout(request: Request, db: Session = Depends(get_db)):
     user_data = security.extract_token(request)
@@ -152,7 +160,6 @@ def logout(request: Request, db: Session = Depends(get_db)):
 
 
 # ─── GET /auth/me ─────────────────────────────────────────────────────────────
-# (Sama persis seperti kodenya Kira, tidak ada perubahan)
 @router.get("/me", response_model=UserProfile)
 def get_profile(request: Request, db: Session = Depends(get_db)):
     user_data = security.extract_token(request)
