@@ -5,6 +5,10 @@ export const TopNavigationSection = ({ onBuatTiket, formOpen }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const isActive = (path) => location.pathname === path;
+  const handleLogout = () => {
+    localStorage.removeItem("sapa_ipb_token");
+    navigate("/");
+  };
 
   return (
     <header className="w-full bg-white border-b border-gray-200 flex items-center justify-between px-8 py-3">
@@ -59,7 +63,7 @@ export const TopNavigationSection = ({ onBuatTiket, formOpen }) => {
           </svg>
         </button>
         <button
-          onClick={() => navigate("/")}
+          onClick={handleLogout}
           className="flex items-center gap-1.5 bg-red-600 text-white px-3 py-1.5 rounded-full font-semibold text-xs hover:bg-red-700 transition-colors"
         >
           Log Out
