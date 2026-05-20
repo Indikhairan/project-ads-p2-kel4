@@ -12,8 +12,16 @@ class TiketBase(BaseModel):
 
 
 class TiketCreate(TiketBase):
-    """Schema untuk mahasiswa submit tiket baru (POST /tiket)."""
-    pass
+    # Data inti tiket
+    id_layanan: str
+    data_request: dict
+    file_lampiran: Optional[str] = None
+    
+    # Tambahan Progressive Profiling (Data Akademik)
+    nim: str
+    program_studi: str
+    departemen: Optional[str] = None
+    fakultas: Optional[str] = None
 
 
 class TiketUpdate(BaseModel):

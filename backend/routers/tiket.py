@@ -14,17 +14,18 @@ router = APIRouter(
 
 
 # ─── POST /tiket ──────────────────────────────────────────────────────────────
-# Mahasiswa submit pengajuan tiket baru
+# Mahasiswa submit pengajuan tiket baru sekaligus update profil otomatis
 
 @router.post("/", response_model=schemas.TiketResponse, status_code=status.HTTP_201_CREATED)
 def buat_tiket(payload: schemas.TiketCreate, request: Request, db: Session = Depends(get_db)):
     """
     Submit pengajuan tiket layanan baru.
     - **Hak akses**: Mahasiswa
-    - **Body**: id_layanan, data_request (dict), file_lampiran (opsional)
+    - **Body**: id_layanan, data_request, file_lampiran + Data Akademik (NIM, Prodi, dll)
     """
     # Authentication
     user_data = security.extract_token(request)
+    email_user = user_data["email"]
 
     # Authorization: hanya mahasiswa
     security.check_role(user_data, "mahasiswa")
@@ -33,18 +34,39 @@ def buat_tiket(payload: schemas.TiketCreate, request: Request, db: Session = Dep
     layanan = db.query(models.Layanan).filter(
         models.Layanan.id_layanan == payload.id_layanan
     ).first()
+    
     if not layanan:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Layanan '{payload.id_layanan}' tidak ditemukan."
         )
 
+    # ─── PROGRESSIVE PROFILING (UPDATE DATA MAHASISWA) ───
+    mhs = db.query(models.Mahasiswa).filter(models.Mahasiswa.email == email_user).first()
+    
+    if not mhs:
+        raise HTTPException(status_code=404, detail="Data mahasiswa tidak ditemukan di sistem.")
+
+    # Update atribut mahasiswa jika masih kosong di database
+    if not mhs.nim:
+        mhs.nim = payload.nim
+    if not mhs.program_studi:
+        mhs.program_studi = payload.program_studi
+    if not mhs.departemen and payload.departemen:
+        mhs.departemen = payload.departemen
+    if not mhs.fakultas and payload.fakultas:
+        mhs.fakultas = payload.fakultas
+    if not mhs.semester and payload.semester:
+        mhs.semester = payload.semester
+    # ─────────────────────────────────────────────────────
+
     # Buat ID tiket unik: {id_layanan}-{timestamp}
     generated_id = f"{payload.id_layanan}-{int(datetime.utcnow().timestamp())}"
 
+    # Instansiasi object TiketLayanan
     new_tiket = models.TiketLayanan(
         id_tiket=generated_id,
-        email_mahasiswa=user_data["email"],
+        email_mahasiswa=email_user,
         id_layanan=payload.id_layanan,
         data_request=payload.data_request,
         file_lampiran=payload.file_lampiran,
@@ -54,16 +76,18 @@ def buat_tiket(payload: schemas.TiketCreate, request: Request, db: Session = Dep
     # Accounting: catat aktivitas ke audit log
     security.log_activity(
         db=db,
-        email=user_data["email"],
+        email=email_user,
         role=user_data["role"],
-        aksi=f"Submit tiket baru: {generated_id}",
+        aksi=f"Submit tiket baru: {generated_id} & Update Profil",
         status_log="Success",
         ip_address=request.client.host
     )
 
+    # Simpan Tiket DAN Update Profil Mahasiswa dalam satu eksekusi!
     db.add(new_tiket)
     db.commit()
     db.refresh(new_tiket)
+    
     return new_tiket
 
 

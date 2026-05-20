@@ -80,18 +80,27 @@ def login(payload: GoogleLoginPayload, request: Request, db: Session = Depends(g
     user = db.query(models.User).filter(models.User.email == email_google).first()
 
     if not user:
-        # Auto-register sebagai mahasiswa
-        new_user = models.User(
-            email=email_google,
-            nama_lengkap=nama_google,
-            role="mahasiswa"
-        )
+        # 1. ADMIN PERTAMA (Genesis Account)
+        admin_emails = [
+            "admin@apps.ipb.ac.id" # Emailmu sebagai pemegang kunci pertama
+        ]
+
+        if email_google in admin_emails:
+            new_user = models.StaffAkademik(
+                email=email_google,
+                nama_lengkap=nama_google,
+                role="admin",      # Langsung jadi admin biasa
+                nip="00000000"     # NIP default untuk admin awal
+            )
+        else:
+            # Auto-registrasi untuk Mahasiswa
+            new_user = models.Mahasiswa(
+                email=email_google,
+                nama_lengkap=nama_google,
+                role="mahasiswa"
+            )
+            
         db.add(new_user)
-        # Buat entry mahasiswa
-        new_mhs = models.Mahasiswa(
-            email=email_google,
-        )
-        db.add(new_mhs)
         db.commit()
         db.refresh(new_user)
         user = new_user
