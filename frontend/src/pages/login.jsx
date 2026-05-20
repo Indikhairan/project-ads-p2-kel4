@@ -11,6 +11,7 @@ export const LoginPage = () => {
   // Kalau ada, langsung tendang ke dashboard tanpa harus login lagi!
   useEffect(() => {
     const token = localStorage.getItem("sapa_ipb_token");
+<<<<<<< HEAD
     const role = localStorage.getItem("sapa_ipb_role");
     if (token && role) {
       if (role === "admin") {
@@ -21,6 +22,11 @@ export const LoginPage = () => {
         navigate("/dashboard");
       }
   }
+=======
+    if (token) {
+      navigate("/dashboard");
+    }
+>>>>>>> update-routers
   }, [navigate]);
   
   // Fungsi ini dipanggil otomatis oleh komponen <GoogleLogin /> bawaan
