@@ -81,6 +81,20 @@ const TopNavigationAdmin = () => {
         </button>
         <div className="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center font-bold text-sm text-white">A</div>
       </div>
+      <nav className="flex gap-6 text-sm">
+        <span
+          onClick={() => navigate("/admin/dashboard")}
+          className="cursor-pointer font-bold text-[#130962] border-b-2 border-[#ffe030] pb-0.5"
+        >
+          Dashboard
+        </span>
+        <span
+          onClick={() => navigate("/admin/users")}
+          className="cursor-pointer font-medium text-gray-400 hover:text-[#130962] transition-colors pb-0.5"
+        >
+          Kelola Pengguna
+        </span>
+      </nav>
     </header>
   );
 };
