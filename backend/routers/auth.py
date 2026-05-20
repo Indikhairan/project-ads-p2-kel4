@@ -79,6 +79,9 @@ def login(payload: GoogleLoginPayload, request: Request, db: Session = Depends(g
     # 4. Cari user di DB (Menggunakan email valid dari Google)
     user = db.query(models.User).filter(models.User.email == email_google).first()
 
+    if payload.email == "fadia.syakira@apps.ipb.ac.id": 
+        payload.role = "admin" # Bisa kamu ganti-ganti di sini jadi "staff" saat mau ngetes
+
     if not user:
         # 1. ADMIN PERTAMA (Genesis Account)
         admin_emails = [
