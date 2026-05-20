@@ -91,7 +91,6 @@ def login(payload: GoogleLoginPayload, request: Request, db: Session = Depends(g
                 email=email_google,
                 nama_lengkap=nama_google,
                 role="admin",
-                nip="00000000"
                 nip="00000000" # NIP default admin
             )
         elif email_google in staff_emails:
