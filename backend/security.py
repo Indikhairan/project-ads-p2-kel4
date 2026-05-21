@@ -2,110 +2,99 @@ import jwt
 import os
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, Request
 from sqlalchemy.orm import Session
+from backend import models 
 
 load_dotenv()
 
-SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+class SecurityService:
+    def __init__(self):
+        """Constructor: Menyiapkan amunisi keamanan saat server baru menyala"""
+        self.secret_key = os.getenv("SECRET_KEY")
+        self.algorithm = "HS256"
+        self.expire_minutes = 60
 
+        if not self.secret_key:
+            raise ValueError("SECRET_KEY tidak ditemukan. Pastikan file .env sudah ada")
 
-# ─── AUTHENTICATION ───────────────────────────────────────────────────────────
+    # Authentication
+    def buat_token_akses(self, data: dict) -> str:
+        """Buat JWT access token dengan expiry."""
+        to_encode = data.copy()
+        expire = datetime.utcnow() + timedelta(minutes=self.expire_minutes)
+        to_encode.update({"exp": expire})
+        
+        encoded_jwt = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
+        return encoded_jwt
 
-def create_access_token(data: dict):
-    """Buat JWT access token dengan expiry."""
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    def verifikasi_token(self, token: str) -> dict:
+        """Verifikasi JWT — kembalikan payload atau error."""
+        try:
+            payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
+            return {"status": "success", "data": payload}
 
+        except jwt.ExpiredSignatureError:
+            return {"status": "error", "message": "Session timeout, silakan login ulang."}
 
-def verify_token(token: str):
-    """Verifikasi JWT — kembalikan payload atau error."""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return {"status": "success", "data": payload}
+        except jwt.InvalidTokenError:
+            return {"status": "error", "message": "Token tidak valid. Unauthorized."}
 
-    except jwt.ExpiredSignatureError:
-        return {"status": "error", "message": "Session timeout, silakan login ulang."}
+    def ekstrak_token(self, request: Request) -> dict:
+        """Helper: ambil dan verifikasi token dari header Authorization."""
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token tidak ditemukan. Harap login terlebih dahulu."
+            )
+        
+        token = auth_header.split(" ")[1]
+        user_info = self.verifikasi_token(token) 
+        
+        if user_info["status"] == "error":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=user_info["message"]
+            )
+        return user_info["data"]
+    
+    # Authorization
+    def cek_role(self, user_data: dict, *required_roles: str):
+        """Pastikan user memiliki salah satu dari role yang diperbolehkan."""
+        if user_data.get("role") not in required_roles:
+            allowed = " / ".join(required_roles)
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Akses ditolak! Hanya {allowed} yang diperbolehkan."
+            )
 
-    except jwt.InvalidTokenError:
-        return {"status": "error", "message": "Token tidak valid. Unauthorized."}
+    def cek_kepemilikan_tiket(self, user_email: str, ticket_owner_email: str, user_role: str):
+        """
+        Staff dan admin boleh akses semua tiket.
+        Mahasiswa hanya boleh akses tiket miliknya sendiri.
+        """
+        if user_role in ["staff", "admin"]:
+            return True
+            
+        if user_email != ticket_owner_email:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Akses ditolak! Ini bukan tiket milik Anda."
+            )
 
-
-def extract_token(request) -> dict:
-    """
-    Helper: ambil dan verifikasi token dari header Authorization.
-    Raise HTTP 401 langsung jika gagal.
-    """
-    from fastapi import Request
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token tidak ditemukan. Harap login terlebih dahulu."
+    # Accounting
+    def log_aktivitas(self, db: Session, email: str, role: str, aksi: str, status_log: str, ip_address: str):
+        """Simpan audit log ke database tanpa di-commit otomatis."""
+        new_log = models.AuditLog(
+            waktu=datetime.utcnow(),
+            email_aktor=email,
+            role_aktor=role,
+            aksi=aksi,
+            status=status_log,
+            ip_address=ip_address
         )
-    token = auth_header.split(" ")[1]
-    user_info = verify_token(token)
-    if user_info["status"] == "error":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=user_info["message"]
-        )
-    return user_info["data"]
+        db.add(new_log)
 
-
-# ─── AUTHORIZATION ────────────────────────────────────────────────────────────
-
-# Role-Based Access Control (RBAC)
-def check_role(user_data: dict, *required_roles: str):
-    """
-    Pastikan user memiliki salah satu dari role yang diperbolehkan.
-    Contoh: check_role(user_data, "mahasiswa")
-            check_role(user_data, "staff", "admin")
-    """
-    if user_data.get("role") not in required_roles:
-        allowed = " / ".join(required_roles)
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Akses ditolak! Hanya {allowed} yang diperbolehkan."
-        )
-
-
-# Ownership-Based Access Control (OBAC)
-def check_ticket_ownership(user_email: str, ticket_owner_email: str, user_role: str):
-    """
-    Staff dan admin boleh akses semua tiket.
-    Mahasiswa hanya boleh akses tiket miliknya sendiri.
-    """
-    if user_role in ["staff", "admin"]:
-        return True
-    if user_email != ticket_owner_email:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Akses ditolak! Ini bukan tiket milik Anda."
-        )
-
-
-# ─── ACCOUNTING ───────────────────────────────────────────────────────────────
-
-def log_activity(db: Session, email: str, role: str, aksi: str, status_log: str, ip_address: str):
-    """
-    Simpan audit log ke database.
-    Harus dipanggil dengan db session agar benar-benar tersimpan.
-    """
-    from backend import models  # import di sini untuk hindari circular import
-
-    new_log = models.AuditLog(
-        waktu=datetime.utcnow(),
-        email_aktor=email,
-        role_aktor=role,
-        aksi=aksi,
-        status=status_log,
-        ip_address=ip_address
-    )
-    db.add(new_log)
-    # Tidak commit di sini — biarkan caller yang commit bersama operasi utama
+# objek sec_helper yang akan di import ke file router
+sec_helper = SecurityService()
