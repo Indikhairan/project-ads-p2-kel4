@@ -1,36 +1,51 @@
+import os
+import time
+from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.embeddings.sentence_transformer import SentenceTransformerEmbeddings
-from langchain_community.vectorstores import Chroma
-import os
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_community.vectorstores import FAISS # <-- Ganti Chroma ke FAISS
 
+load_dotenv()
+API_KEY = os.getenv("GEMINI_API_KEY")
 folder_pdf = "./data" 
 
 def knowledge_base():
-    print(f"1. Membaca SEMUA dokumen PDF di dalam folder '{folder_pdf}'...")
+    print("1. Membaca PDF...")
     loader = PyPDFDirectoryLoader(folder_pdf)
     dokumen = loader.load()
-    
-    print(f"   -> Berhasil memuat total {len(dokumen)} halaman dari seluruh PDF.")
 
-    print("2. Memecah halaman menjadi paragraf-paragraf kecil...")
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=200
-    )
+    print("2. Memecah teks...")
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     chunks = text_splitter.split_documents(dokumen)
-    print(f"   -> Berhasil dipecah menjadi {len(chunks)} potongan teks.")
+    print(f"   -> Total potongan teks: {len(chunks)}")
 
-    print("3. Mengubah teks menjadi vektor dan menyimpan ke ChromaDB...")
-    embedding_model = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
-    
-    db = Chroma.from_documents(
-        documents=chunks,
-        embedding=embedding_model,
-        persist_directory="./chroma_db"
+    print("3. Mengubah ke vektor dan menyimpan ke FAISS...")
+    embedding_model = GoogleGenerativeAIEmbeddings(
+        model="models/gemini-embedding-001", 
+        google_api_key=API_KEY
     )
+
+    db = None
+    batch_size = 15
     
-    print("✅ Selesai! Knowledge base massal sudah siap digunakan.")
+    for i in range(0, len(chunks), batch_size):
+        batch = chunks[i:i + batch_size]
+        print(f"   -> Menelan data ke {i} sampai {i + len(batch)}...")
+        
+        # FAISS memproses di memori, dijamin tidak akan mati diam-diam!
+        if db is None:
+            db = FAISS.from_documents(batch, embedding_model)
+        else:
+            db.add_documents(batch)
+            
+        if i + batch_size < len(chunks):
+            print("   ⏳ Jeda 15 detik untuk API Google...")
+            time.sleep(15)
+
+    # Save permanen ke folder setelah semua selesai
+    db.save_local("faiss_db")
+    print("✅ Selesai! Knowledge base FAISS sudah siap!")
 
 if __name__ == "__main__":
     knowledge_base()
