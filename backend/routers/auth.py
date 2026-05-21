@@ -2,26 +2,23 @@ import os
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from typing import Optional
 from google.oauth2 import id_token
 from google.auth.transport import requests
 from dotenv import load_dotenv
 
 from backend.database import get_db
-from backend import models, security
+from backend import models
+from backend.security import sec_helper
 
 load_dotenv()
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 
 router = APIRouter(
     prefix="/auth",
     tags=["Auth"]
 )
 
-# ─── SCHEMAS ──────────────────────────────────────────────────────────────────
-
+# Schema
 class GoogleLoginPayload(BaseModel):
-    """Payload dari frontend HARUS HANYA token Google. Jangan terima email mentah."""
     google_id_token: str
 
 class TokenResponse(BaseModel):
@@ -31,153 +28,76 @@ class TokenResponse(BaseModel):
     email: str
     nama_lengkap: str
 
-class UserProfile(BaseModel):
-    email: str
-    nama_lengkap: str
-    role: str
-    # Mahasiswa
-    nim: Optional[str] = None
-    program_studi: Optional[str] = None
-    departemen: Optional[str] = None
-    fakultas: Optional[str] = None
-    semester: Optional[int] = None
-    # Staff
-    nip: Optional[str] = None
-    unit_kerja: Optional[str] = None
+class GoogleAuthService:
+    def __init__(self):
+        self.client_id = os.getenv("GOOGLE_CLIENT_ID")
+        self.admin_emails = ["ccmuthia@apps.ipb.ac.id"] 
+        self.staff_emails = ["indikhairan@apps.ipb.ac.id"]
 
-    class Config:
-        from_attributes = True
+    def verifikasi_google(self, token: str):
+        try:
+            idinfo = id_token.verify_oauth2_token(token, requests.Request(), self.client_id)
+            return idinfo.get("email"), idinfo.get("name")
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token Google tidak valid.")
 
+    def validasi_domain(self, email: str):
+        if not email.endswith("@apps.ipb.ac.id"):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hanya email kampus yang diizinkan.")
 
-# ─── POST /auth/login ─────────────────────────────────────────────────────────
+    def kelola_user_db(self, db: Session, email: str, nama: str):
+        user = db.query(models.User).filter(models.User.email == email).first()
+        if not user:
+            if email in self.admin_emails:
+                new_user = models.StaffAkademik(email=email, nama_lengkap=nama, role="admin", nip="00000000")
+            elif email in self.staff_emails:
+                new_user = models.StaffAkademik(email=email, nama_lengkap=nama, role="staff", nip="11111111")
+            else:
+                new_user = models.Mahasiswa(email=email, nama_lengkap=nama, role="mahasiswa")
+            
+            db.add(new_user)
+            db.commit()
+            db.refresh(new_user)
+            return new_user
+        return user
 
+# instansiasi objek
+auth_helper = GoogleAuthService()
+
+# Routers
 @router.post("/login", response_model=TokenResponse)
 def login(payload: GoogleLoginPayload, request: Request, db: Session = Depends(get_db)):
-    """
-    Login via Google OAuth yang AMAN
-    """
-    try:
-        # 1. VERIFIKASI KE GOOGLE
-        idinfo = id_token.verify_oauth2_token(
-            payload.google_id_token, 
-            requests.Request(), 
-            GOOGLE_CLIENT_ID
-        )
-        email_google = idinfo.get("email")
-        nama_google = idinfo.get("name")
-    except ValueError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token Google tidak valid atau sudah kadaluarsa.")
+    
+    # 1. Panggil Dapur Google
+    email_google, nama_google = auth_helper.verifikasi_google(payload.google_id_token)
+    auth_helper.validasi_domain(email_google)
+    user = auth_helper.kelola_user_db(db, email_google, nama_google)
 
-    # 2. Validasi domain email kampus
-    if not email_google.endswith("@apps.ipb.ac.id"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Akses ditolak. Hanya email resmi kampus (@apps.ipb.ac.id) yang diperbolehkan."
-        )
+    # 2. Panggil Dapur Keamanan (Membuat JWT)
+    token_data = {"email": user.email, "nama_lengkap": user.nama_lengkap, "role": user.role}
+    token = sec_helper.buat_token_akses(token_data)
 
-    # 3. Cari user di DB
-    user = db.query(models.User).filter(models.User.email == email_google).first()
-
-    if not user:
-        # 4. ADMIN PERTAMA (Genesis Account)
-        admin_emails = [
-            "admin@apps.ipb.ac.id" # Email khusus admin murni
-        ]
-
-        if email_google in admin_emails:
-            new_user = models.StaffAkademik(
-                email=email_google,
-                nama_lengkap=nama_google,
-                role="admin",
-                nip="00000000"
-            )
-        else:
-            # Auto-registrasi untuk Mahasiswa
-            new_user = models.Mahasiswa(
-                email=email_google,
-                nama_lengkap=nama_google,
-                role="mahasiswa"
-            )
-            
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-        user = new_user
-
-    # 5. Buat JWT Murni
-    token_data = {
-        "email": user.email,
-        "nama_lengkap": user.nama_lengkap,
-        "role": user.role
-    }
-    token = security.create_access_token(token_data)
-
-    # 6. Accounting / Audit Log
-    security.log_activity(
-        db=db,
-        email=user.email,
-        role=user.role,
-        aksi="Login via Google",
-        status_log="Success",
-        ip_address=request.client.host
+    # 3. Panggil Dapur Keamanan (Mencatat Log)
+    sec_helper.log_aktivitas(
+        db=db, email=user.email, role=user.role, 
+        aksi="Login via Google", status_log="Success", ip_address=request.client.host
     )
     db.commit()
 
     return TokenResponse(
-        access_token=token,
-        role=user.role,
-        email=user.email,
-        nama_lengkap=user.nama_lengkap
+        access_token=token, role=user.role, email=user.email, nama_lengkap=user.nama_lengkap
     )
 
-
-# ─── POST /auth/logout ────────────────────────────────────────────────────────
 @router.post("/logout")
 def logout(request: Request, db: Session = Depends(get_db)):
-    user_data = security.extract_token(request)
-
-    security.log_activity(
-        db=db,
-        email=user_data["email"],
-        role=user_data["role"],
-        aksi="Logout",
-        status_log="Success",
-        ip_address=request.client.host
+    # 1. Panggil Dapur Keamanan untuk mengecek siapa yang mau logout
+    user_data = sec_helper.ekstrak_token(request)
+    
+    # 2. Panggil Dapur Keamanan untuk mencatat aktivitasnya
+    sec_helper.log_aktivitas(
+        db=db, email=user_data["email"], role=user_data["role"], 
+        aksi="Logout", status_log="Success", ip_address=request.client.host
     )
     db.commit()
-
+    
     return {"message": "Logout berhasil."}
-
-
-# ─── GET /auth/me ─────────────────────────────────────────────────────────────
-@router.get("/me", response_model=UserProfile)
-def get_profile(request: Request, db: Session = Depends(get_db)):
-    user_data = security.extract_token(request)
-    email = user_data["email"]
-
-    user = db.query(models.User).filter(models.User.email == email).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User tidak ditemukan.")
-
-    profile = UserProfile(
-        email=user.email,
-        nama_lengkap=user.nama_lengkap,
-        role=user.role
-    )
-
-    if user.role == "mahasiswa":
-        mhs = db.query(models.Mahasiswa).filter(models.Mahasiswa.email == email).first()
-        if mhs:
-            profile.nim = mhs.nim
-            profile.program_studi = mhs.program_studi
-            profile.departemen = mhs.departemen
-            profile.fakultas = mhs.fakultas
-            profile.semester = mhs.semester
-
-    elif user.role in ("staff", "admin"):
-        staff = db.query(models.StaffAkademik).filter(models.StaffAkademik.email == email).first()
-        if staff:
-            profile.nip = staff.nip
-            profile.unit_kerja = staff.unit_kerja
-
-    return profile

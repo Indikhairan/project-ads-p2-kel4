@@ -9,6 +9,7 @@ import { HomepageStaff } from "./pages/HomepageStaff";
 import { DetailTiketStaff } from "./pages/DetailTiketStaff";
 import { KnowledgeBasePage } from "./pages/KnowledgeBasePage";
 import { DashboardKeamanan } from "./pages/DashboardKeamanan";
+import { TambahUserPage } from "./pages/TambahUserPage";
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
         <Route path="/staff/tiket/:id" element={<DetailTiketStaff />} />
         <Route path="/staff/knowledge-base" element={<KnowledgeBasePage />} />
         <Route path="/admin/dashboard" element={<DashboardKeamanan />} />
+        <Route path="/admin/users" element={<TambahUserPage />} />
       </Routes>
     </BrowserRouter>
   );
