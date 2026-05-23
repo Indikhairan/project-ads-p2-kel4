@@ -38,7 +38,7 @@ def get_all_artikel(search: Optional[str] = Query(None, description="Cari berdas
 @router.post("/", status_code=201)
 def tambah_artikel(artikel: ArtikelKB, background_tasks: BackgroundTasks):
     if not artikel.judul.strip() or not artikel.konten.strip():
-        raise HTTPException(status_code=400, detail="Judul dan isi artikel/jawaban tidak boleh kosong!")
+        raise HTTPException(status_code=400, detail="Judul dan isi artikel tidak boleh kosong!")
     
     new_id = len(dummy_kb) + 1
     new_item = {
@@ -49,8 +49,6 @@ def tambah_artikel(artikel: ArtikelKB, background_tasks: BackgroundTasks):
         "last_updated": "17 Mei 2026"
     }
     dummy_kb.append(new_item)
-
-    # Trigger notif jalan di background!
     background_tasks.add_task(kirim_notif_admin, artikel.judul, "PENAMBAHAN")
 
     return {"status": "success", "message": "Artikel tersimpan", "data": new_item}
@@ -81,12 +79,3 @@ def hapus_artikel(id: int):
             dummy_kb = [item for item in dummy_kb if item["id"] != id]
             return {"status": "success", "message": "Artikel berhasil dihapus"}
     raise HTTPException(status_code=44, detail="Artikel tidak ditemukan")
-
-    # 5 NOTIFIKASI ADMIN
-# Fungsi simulasi pengirim notifikasi
-def kirim_notif_admin(judul_artikel: str, aksi: str):
-    # Nanti di sini isi dengan logika insert ke tabel 'notifikasi' di database RDBMS
-    # dengan role target = "admin"
-    pesan = f"Notifikasi Sistem: Staff melakukan {aksi} pada artikel '{judul_artikel}'"
-    print(f"\n[BACKGROUND TASK EXEC] -> {pesan}\n")
-    # Bisa juga digabung dengan logika email ke email admin kalau sistemnya butuh
