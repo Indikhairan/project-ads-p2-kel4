@@ -10,6 +10,7 @@ import { DetailTiketStaff } from "./pages/DetailTiketStaff";
 import { KnowledgeBasePage } from "./pages/KnowledgeBasePage";
 import { DashboardKeamanan } from "./pages/DashboardKeamanan";
 import { TambahUserPage } from "./pages/TambahUserPage";
+import { PusatPersetujuanPage } from "./pages/PusatPersetujuanPage";
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
         <Route path="/staff/knowledge-base" element={<KnowledgeBasePage />} />
         <Route path="/admin/dashboard" element={<DashboardKeamanan />} />
         <Route path="/admin/users" element={<TambahUserPage />} />
+        <Route path="/admin/persetujuan" element={<PusatPersetujuanPage />} />
       </Routes>
     </BrowserRouter>
   );
