@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime, timezone
+import json
 
 from backend.database import get_db
 from backend import models, schemas
@@ -15,6 +16,7 @@ router = APIRouter(
 
 class TiketService:
     VALID_STATUSES = {"Open", "In Progress", "Selesai", "Ditolak"}
+    VALID_KATEGORIS = {"Layanan", "Persuratan"}
 
     def __init__(self, db: Session, user_data: dict, ip_address: str):
         self.db = db
@@ -64,6 +66,12 @@ class TiketService:
         )
 
     def buat_tiket(self, payload: schemas.TiketCreate) -> models.TiketLayanan:
+        if payload.kategori not in self.VALID_KATEGORIS:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Kategori tiket tidak valid. Pilihan: {', '.join(self.VALID_KATEGORIS)}"
+            )
+
         layanan = self._get_layanan(payload.id_layanan)
         mahasiswa = self._get_mahasiswa(self.user_data["email"])
         self._update_profil_mahasiswa(mahasiswa, payload)
@@ -73,6 +81,8 @@ class TiketService:
             id_tiket=generated_id,
             email_mahasiswa=self.user_data["email"],
             id_layanan=payload.id_layanan,
+            kategori=payload.kategori,
+            subjek=payload.subjek,
             data_request=payload.data_request,
             file_lampiran=payload.file_lampiran,
             status="Open"
