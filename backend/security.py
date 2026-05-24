@@ -1,12 +1,44 @@
+import base64
+import hashlib
+import json
 import jwt
 import os
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from fastapi import HTTPException, status, Request
 from sqlalchemy.orm import Session
+from sqlalchemy.types import TypeDecorator, String as SAString
+from cryptography.fernet import Fernet
 from backend import models 
 
 load_dotenv()
+
+
+class EncryptedString(TypeDecorator):
+    impl = SAString
+    cache_ok = True
+
+    def __init__(self, length=255, **kwargs):
+        secret = os.getenv("FERNET_KEY") or os.getenv("SECRET_KEY")
+        if not secret:
+            raise ValueError("FERNET_KEY atau SECRET_KEY harus disetel untuk EncryptedString")
+
+        key_material = secret.encode() if isinstance(secret, str) else secret
+        key = base64.urlsafe_b64encode(hashlib.sha256(key_material).digest())
+        self.fernet = Fernet(key)
+        super().__init__(length=length, **kwargs)
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+        if not isinstance(value, str):
+            raise ValueError("EncryptedString hanya mendukung nilai string")
+        return self.fernet.encrypt(value.encode()).decode()
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+        return self.fernet.decrypt(value.encode()).decode()
 
 class SecurityService:
     def __init__(self):

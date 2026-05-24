@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from pydantic import BaseModel
 from typing import List, Optional
+from backend.routers.notifikasi import NotifikasiService
 
 router = APIRouter(
     prefix="/api/v1/knowledge-base",
@@ -63,9 +64,12 @@ def update_artikel(id: int, artikel: ArtikelKB, background_tasks: BackgroundTask
             a["konten"] = artikel.konten
             a["last_updated"] = "17 Mei 2026"
 
-            # Trigger notif jalan di background!
-            background_tasks.add_task(kirim_notif_admin, artikel.judul, "PERUBAHAN")
-
+            background_tasks.add_task(
+                NotifikasiService.kirim_notif_admin_worker, 
+                id, 
+                artikel.judul, 
+                "PERUBAHAN"
+            )
             return {"status": "success", "message": "Artikel berhasil diperbarui"}
             
     raise HTTPException(status_code=404, detail="Artikel tidak ditemukan")

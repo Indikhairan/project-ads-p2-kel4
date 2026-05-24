@@ -1,27 +1,52 @@
-from pydantic import BaseModel, EmailStr
-from typing import Optional, Dict, Any, List
+from pydantic import BaseModel, EmailStr, model_validator
+from typing import Optional, Dict, Any, List, Literal
 from datetime import datetime
 
 
 # ─── TIKET SCHEMAS ────────────────────────────────────────────────────────────
 
+TIKET_KATEGORI = Literal["Layanan", "Persuratan"]
+
+
 class TiketBase(BaseModel):
     id_layanan: str
+    kategori: TIKET_KATEGORI = "Layanan"
+    subjek: Optional[str] = None
     data_request: Dict[str, Any]
     file_lampiran: Optional[str] = None
 
 
 class TiketCreate(TiketBase):
-    # Data inti tiket
-    id_layanan: str
-    data_request: dict
-    file_lampiran: Optional[str] = None
-    
     # Tambahan Progressive Profiling (Data Akademik)
     nim: str
     program_studi: str
     departemen: Optional[str] = None
     fakultas: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_persuratan_data(cls, values):
+        kategori = values.get("kategori")
+        data_request = values.get("data_request") or {}
+
+        if kategori == "Persuratan":
+            missing = []
+            if not data_request.get("jenis_surat"):
+                missing.append("jenis_surat")
+            if not data_request.get("tujuan"):
+                missing.append("tujuan")
+            if not data_request.get("alamat"):
+                missing.append("alamat")
+
+            if missing:
+                raise ValueError(
+                    f"Untuk kategori 'Persuratan', data_request harus menyertakan: {', '.join(missing)}."
+                )
+
+            alamat = data_request.get("alamat")
+            if not isinstance(alamat, (str, dict)):
+                raise ValueError("Field 'alamat' harus berupa string atau objek alamat yang berisi detail alamat.")
+
+        return values
 
 
 class TiketUpdate(BaseModel):
