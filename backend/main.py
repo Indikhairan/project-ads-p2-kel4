@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import tiket, notifikasi, auth, update, chatbot, knowledge_base, admin_security
+from .routers import tiket, notifikasi, auth, update, chatbot, knowledge_base, admin_security, admin_sync
 from .database import engine
 from . import models
 
@@ -29,6 +29,7 @@ app.include_router(update.router)
 app.include_router(chatbot.router)
 app.include_router(knowledge_base.router)
 app.include_router(admin_security.router)
+app.include_router(admin_sync.router)
 
 @app.get("/")
 def root():

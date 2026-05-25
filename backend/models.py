@@ -130,11 +130,25 @@ class Notifikasi(Base):
 
 class KnowledgeBase(Base):
     __tablename__ = "knowledge_base"
-    id_keyword = Column(String, primary_key=True)
-    kata_kunci = Column(String)
-    jawaban = Column(Text)
-    kategori = Column(String, nullable=True)
+    id_kb = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    judul = Column(String, index=True)
+    kategori = Column(String)
+    path = Column(String)
+    filename = Column(String)
+    status = Column(String, default="Pending")
 
+    waktu_upload = Column(DateTime, default=datetime.now)
+    diupload_oleh = Column(String, ForeignKey("users.email"))
+
+    waktu_setujui = Column(DateTime, nullable=True)
+    disetujui_oleh = Column(String, ForeignKey("users.email"), nullable=True)
+
+    waktu_tolak = Column(DateTime, nullable=True)
+    ditolak_oleh = Column(String, ForeignKey("users.email"), nullable=True)
+
+    uploader = relationship("User", foreign_keys=[diupload_oleh], backref="dokumen_diupload")
+    approver = relationship("User", foreign_keys=[disetujui_oleh], backref="dokumen_disetujui")
+    rejecter = relationship("User", foreign_keys=[ditolak_oleh], backref="dokumen_ditolak")
 
 class ChatbotSession(Base):
     __tablename__ = "chatbot_sessions"

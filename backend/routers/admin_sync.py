@@ -1,106 +1,107 @@
 import os
 import shutil
-from fastapi import APIRouter, BackgroundTasks, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends, Request
+from sqlalchemy.orm import Session
 from datetime import datetime
-from typing import List
 
-from backend.ingest import knowledge_base 
+from backend.database import get_db
+from backend import models
+from backend.ingest import knowledge_base
+from backend.security import sec_helper
 
 router = APIRouter(
     prefix="/api/v1/admin/sync",
-    tags=["Admin - AI Synchronization"]
+    tags=["Admin Sinkronisasi Knowledge Base"]
 )
 
-# ==========================================
-# 1. MOCK DATABASE (Nanti diganti PostgreSQL)
-# ==========================================
-# Status bisa berupa: "pending", "approved", "rejected"
-db_sync_history = [
-    {
-        "id": 1, 
-        "filename": "Panduan_Magang_2026.pdf", 
-        "kategori": "Akademik",
-        "uploader": "Staf Kira",
-        "status": "pending", 
-        "timestamp": "22 Mei 2026, 16:00"
-    }
-]
+DATA_DIR = "./data"
+os.makedirs(DATA_DIR, exist_ok=True)
 
-def kirim_notif_admin(judul_artikel: str, aksi: str):
-    """
-    Fungsi ini dipanggil oleh backend Staff saat ada aktivitas baru,
-    untuk memberikan notifikasi ke Dashboard Admin.
-    """
-    # Nanti di sini isi dengan logika insert ke tabel 'notifikasi' di database PostgreSQL
-    pesan = f"Notifikasi Sistem: Staff melakukan {aksi} pada dokumen '{judul_artikel}'"
-    print(f"\n[BACKGROUND TASK EXEC] -> {pesan}\n")
-
-# ==========================================
-# 2. ENDPOINT: MENGAMBIL DATA UNTUK UI
-# ==========================================
+# 1. GET DATA DASHBOARD
 @router.get("/")
-def get_sync_dashboard():
-    """Mengambil data untuk di-render di halaman Admin Sync"""
-    pending = [doc for doc in db_sync_history if doc["status"] == "pending"]
-    approved = [doc for doc in db_sync_history if doc["status"] == "approved"]
-    rejected = [doc for doc in db_sync_history if doc["status"] == "rejected"]
+def lihat_data_sinkronisasi(request: Request,db: Session = Depends(get_db)):
+    user_info = sec_helper.ekstrak_token(request)
+    if user_info.get("role", "").lower() != "admin": 
+        raise HTTPException(status_code=403, detail="Akses Ditolak! Hanya Admin yang diizinkan.")
+    pending = db.query(models.KnowledgeBase).filter_by(status="Pending").all()
+    approved = db.query(models.KnowledgeBase).filter_by(status="Approved").all()
+    rejected = db.query(models.KnowledgeBase).filter_by(status="Rejected").all()
     
     return {
-        "status": "success",
-        "data": {
-            "antrean_pending": pending,
-            "riwayat_sukses": approved,
-            "riwayat_ditolak": rejected
-        }
+        "antrean_pending": pending,
+        "riwayat_sukses": approved,
+        "riwayat_ditolak": rejected
     }
 
-# ==========================================
-# 3. ENDPOINT: ADMIN KLIK "SETUJUI & INGEST"
-# ==========================================
+# 2. APPROVE & INGEST AI
 @router.post("/approve/{doc_id}")
-def approve_and_ingest(doc_id: int, background_tasks: BackgroundTasks):
-    # Cari dokumen di database sementara
-    doc = next((d for d in db_sync_history if d["id"] == doc_id), None)
-    if not doc or doc["status"] != "pending":
-        raise HTTPException(status_code=404, detail="Dokumen tidak ditemukan di antrean")
+def setujui_ingest(
+    doc_id: int, 
+    request: Request,
+    background_tasks: BackgroundTasks, 
+    db: Session = Depends(get_db)
+):
+    # 1. SATPAM: Ekstrak token untuk tahu email Admin yang sedang login
+    user_info = sec_helper.ekstrak_token(request)
+    if user_info.get("role", "").lower() != "admin": 
+        raise HTTPException(status_code=403, detail="Akses Ditolak! Hanya Admin yang diizinkan.")
+    email_admin = user_info["email"]
 
-    path_pending = os.path.join("./data_pending", doc["filename"])
-    path_data = os.path.join("./data", doc["filename"])
+    doc = db.query(models.KnowledgeBase).filter(models.KnowledgeBase.id == doc_id).first()
+    
+    if not doc or doc.status != "Pending":
+        raise HTTPException(status_code=404, detail="Dokumen tidak ditemukan atau sudah diproses")
 
-    # Pindahkan file fisik
-    if os.path.exists(path_pending):
-        shutil.move(path_pending, path_data)
+    path_data_utama = os.path.join(DATA_DIR, doc.filename)
+
+    # Pindahkan file fisik dari pending ke folder data utama
+    if os.path.exists(doc.path):
+        shutil.move(doc.path, path_data_utama)
     else:
         raise HTTPException(status_code=404, detail="File fisik PDF hilang dari server!")
 
-    # Ubah status di database menjadi approved
-    doc["status"] = "approved"
-    doc["timestamp"] = datetime.now().strftime("%d %B %Y, %H:%M")
+    # Ubah status di database dan update path baru
+    doc.status = "Approved"
+    doc.path = path_data_utama
+    doc.waktu_setujui = datetime.now()
+    doc.disetujui_oleh = email_admin
+    db.commit()
 
-    # TRIGGER AI BACKGROUND TASK
-    print(f"🚀 Memulai proses Ingest AI untuk {doc['filename']}...")
-    background_tasks.add_task(knowledge_base)
+    # TRIGGER AI BACKGROUND TASK (Membaca file PDF -> Chunking -> Vector DB)
+    print(f"🚀 Memulai proses Ingest AI untuk {doc.filename}...")
+    background_tasks.add_task(knowledge_base, path_data_utama)
 
-    return {"status": "success", "message": f"Dokumen {doc['filename']} disetujui. AI sedang belajar."}
+    return {"status": "success", "message": f"Dokumen {doc.filename} disetujui. AI sedang belajar."}
 
-# ==========================================
-# 4. ENDPOINT: ADMIN KLIK "TOLAK"
-# ==========================================
+# 3. REJECT DOKUMEN
 @router.post("/reject/{doc_id}")
-def reject_document(doc_id: int):
-    doc = next((d for d in db_sync_history if d["id"] == doc_id), None)
-    if not doc or doc["status"] != "pending":
-        raise HTTPException(status_code=404, detail="Dokumen tidak ditemukan di antrean")
+def tolak_dokumen(
+    doc_id: int, 
+    request: Request, # <--- Tambahkan request untuk mengambil token JWT
+    db: Session = Depends(get_db)
+):
+    # 1. SATPAM: Ekstrak token untuk tahu email Admin yang menolak
+    user_info = sec_helper.ekstrak_token(request)
+    if user_info.get("role", "").lower() != "admin": 
+        raise HTTPException(status_code=403, detail="Akses Ditolak! Hanya Admin yang diizinkan.")
+        
+    email_admin = user_info["email"]
 
-    path_pending = os.path.join("./data_pending", doc["filename"])
+    # 2. Cari dokumen di database
+    doc = db.query(models.KnowledgeBase).filter(models.KnowledgeBase.id == doc_id).first()
+    
+    if not doc or doc.status != "Pending":
+        raise HTTPException(status_code=404, detail="Dokumen tidak ditemukan atau sudah diproses")
 
-    # Hapus file fisik dari folder pending agar tidak menuhin server
-    if os.path.exists(path_pending):
-        os.remove(path_pending)
+    # 3. Hapus file fisik dari folder ./data_pending agar storage server bersih
+    if os.path.exists(doc.path):
+        os.remove(doc.path)
 
-    # Ubah status di database menjadi rejected (tetap disimpan namanya untuk riwayat)
-    doc["status"] = "rejected"
-    doc["timestamp"] = datetime.now().strftime("%d %B %Y, %H:%M")
+    # 4. UPDATE DATABASE DENGAN REKAM JEJAK PENOLAKAN
+    doc.status = "Rejected"
+    doc.waktu_tolak = datetime.now() # Catat waktu penolakan
+    doc.ditolak_oleh = email_admin   # Catat email eksekutornya
+    
+    db.commit()
 
-    return {"status": "success", "message": f"Dokumen {doc['filename']} berhasil ditolak dan dihapus."}
+    return {"status": "success", "message": f"Dokumen {doc.filename} ditolak dan dihapus oleh Admin {email_admin}."}
