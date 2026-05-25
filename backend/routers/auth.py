@@ -73,6 +73,12 @@ def login(payload: GoogleLoginPayload, request: Request, db: Session = Depends(g
     auth_helper.validasi_domain(email_google)
     user = auth_helper.kelola_user_db(db, email_google, nama_google)
 
+    if not user.is_active:
+            raise HTTPException(
+                status_code=403, 
+                detail="Akun Anda telah dinonaktifkan oleh Admin. Silakan hubungi pusat bantuan."
+            )
+    
     # 2. Panggil Dapur Keamanan (Membuat JWT)
     token_data = {"email": user.email, "nama_lengkap": user.nama_lengkap, "role": user.role}
     token = sec_helper.buat_token_akses(token_data)
