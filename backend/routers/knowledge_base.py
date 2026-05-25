@@ -1,85 +1,100 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
-from pydantic import BaseModel
-from typing import List, Optional
-from backend.routers.notifikasi import NotifikasiService
+import os
+import shutil
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request
+from sqlalchemy.orm import Session
+from typing import List
+
+from backend.database import get_db
+from backend import models
+from backend.security import sec_helper
 
 router = APIRouter(
-    prefix="/api/v1/knowledge-base",
-    tags=["Knowledge Base Staff (CRUD)"]
+    prefix="/api/v1/staff/knowledge-base",
+    tags=["Knowledge Base Staff"]
 )
 
-# Schema Data Model
-class ArtikelKB(BaseModel):
-    judul: str
-    kategori: str
-    konten: str
+# Folder penyimpanan sementara sebelum di-ACC Admin
+UPLOAD_DIR = "./data_pending"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-class ArtikelKBResponse(BaseModel):
-    id: int
-    judul: str
-    kategori: str
-    konten: str
-    last_updated: str
-
-# Dummy database sementara
-dummy_kb = [
-    {"id": 1, "judul": "Prosedur Pengajuan Cuti Akademik", "kategori": "Persuratan", "konten": "Cara mengajukan cuti adalah...", "last_updated": "15 April 2026"},
-    {"id": 2, "judul": "Alur Pembatalan KRS ICE", "kategori": "Akademik", "konten": "Pembatalan KRS dilakukan melalui SIMAK...", "last_updated": "16 April 2026"}
-]
-
-# 1. GET ALL ARTIKEL (Dengan fitur pencarian/search)
-@router.get("/", response_model=List[ArtikelKBResponse])
-def get_all_artikel(search: Optional[str] = Query(None, description="Cari berdasarkan judul")):
+# 1. GET ALL DOKUMEN (Dari PostgreSQL)
+@router.get("/")
+def lihat_dokumen(request: Request, search: str = None, db: Session = Depends(get_db)):
+    user_info = sec_helper.ekstrak_token(request)
+    if user_info.get("role", "").lower() != "staff": 
+        raise HTTPException(status_code=403, detail="Akses Ditolak! Hanya Staff Akademik yang diizinkan.")
+    query = db.query(models.KnowledgeBase)
     if search:
-        filtered = [a for a in dummy_kb if search.lower() in a["judul"].lower()]
-        return filtered
-    return dummy_kb
+        query = query.filter(models.KnowledgeBase.judul.ilike(f"%{search}%"))
+    return query.all()
 
-# 2. POST / CREATE ARTIKEL
+# 2. POST / CREATE ARTIKEL DENGAN FILE PDF
 @router.post("/", status_code=201)
-def tambah_artikel(artikel: ArtikelKB, background_tasks: BackgroundTasks):
-    if not artikel.judul.strip() or not artikel.konten.strip():
-        raise HTTPException(status_code=400, detail="Judul dan isi artikel tidak boleh kosong!")
+def tambah_dokumen(
+    request: Request,
+    judul: str = Form(...),
+    kategori: str = Form(...),
+    file_dokumen: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    if not file_dokumen.filename.endswith('.pdf'):
+        raise HTTPException(400, "Format dokumen harus PDF!")
+
+    # 1. SATPAM: Ekstrak token untuk tahu email Staff yang sedang login
+    user_info = sec_helper.ekstrak_token(request)
+    if user_info.get("role", "").lower() != "staff": 
+        raise HTTPException(status_code=403, detail="Akses Ditolak! Hanya Staff Akademik yang diizinkan.")
     
-    new_id = len(dummy_kb) + 1
-    new_item = {
-        "id": new_id,
-        "judul": artikel.judul,
-        "kategori": artikel.kategori,
-        "konten": artikel.konten,
-        "last_updated": "17 Mei 2026"
-    }
-    dummy_kb.append(new_item)
-    background_tasks.add_task(kirim_notif_admin, artikel.judul, "PENAMBAHAN")
+    email_staf = user_info["email"]
 
-    return {"status": "success", "message": "Artikel tersimpan", "data": new_item}
+    # 1. Simpan fisik file ke folder sementara (storage)
+    file_path = os.path.join(UPLOAD_DIR, file_dokumen.filename)
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file_dokumen.file, buffer)
 
-# 3. PUT / UPDATE ARTIKEL
-@router.put("/{id}")
-def update_artikel(id: int, artikel: ArtikelKB, background_tasks: BackgroundTasks):
-    for a in dummy_kb:
-        if a["id"] == id:
-            a["judul"] = artikel.judul
-            a["kategori"] = artikel.kategori
-            a["konten"] = artikel.konten
-            a["last_updated"] = "17 Mei 2026"
+    # 2. Rekam data ke database PostgreSQL (Status awal: Pending)
+    kb_baru = models.KnowledgeBase(
+        judul=judul,
+        kategori=kategori,
+        path=file_path,
+        filename=file_dokumen.filename,
+        status="Pending",
+        diupload_oleh=email_staf
+    )
+    db.add(kb_baru)
+    db.commit()
+    db.refresh(kb_baru)
 
-            background_tasks.add_task(
-                NotifikasiService.kirim_notif_admin_worker, 
-                id, 
-                artikel.judul, 
-                "PERUBAHAN"
-            )
-            return {"status": "success", "message": "Artikel berhasil diperbarui"}
-            
-    raise HTTPException(status_code=404, detail="Artikel tidak ditemukan")
+    # 3. KEMBALIKAN RESPONSE (Ini yang tadi terlewat)
+    return {"status": "success", "message": "Dokumen berhasil diajukan dan menunggu persetujuan."}
 
-# 4. DELETE ARTIKEL
+# 3. DELETE DOKUMEN PENDING
 @router.delete("/{id}")
-def hapus_artikel(id: int):
-    global dummy_kb
-    for a in dummy_kb:
-        if a["id"] == id:
-            dummy_kb = [item for item in dummy_kb if item["id"] != id]
-            return {"status": "success", "message": "Artikel berhasil dihapus"}
-    raise HTTPException(status_code=44, detail="Artikel tidak ditemukan")
+def hapus_dokumen(id: int, request: Request, db: Session = Depends(get_db)):
+    # 1. SATPAM: Ekstrak token untuk tahu email Staff yang sedang login
+    user_info = sec_helper.ekstrak_token(request)
+    if user_info.get("role", "").lower() != "staff": 
+        raise HTTPException(status_code=403, detail="Akses Ditolak! Hanya Staff Akademik yang diizinkan.")  
+    
+    # 1. Cari dokumen di database
+    doc = db.query(models.KnowledgeBase).filter(models.KnowledgeBase.id == id).first()
+    
+    if not doc:
+        raise HTTPException(status_code=404, detail="Dokumen tidak ditemukan")
+    
+    # 2. Validasi Status (Hanya boleh hapus yang Pending)
+    if doc.status != "Pending":
+        raise HTTPException(
+            status_code=400, 
+            detail="Dokumen yang sudah diproses atau ditolak tidak bisa dihapus oleh Staff."
+        )
+    
+    # 3. Hapus file fisik dari folder ./data_pending
+    if os.path.exists(doc.path):
+        os.remove(doc.path)
+        
+    # 4. Hapus baris data dari PostgreSQL
+    db.delete(doc)
+    db.commit()
+    
+    return {"status": "success", "message": "Ajuan dokumen berhasil dibatalkan dan dihapus."}
