@@ -92,7 +92,11 @@ class SAPABotEngine:
         # Tidak perlu db.commit() di sini, digabung dengan router agar aman
 
 # instansiasi objek SAPA Bot
-bot_kampus = SAPABotEngine()
+try:
+    bot_kampus = SAPABotEngine()
+except Exception as e:
+    print(f"⚠️ Bot tidak aktif: {e}")
+    bot_kampus = None
 
 # Router
 router = APIRouter(
@@ -102,7 +106,9 @@ router = APIRouter(
 
 @router.post("/tanya", response_model=ChatResponse)
 def tanya_bot(request_data: ChatRequest, request: Request, db: Session = Depends(get_db)):
-    
+    if bot_kampus is None:
+        raise HTTPException(503, "Chatbot belum siap.")
+
     # 1. SATPAM: Pastikan yang nanya punya tiket/token JWT yang valid
     user_info = sec_helper.ekstrak_token(request)
     email_user = user_info["email"]
@@ -122,7 +128,7 @@ def tanya_bot(request_data: ChatRequest, request: Request, db: Session = Depends
     )
     
     # 4. DATABASE: Simpan riwayat obrolan (Tinggal hapus tanda # kalau database Mutica sudah siap)
-    # bot_kampus.simpan_riwayat_chat(db, email_user, request_data.pesan, jawaban_ai)
+    bot_kampus.simpan_riwayat_chat(db, email_user, request_data.pesan, jawaban_ai)
     
     # 5. COMMIT TRANSAKSI: Simpan log dan chat ke dalam database sekaligus
     db.commit() 
@@ -131,3 +137,17 @@ def tanya_bot(request_data: ChatRequest, request: Request, db: Session = Depends
         pengguna=nama_user,
         jawaban=jawaban_ai
     )
+
+@router.get("/riwayat")
+def get_riwayat_chat(request: Request, db: Session = Depends(get_db)):
+    # 1. Cek siapa yang sedang login
+    user_info = sec_helper.ekstrak_token(request)
+    email_user = user_info["email"]
+    
+    # 2. Ambil semua riwayat chat miliknya dari database, urutkan dari yang terlama ke terbaru
+    riwayat = db.query(models.ChatbotSession).filter(
+        models.ChatbotSession.email_mahasiswa == email_user
+    ).all()
+    
+    # 3. Kembalikan datanya ke Frontend
+    return riwayat

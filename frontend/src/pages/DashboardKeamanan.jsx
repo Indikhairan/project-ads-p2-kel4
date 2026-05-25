@@ -47,59 +47,6 @@ const recentActivity = [
 
 const ITEMS_PER_PAGE = 3;
 
-// Navbar khusus admin
-const TopNavigationAdmin = () => {
-  const navigate = useNavigate();
-  const handleLogout = () => {
-    localStorage.removeItem("sapa_ipb_token");
-    localStorage.removeItem("sapa_ipb_role");
-    navigate("/");
-  };
-  return (
-    <header className="w-full bg-white border-b border-gray-200 flex items-center justify-between px-8 py-3">
-      <div className="flex items-center gap-3">
-        <span className="font-extrabold text-[#130962] text-xl tracking-wide cursor-pointer" onClick={() => navigate("/admin/dashboard")}>
-          SAPAIPB
-        </span>
-        <span className="bg-[#ffe030] text-[#130962] font-bold text-xs px-3 py-1 rounded-full">Admin</span>
-      </div>
-      <div className="flex items-center gap-3">
-        <button className="text-[#130962] hover:opacity-70 transition-opacity">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-            <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
-          </svg>
-        </button>
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-1.5 bg-red-600 text-white px-3 py-1.5 rounded-full font-semibold text-xs hover:bg-red-700 transition-colors"
-        >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-            <polyline points="16 17 21 12 16 7" />
-            <line x1="21" y1="12" x2="9" y2="12" />
-          </svg>
-          Log Out
-        </button>
-        <div className="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center font-bold text-sm text-white">A</div>
-      </div>
-      <nav className="flex gap-6 text-sm">
-        <span
-          onClick={() => navigate("/admin/dashboard")}
-          className="cursor-pointer font-bold text-[#130962] border-b-2 border-[#ffe030] pb-0.5"
-        >
-          Dashboard
-        </span>
-        <span
-          onClick={() => navigate("/admin/users")}
-          className="cursor-pointer font-medium text-gray-400 hover:text-[#130962] transition-colors pb-0.5"
-        >
-          Kelola Pengguna
-        </span>
-      </nav>
-    </header>
-  );
-};
-
 const SectionHeader = ({ title, color = "bg-[#130962]" }) => (
   <div className={`${color} text-white px-4 py-2 rounded-t-lg`}>
     <span className="font-semibold text-sm">{title}</span>

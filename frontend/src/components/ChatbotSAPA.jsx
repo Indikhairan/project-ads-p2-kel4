@@ -22,16 +22,62 @@ const ChatBubble = ({ message }) => {
 };
 
 export const ChatbotSAPA = ({ onClose }) => {
+  // State awal hanya berisi pesan sapaan bot
   const [messages, setMessages] = useState([
-    { id: 1, sender: "bot", text: "Halo! Selamat datang di CHATBOT SAPA 👋\nAda yang bisa saya bantu?" },
+    { id: "greeting", sender: "bot", text: "Halo! Selamat datang di CHATBOT SAPA 👋\nAda yang bisa saya bantu?" },
   ]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  
+  // State baru untuk mengontrol tombol Muat Riwayat
+  const [isHistoryLoaded, setIsHistoryLoaded] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  
   const bottomRef = useRef(null);
 
+  // Efek untuk auto-scroll ke bawah setiap ada pesan baru
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
+
+  // Fungsi untuk menarik riwayat saat tombol diklik
+  const handleLoadHistory = async () => {
+    setIsLoadingHistory(true);
+    try {
+      const token = localStorage.getItem("sapa_ipb_token");
+      if (!token) return;
+
+      const response = await fetch("http://127.0.0.1:8000/chatbot/riwayat", {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error("Gagal mengambil riwayat dari server");
+      }
+
+      const data = await response.json();
+
+      if (data && data.length > 0) {
+        const formattedHistory = data.flatMap((chat, index) => [
+          { id: `hist-user-${index}`, sender: "user", text: chat.pesan_user },
+          { id: `hist-bot-${index}`, sender: "bot", text: chat.jawaban_bot }
+        ]);
+
+        // Menyisipkan riwayat ke bagian paling atas (sebelum pesan saat ini)
+        setMessages((prev) => [...formattedHistory, ...prev]);
+      }
+      
+      // Sembunyikan tombol setelah diklik
+      setIsHistoryLoaded(true);
+    } catch (error) {
+      console.error("Error load history:", error);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
 
   const handleSend = async () => {
     const trimmed = input.trim();
@@ -47,7 +93,7 @@ export const ChatbotSAPA = ({ onClose }) => {
       // 2. Ambil token JWT dari brankas browser
       const token = localStorage.getItem("sapa_ipb_token"); 
 
-      // 3. Tembak API FastAPI kamu
+      // 3. Tembak API FastAPI (Tetap Konsisten Menggunakan Fetch)
       const response = await fetch("http://127.0.0.1:8000/chatbot/tanya", {
         method: "POST",
         headers: {
@@ -71,13 +117,12 @@ export const ChatbotSAPA = ({ onClose }) => {
       ]);
     } catch (error) {
       console.error("Error chatbot:", error);
-      // Fallback kalau backend mati atau token kadaluarsa
       setMessages((prev) => [
         ...prev,
         { id: Date.now() + 1, sender: "bot", text: "Maaf, sistem SAPA sedang gangguan atau sesi kamu habis. Coba refresh halaman ya!" },
       ]);
     } finally {
-      setIsTyping(false); // Matikan animasi loading
+      setIsTyping(false);
     }
   };
 
@@ -108,6 +153,18 @@ export const ChatbotSAPA = ({ onClose }) => {
 
       {/* Area pesan */}
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3 bg-[#f4f6fb]">
+        
+        {/* TOMBOL MUAT RIWAYAT (Hanya muncul jika belum diload) */}
+        {!isHistoryLoaded && (
+          <button 
+            onClick={handleLoadHistory}
+            disabled={isLoadingHistory}
+            className="text-xs bg-white border border-[#ffe030] text-[#130962] font-semibold py-1.5 px-4 rounded-full mx-auto mb-2 hover:bg-[#ffe030] transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoadingHistory ? "Memuat..." : "Lihat obrolan sebelumnya"}
+          </button>
+        )}
+
         {messages.map((msg) => (
           <ChatBubble key={msg.id} message={msg} />
         ))}

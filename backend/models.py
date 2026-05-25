@@ -143,9 +143,6 @@ class ChatbotSession(Base):
     pesan_user = Column(String)
     jawaban_bot = Column(Text, nullable=True)
     waktu_kirim = Column(DateTime(timezone=True), default=_now)
-    id_keyword_terdeteksi = Column(
-        String, ForeignKey("knowledge_base.id_keyword"), nullable=True
-    )
 
     mahasiswa = relationship("Mahasiswa", back_populates="sessions")
 
