@@ -1,21 +1,23 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime, timezone
 import json
+import hashlib
+import uuid
+import os
 
 from backend.database import get_db
 from backend import models, schemas
 from backend.security import sec_helper
 
 router = APIRouter(
-    prefix="/tiket",
-    tags=["Tiket"]
+    prefix="/api/v1/tiket",
+    tags=["Kelola Tiket Layanan"]
 )
 
-
 class TiketService:
-    VALID_STATUSES = {"Open", "In Progress", "Selesai", "Ditolak"}
+    VALID_STATUSES = {"Open", "Diproses", "Selesai", "Ditolak"}
     VALID_KATEGORIS = {"Layanan", "Persuratan"}
 
     def __init__(self, db: Session, user_data: dict, ip_address: str):
@@ -154,38 +156,86 @@ class TiketService:
         self._log_aktivitas(f"Update status tiket {id_tiket} → {payload.status}")
         return tiket
 
+    def tanggapi_tiket(self, id_tiket: str, pesan: str, isi_lampiran: bytes | None, nama_lampiran: str | None, isi_pem: bytes) -> dict:
+        tiket = self.db.query(models.TiketLayanan).filter(models.TiketLayanan.id_tiket == id_tiket).first()
+        if not tiket:
+            raise HTTPException(status_code=404, detail="Tiket tidak ditemukan.")
+        if tiket.tanggapan:
+            raise HTTPException(status_code=400, detail="Tiket ini sudah memiliki tanggapan.")
+
+        hash_lampiran = None
+        nama_file_tersimpan = None
+
+        if isi_lampiran and nama_lampiran:
+            # 1. Pastikan folder uploads tersedia (agar tidak error)
+            upload_dir = "uploads"
+            os.makedirs(upload_dir, exist_ok=True)
+
+            # 2. Hitung Hash File Lampiran
+            hash_lampiran = hashlib.sha256(isi_lampiran).hexdigest()
+            nama_file_tersimpan = f"{upload_dir}/{uuid.uuid4()}_{nama_lampiran}"
+            
+            with open(nama_file_tersimpan, "wb") as f:
+                f.write(isi_lampiran)
+
+        # 3. Rangkai Paket Data yang akan dikunci
+        paket_data = {
+            "pesan": pesan,
+            "hash_lampiran": hash_lampiran
+        }
+        string_paket = json.dumps(paket_data, sort_keys=True)
+
+        # 4. Kunci Payload dengan Private Key
+        try:
+            signature = sec_helper.buat_digital_signature(string_paket, isi_pem)
+        except Exception as e:
+            raise HTTPException(
+                status_code=400, 
+                detail="Gagal membuat Tanda Tangan. Pastikan file .pem valid dan belum dimodifikasi."
+            )
+
+        # 5. Simpan ke Database
+        tanggapan_baru = models.TanggapanStaff(
+            id_tanggapan=str(uuid.uuid4()),
+            id_tiket=id_tiket,
+            email_staff=self.user_data["email"],
+            pesan=pesan,
+            file_output=nama_file_tersimpan,
+            waktu=datetime.now(timezone.utc),
+            digital_signature=signature
+        )
+
+        tiket.status = "Selesai"
+        tiket.email_staff = self.user_data["email"]
+
+        self.db.add(tanggapan_baru)
+        self.db.commit()
+
+        self._log_aktivitas(f"Membalas tiket {id_tiket} dengan Digital Signature")
+
+        return {
+            "status": "success",
+            "message": "Tiket berhasil ditanggapi dan diamankan dengan Digital Signature."
+        }
 
 @router.post("/", response_model=schemas.TiketResponse, status_code=status.HTTP_201_CREATED)
 def buat_tiket(payload: schemas.TiketCreate, request: Request, db: Session = Depends(get_db)):
-    """
-    Submit pengajuan tiket layanan baru.
-    - **Hak akses**: Mahasiswa
-    """
     user_data = sec_helper.ekstrak_token(request)
     sec_helper.cek_role(user_data, "mahasiswa")
-
     service = TiketService(db=db, user_data=user_data, ip_address=request.client.host)
     return service.buat_tiket(payload)
 
-
 @router.get("/", response_model=List[schemas.TiketResponse])
 def lihat_daftar_tiket(request: Request, db: Session = Depends(get_db)):
-    """
-    Ambil daftar tiket.
-    - Mahasiswa: hanya miliknya | Staff/Admin: semua
-    """
     user_data = sec_helper.ekstrak_token(request)
     service = TiketService(db=db, user_data=user_data, ip_address=request.client.host)
     return service.lihat_daftar_tiket()
 
-
 @router.get("/{id_tiket}", response_model=schemas.TiketResponse)
 def detail_tiket(id_tiket: str, request: Request, db: Session = Depends(get_db)):
-    """Ambil detail tiket. Mahasiswa hanya bisa akses tiket miliknya."""
     user_data = sec_helper.ekstrak_token(request)
     service = TiketService(db=db, user_data=user_data, ip_address=request.client.host)
     return service.detail_tiket(id_tiket)
-
 
 @router.put("/{id_tiket}", response_model=schemas.TiketResponse)
 def update_status_tiket(
@@ -194,12 +244,38 @@ def update_status_tiket(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    """
-    Update status tiket oleh staff akademik.
-    - **Hak akses**: Staff / Admin
-    """
     user_data = sec_helper.ekstrak_token(request)
     sec_helper.cek_role(user_data, "staff", "admin")
-
     service = TiketService(db=db, user_data=user_data, ip_address=request.client.host)
     return service.update_status_tiket(id_tiket, payload)
+
+@router.post("/{id_tiket}/tanggapan")
+async def tanggapi_tiket(
+    id_tiket: str,
+    request: Request,
+    pesan: str = Form(...),                      
+    file_lampiran: UploadFile = File(None),      
+    private_key_file: UploadFile = File(...),    
+    db: Session = Depends(get_db)
+):
+    """
+    Staff menanggapi tiket dengan mengunggah dokumen dan menguncinya menggunakan Private Key (.pem)
+    """
+    # 1. Ekstrak user dan validasi Role
+    user_data = sec_helper.ekstrak_token(request)
+    sec_helper.cek_role(user_data, "staff")
+    
+    # 2. Baca isi file yang di-upload secara Asynchronous (agar server tidak hang)
+    isi_lampiran = await file_lampiran.read() if file_lampiran else None
+    nama_lampiran = file_lampiran.filename if file_lampiran else None
+    isi_pem = await private_key_file.read()
+
+    # 3. Oper ke dalam Service
+    service = TiketService(db=db, user_data=user_data, ip_address=request.client.host)
+    return service.tanggapi_tiket(
+        id_tiket=id_tiket, 
+        pesan=pesan, 
+        isi_lampiran=isi_lampiran, 
+        nama_lampiran=nama_lampiran, 
+        isi_pem=isi_pem
+    )

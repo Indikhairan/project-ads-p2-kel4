@@ -49,6 +49,7 @@ class StaffAkademik(User):
     email = Column(String, ForeignKey("users.email"), primary_key=True)
     nip = Column(String, unique=True, nullable=True)
     unit_kerja = Column(String, nullable=True)
+    public_key = Column(Text, nullable=True)
 
     __mapper_args__ = {"polymorphic_identity": "staff"}
 
@@ -81,10 +82,10 @@ class Layanan(Base):
 class TiketLayanan(Base):
     __tablename__ = "tiket_layanan"
     id_tiket = Column(String, primary_key=True)
-    waktu_submit = Column(DateTime(timezone=True), default=_now)
+    waktu_submit = Column(DateTime(timezone=True), default=datetime.now)
     status = Column(String, default="Open")
     subjek = Column(String, nullable=True)
-    kategori = Column(String, nullable=True)   # "Persuratan" | "Informasi" | "Lainnya"
+    kategori = Column(String, nullable=True)   # "Persuratan" | "Informasi"
     deskripsi = Column(Text, nullable=True)
 
     data_request = Column(JSONB, nullable=True)   # JSONB lebih cepat & bisa diindex di PostgreSQL
@@ -117,7 +118,8 @@ class TanggapanStaff(Base):
     email_staff = Column(String, ForeignKey("staff_akademik.email"))
     pesan = Column(Text, nullable=False)
     file_output = Column(String, nullable=True)
-    waktu = Column(DateTime(timezone=True), default=_now)
+    waktu = Column(DateTime(timezone=True), default=datetime.now)
+    digital_signature = Column(Text, nullable=True)
 
     tiket = relationship("TiketLayanan", back_populates="tanggapan")
 

@@ -9,7 +9,7 @@ from backend import models
 from backend.security import sec_helper 
 
 router = APIRouter(
-    prefix="/api/v1/admin/pengguna",
+    prefix="/api/v1/admin/kelola-pengguna",
     tags=["Admin Kelola Pengguna"]
 )
 
@@ -175,3 +175,35 @@ def nonaktifkan_pengguna(email: str, request: Request, db: Session = Depends(get
     db.commit()
 
     return {"status": "success", "message": f"Pengguna {email} berhasil dinonaktifkan dari sistem."}
+
+@router.post("/{email}/reset-kunci")
+def reset_kunci_staff(email: str, request: Request, db: Session = Depends(get_db)):
+    # 1. SATPAM: Validasi Peran Admin
+    user_info = sec_helper.ekstrak_token(request)
+    if user_info.get("role", "").lower() != "admin":
+        raise HTTPException(status_code=403, detail="Akses Ditolak! Khusus Admin.")
+
+    # 2. Cari user di database
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Pengguna tidak ditemukan.")
+
+    # 3. Pastikan objek yang ditemukan benar-benar merupakan instansiasi StaffAkademik
+    if not isinstance(user, models.StaffAkademik):
+        raise HTTPException(
+            status_code=400, 
+            detail="Tindakan ilegal! Reset kunci keamanan hanya dapat dilakukan pada pengguna dengan peran Staff."
+        )
+
+    # 4. Cek apakah memang kuncinya sudah kosong atau belum
+    if user.public_key is None:
+        return {"status": "info", "message": f"Akun staff {email} memang belum memiliki atau sudah di-reset kunci keamanannya."}
+
+    # 5. Eksekusi penghapusan kunci publik (Reset)
+    user.public_key = None
+    db.commit()
+
+    return {
+        "status": "success", 
+        "message": f"Kunci keamanan milik {user.nama_lengkap} ({email}) berhasil dicabut. Staff dapat melakukan generate ulang kunci baru pada portal mereka."
+    }

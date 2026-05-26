@@ -9,10 +9,13 @@ from fastapi import HTTPException, status, Request
 from sqlalchemy.orm import Session
 from sqlalchemy.types import TypeDecorator, String as SAString
 from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
 from backend import models 
 
 load_dotenv()
-
 
 class EncryptedString(TypeDecorator):
     impl = SAString
@@ -127,6 +130,29 @@ class SecurityService:
             ip_address=ip_address
         )
         db.add(new_log)
+
+    @staticmethod
+    def buat_pasangan_kunci():
+        """Menghasilkan pasangan Private Key dan Public Key RSA 2048-bit."""
+        private_key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=2048,
+        )
+        
+        public_key = private_key.public_key()
+
+        pem_private = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+
+        pem_public = public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+
+        return pem_private.decode('utf-8'), pem_public.decode('utf-8')
 
 # objek sec_helper yang akan di import ke file router
 sec_helper = SecurityService()
