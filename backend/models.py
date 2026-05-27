@@ -50,6 +50,7 @@ class StaffAkademik(User):
     nip = Column(String, unique=True, nullable=True)
     unit_kerja = Column(String, nullable=True)
     public_key = Column(Text, nullable=True)
+    encrypted_private_key = Column(Text, nullable=True)
 
     __mapper_args__ = {"polymorphic_identity": "staff"}
 
