@@ -1,22 +1,23 @@
 import React, { useState, useRef } from "react";
 
-const KATEGORI_OPTIONS = ["Persuratan", "Informasi", "Lainnya"];
+const KATEGORI_OPTIONS = ["Persuratan", "Informasi"];
+
 const JENIS_SURAT_OPTIONS = [
   "Surat Keterangan Mahasiswa Aktif",
   "Surat Izin Akademik",
   "Surat Perubahan KRS",
   "Surat Rekomendasi Beasiswa",
-  "Permohonan Surat Magang"
+  "Permohonan Surat Magang",
 ];
 
-// Komponen dropdown arrow SVG
+const ALASAN_IZIN_OPTIONS = ["Sakit", "Kemalangan", "Seleksi", "Lomba", "Ibadah"];
+
 const ChevronDown = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="6 9 12 15 18 9" />
   </svg>
 );
 
-// Pop up sukses
 const SuccessModal = ({ onClose }) => (
   <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center px-4">
     <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full flex flex-col items-center text-center">
@@ -27,17 +28,13 @@ const SuccessModal = ({ onClose }) => (
       </div>
       <h3 className="font-bold text-[#130962] text-xl mb-2">Tiket Berhasil Diajukan!</h3>
       <p className="text-gray-400 text-sm mb-6">Tiket Anda telah berhasil dikirim. Kami akan segera memproses permohonan Anda.</p>
-      <button
-        onClick={onClose}
-        className="w-full py-2.5 bg-[#130962] text-white font-semibold rounded-xl hover:bg-[#1a237e] transition-colors text-sm"
-      >
+      <button onClick={onClose} className="w-full py-2.5 bg-[#130962] text-white font-semibold rounded-xl hover:bg-[#1a237e] transition-colors text-sm">
         Kembali ke Beranda
       </button>
     </div>
   </div>
 );
 
-// Pop up error validasi
 const ErrorModal = ({ message, onClose }) => (
   <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center px-4">
     <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full flex flex-col items-center text-center">
@@ -50,17 +47,13 @@ const ErrorModal = ({ message, onClose }) => (
       </div>
       <h3 className="font-bold text-[#130962] text-xl mb-2">Data Belum Lengkap</h3>
       <p className="text-gray-400 text-sm mb-6">{message}</p>
-      <button
-        onClick={onClose}
-        className="w-full py-2.5 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition-colors text-sm"
-      >
+      <button onClick={onClose} className="w-full py-2.5 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition-colors text-sm">
         Isi Data Dulu
       </button>
     </div>
   </div>
 );
 
-// Komponen upload file
 const UploadBox = ({ label, file, onFileChange }) => {
   const inputRef = useRef();
   return (
@@ -68,18 +61,12 @@ const UploadBox = ({ label, file, onFileChange }) => {
       {label && <p className="text-xs font-semibold text-[#130962] mb-1">{label}</p>}
       <div
         onClick={() => inputRef.current.click()}
-        className="border border-dashed border-gray-300 rounded-lg p-4 flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-gray-50 hover:border-[#130962] transition-all"
+        className="border border-dashed border-gray-300 rounded-lg p-3 flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-gray-50 hover:border-[#130962] transition-all"
       >
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".pdf,.jpg,.jpeg"
-          className="hidden"
-          onChange={(e) => onFileChange(e.target.files[0])}
-        />
+        <input ref={inputRef} type="file" accept=".pdf,.jpg,.jpeg" className="hidden" onChange={(e) => onFileChange(e.target.files[0])} />
         {file ? (
           <>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#130962" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#130962" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
               <polyline points="14 2 14 8 20 8" />
             </svg>
@@ -88,13 +75,13 @@ const UploadBox = ({ label, file, onFileChange }) => {
           </>
         ) : (
           <>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="16 16 12 12 8 16" />
               <line x1="12" y1="12" x2="12" y2="21" />
               <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
             </svg>
-            <span className="text-xs font-semibold text-[#130962]">Unggah Dokumen Pendukung</span>
-            <span className="text-[10px] text-gray-400">Hanya format PDF atau JPG (Maksimal 5 MB)</span>
+            <span className="text-xs font-semibold text-[#130962]">Unggah Dokumen</span>
+            <span className="text-[10px] text-gray-400">PDF atau JPG (Maks. 5 MB)</span>
           </>
         )}
       </div>
@@ -102,65 +89,198 @@ const UploadBox = ({ label, file, onFileChange }) => {
   );
 };
 
-// Field persyaratan untuk kategori Persuratan
-const PersyaratanPersuratan = ({ data, onChange, bahasaSurat, onBahasa, ktmFile, onKtm, uktFile, onUkt }) => (
-  <div className="mt-2">
-    <label className="block font-bold text-[#130962] text-sm mb-2">
-      Persyaratan: <span className="text-red-500">*</span>
-    </label>
-    <div className="border-2 border-red-400 rounded-xl p-4 flex flex-col gap-3">
-      {[
-        { key: "nama", label: "Nama" },
-        { key: "nim", label: "NIM" },
-        { key: "ttl", label: "TTL" },
-        { key: "alamat", label: "Alamat" },
-        { key: "prodi", label: "Program Studi" },
-        { key: "departemen", label: "Departemen" },
-        { key: "fakultas", label: "Fakultas" },
-        { key: "semester", label: "Semester" },
-        { key: "keperluan", label: "Keperluan Surat" },
-      ].map(({ key, label }) => (
-        <div key={key} className="flex items-center gap-4">
-          <span className="w-36 font-medium text-[#130962] text-sm shrink-0">{label}</span>
-          <input
-            type="text"
-            value={data[key] || ""}
-            onChange={(e) => onChange(key, e.target.value)}
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-[#130962]"
-          />
-        </div>
-      ))}
+// Field persyaratan berdasarkan jenis surat
+const PersyaratanDinamis = ({ jenisSurat, data, onChange, submitted }) => {
+  const [bahasaSurat, setBahasaSurat] = useState("");
+  const [alasanIzin, setAlasanIzin] = useState("");
+  const [ktmFile, setKtmFile] = useState(null);
+  const [lampiranFile, setLampiranFile] = useState(null);
+  const [uktFile, setUktFile] = useState(null);
 
-      {/* Bahasa surat */}
-      <div className="flex items-center gap-4">
-        <span className="w-36 font-medium text-[#130962] text-sm shrink-0">Surat dalam</span>
-        <div className="flex gap-2">
-          {["Bahasa Indonesia", "Bahasa Inggris"].map((b) => (
-            <button
-              key={b}
-              type="button"
-              onClick={() => onBahasa(b)}
-              className={`px-4 py-1.5 border rounded-lg text-sm transition-colors ${
-                bahasaSurat === b
-                  ? "border-[#130962] bg-[#130962] text-white"
-                  : "border-gray-300 text-gray-500 hover:border-[#130962]"
+  const isError = (key) => submitted && !data[key]?.trim();
+  const inputClass = (key) =>
+    `flex-1 border rounded-lg px-3 py-1.5 text-sm focus:outline-none transition-colors ${
+      isError(key) ? "border-red-400 focus:border-red-400" : "border-gray-300 focus:border-[#130962]"
+    }`;
+
+  const fieldRow = (label, key) => (
+    <div key={key} className="flex items-center gap-4">
+      <span className="w-36 font-medium text-[#130962] text-sm shrink-0">{label}</span>
+      <input
+        type="text"
+        value={data[key] || ""}
+        onChange={(e) => onChange(key, e.target.value)}
+        className={inputClass(key)}
+      />
+    </div>
+  );
+
+  // Field umum yang ada di semua jenis surat
+  const commonFields = () => (
+    <>
+      {fieldRow("Nama", "nama")}
+      {fieldRow("NIM", "nim")}
+    </>
+  );
+
+  const prodiFields = () => (
+    <>
+      {fieldRow("Program Studi", "prodi")}
+      {fieldRow("Fakultas/Sekolah", "fakultas")}
+    </>
+  );
+
+  if (jenisSurat === "Surat Keterangan Mahasiswa Aktif") {
+    return (
+      <div className="flex flex-col gap-3">
+        {commonFields()}
+        {fieldRow("TTL", "ttl")}
+        {fieldRow("Alamat", "alamat")}
+        {fieldRow("Program Studi", "prodi")}
+        {fieldRow("Departemen", "departemen")}
+        {fieldRow("Fakultas/Sekolah", "fakultas")}
+        {fieldRow("Keperluan Surat", "keperluan")}
+
+        {/* Bahasa surat */}
+        <div className="flex items-center gap-4">
+          <span className="w-36 font-medium text-[#130962] text-sm shrink-0">Surat dalam</span>
+          <div className="flex gap-2">
+            {["Bahasa Indonesia", "Bahasa Inggris"].map((b) => (
+              <button
+                key={b}
+                type="button"
+                onClick={() => { setBahasaSurat(b); onChange("bahasaSurat", b); }}
+                className={`px-4 py-1.5 border rounded-lg text-sm transition-colors ${
+                  bahasaSurat === b ? "border-[#130962] bg-[#130962] text-white" : "border-gray-300 text-gray-500 hover:border-[#130962]"
+                }`}
+              >
+                {b}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Upload */}
+        <div className="flex gap-4 mt-1">
+          <UploadBox label="KTM" file={ktmFile} onFileChange={(f) => { setKtmFile(f); onChange("ktmFile", f?.name || ""); }} />
+          <UploadBox label="Bukti Pembayaran UKT Semester berjalan" file={uktFile} onFileChange={(f) => { setUktFile(f); onChange("uktFile", f?.name || ""); }} />
+        </div>
+      </div>
+    );
+  }
+
+  if (jenisSurat === "Surat Izin Akademik") {
+    return (
+      <div className="flex flex-col gap-3">
+        {commonFields()}
+        {prodiFields()}
+
+        {/* Alasan izin */}
+        <div className="flex items-center gap-4">
+          <span className="w-36 font-medium text-[#130962] text-sm shrink-0">Alasan Izin</span>
+          <div className="relative flex-1">
+            <select
+              value={alasanIzin}
+              onChange={(e) => { setAlasanIzin(e.target.value); onChange("alasanIzin", e.target.value); }}
+              className={`w-full border rounded-lg px-3 py-1.5 text-sm appearance-none focus:outline-none bg-white ${
+                submitted && !alasanIzin ? "border-red-400" : "border-gray-300 focus:border-[#130962]"
               }`}
             >
-              {b}
-            </button>
-          ))}
+              <option value="">Pilih alasan izin</option>
+              {ALASAN_IZIN_OPTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"><ChevronDown /></span>
+          </div>
+        </div>
+
+        {/* Upload */}
+        <div className="flex gap-4 mt-1">
+          <UploadBox label="KTM" file={ktmFile} onFileChange={(f) => { setKtmFile(f); onChange("ktmFile", f?.name || ""); }} />
+          <div className="flex-1">
+            <p className="text-xs font-semibold text-[#130962] mb-1">
+              Form Surat Izin Kuliah{" "}
+              <a href="https://ipb.link/form-izinkuliah-dpku" target="_blank" rel="noreferrer" className="text-blue-500 underline font-normal">
+                (unduh form di sini)
+              </a>
+            </p>
+            <UploadBox label="" file={lampiranFile} onFileChange={(f) => { setLampiranFile(f); onChange("lampiranFile", f?.name || ""); }} />
+          </div>
+        </div>
+
+        <p className="text-xs text-gray-400 italic">
+          Lampiran pendukung: surat sakit dokter / surat kematian / surat keterangan panitia / surat keterangan ibadah (sesuai alasan)
+        </p>
+      </div>
+    );
+  }
+
+  if (jenisSurat === "Surat Perubahan KRS") {
+    return (
+      <div className="flex flex-col gap-3">
+        {commonFields()}
+        {prodiFields()}
+        <div className="flex gap-4 mt-1">
+          <UploadBox label="KTM" file={ktmFile} onFileChange={(f) => { setKtmFile(f); onChange("ktmFile", f?.name || ""); }} />
+          <div className="flex-1">
+            <p className="text-xs font-semibold text-[#130962] mb-1">
+              Form Pembatalan Mata Kuliah{" "}
+              <a href="https://docs.google.com/document/d/1p6NMlnIoZqMay-KPMiDsAvQ0aV7KtSjh/edit" target="_blank" rel="noreferrer" className="text-blue-500 underline font-normal">
+                (unduh form di sini)
+              </a>
+            </p>
+            <UploadBox label="" file={lampiranFile} onFileChange={(f) => { setLampiranFile(f); onChange("lampiranFile", f?.name || ""); }} />
+          </div>
         </div>
       </div>
+    );
+  }
 
-      {/* Upload KTM dan UKT */}
-      <div className="flex gap-4 mt-2">
-        <UploadBox label="KTM" file={ktmFile} onFileChange={onKtm} />
-        <UploadBox label="Bukti Pembayaran UKT Semester berjalan" file={uktFile} onFileChange={onUkt} />
+  if (jenisSurat === "Surat Rekomendasi Beasiswa") {
+    return (
+      <div className="flex flex-col gap-3">
+        {commonFields()}
+        {prodiFields()}
+        <div className="flex gap-4 mt-1">
+          <UploadBox label="KTM" file={ktmFile} onFileChange={(f) => { setKtmFile(f); onChange("ktmFile", f?.name || ""); }} />
+          <div className="flex-1">
+            <p className="text-xs font-semibold text-[#130962] mb-1">
+              Form Permohonan Rekomendasi Beasiswa{" "}
+              <a href="https://ipb.link/rekomendasi-beasiswa" target="_blank" rel="noreferrer" className="text-blue-500 underline font-normal">
+                (unduh form di sini)
+              </a>
+            </p>
+            <UploadBox label="" file={lampiranFile} onFileChange={(f) => { setLampiranFile(f); onChange("lampiranFile", f?.name || ""); }} />
+          </div>
+        </div>
       </div>
-    </div>
-    <p className="text-red-500 text-xs italic mt-2">*Persyaratan wajib diisi</p>
-  </div>
-);
+    );
+  }
+
+  if (jenisSurat === "Permohonan Surat Magang") {
+    return (
+      <div className="flex flex-col gap-3">
+        {commonFields()}
+        {prodiFields()}
+        {fieldRow("Instansi Magang", "instansi")}
+        {fieldRow("Tanggal Pelaksanaan", "tanggalMagang")}
+        <div className="flex gap-4 mt-1">
+          <UploadBox label="KTM" file={ktmFile} onFileChange={(f) => { setKtmFile(f); onChange("ktmFile", f?.name || ""); }} />
+          <div className="flex-1">
+            <p className="text-xs font-semibold text-[#130962] mb-1">
+              Form Persetujuan Dosen Pembimbing{" "}
+              <a href="https://drive.google.com/open?id=1SdncrIgrRpdI08FJhvfdCmwS4P5jODQr" target="_blank" rel="noreferrer" className="text-blue-500 underline font-normal">
+                (unduh form di sini)
+              </a>
+            </p>
+            <UploadBox label="" file={lampiranFile} onFileChange={(f) => { setLampiranFile(f); onChange("lampiranFile", f?.name || ""); }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+};
 
 export const FormPengajuanTiket = ({ onClose }) => {
   const [subjek, setSubjek] = useState("");
@@ -169,47 +289,57 @@ export const FormPengajuanTiket = ({ onClose }) => {
   const [deskripsi, setDeskripsi] = useState("");
   const [uploadFile, setUploadFile] = useState(null);
   const [persyaratan, setPersyaratan] = useState({});
-  const [bahasaSurat, setBahasaSurat] = useState("");
-  const [ktmFile, setKtmFile] = useState(null);
-  const [uktFile, setUktFile] = useState(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [submitted, setSubmitted] = useState(false);
 
   const handlePersyaratan = (key, value) => {
     setPersyaratan((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleSubmit = () => {
-    // Validasi field wajib
-    if (!subjek.trim()) {
-      setErrorMsg("Subjek tiket wajib diisi.");
-      return;
-    }
-    if (!kategori) {
-      setErrorMsg("Kategori Layanan wajib dipilih.");
-      return;
-    }
+    setSubmitted(true);
+
+    if (!subjek.trim()) { setErrorMsg("Subjek tiket wajib diisi."); return; }
+    if (!kategori) { setErrorMsg("Kategori Layanan wajib dipilih."); return; }
+
     if (kategori === "Persuratan") {
-      if (!jenisSurat) {
-        setErrorMsg("Jenis Surat wajib dipilih.");
-        return;
+      if (!jenisSurat) { setErrorMsg("Jenis Surat wajib dipilih."); return; }
+
+      // Validasi field wajib per jenis surat
+      const requiredBase = ["nama", "nim"];
+
+      if (jenisSurat === "Surat Keterangan Mahasiswa Aktif") {
+        const required = [...requiredBase, "ttl", "alamat", "prodi", "departemen", "fakultas", "keperluan", "bahasaSurat", "ktmFile", "uktFile"];
+        const empty = required.find((f) => !persyaratan[f]?.trim());
+        if (empty) { setErrorMsg("Semua field persyaratan wajib diisi."); return; }
       }
-      const requiredFields = ["nama", "nim", "ttl", "alamat", "prodi", "departemen", "fakultas", "semester", "keperluan"];
-      const emptyField = requiredFields.find((f) => !persyaratan[f]?.trim());
-      if (emptyField) {
-        setErrorMsg("Semua field Persyaratan wajib diisi.");
-        return;
+
+      if (jenisSurat === "Surat Izin Akademik") {
+        const required = [...requiredBase, "prodi", "fakultas", "alasanIzin", "ktmFile", "lampiranFile"];
+        const empty = required.find((f) => !persyaratan[f]?.trim());
+        if (empty) { setErrorMsg("Semua field persyaratan wajib diisi."); return; }
       }
-      if (!bahasaSurat) {
-        setErrorMsg("Pilih bahasa surat terlebih dahulu.");
-        return;
+
+      if (jenisSurat === "Surat Perubahan KRS") {
+        const required = [...requiredBase, "prodi", "fakultas", "ktmFile", "lampiranFile"];
+        const empty = required.find((f) => !persyaratan[f]?.trim());
+        if (empty) { setErrorMsg("Semua field persyaratan wajib diisi."); return; }
       }
-      if (!ktmFile || !uktFile) {
-        setErrorMsg("KTM dan Bukti Pembayaran UKT wajib diunggah.");
-        return;
+
+      if (jenisSurat === "Surat Rekomendasi Beasiswa") {
+        const required = [...requiredBase, "prodi", "fakultas", "ktmFile", "lampiranFile"];
+        const empty = required.find((f) => !persyaratan[f]?.trim());
+        if (empty) { setErrorMsg("Semua field persyaratan wajib diisi."); return; }
+      }
+
+      if (jenisSurat === "Permohonan Surat Magang") {
+        const required = [...requiredBase, "prodi", "fakultas", "instansi", "tanggalMagang", "ktmFile", "lampiranFile"];
+        const empty = required.find((f) => !persyaratan[f]?.trim());
+        if (empty) { setErrorMsg("Semua field persyaratan wajib diisi."); return; }
       }
     }
-    // Semua valid
+
     setShowSuccess(true);
   };
 
@@ -238,7 +368,9 @@ export const FormPengajuanTiket = ({ onClose }) => {
                 type="text"
                 value={subjek}
                 onChange={(e) => setSubjek(e.target.value)}
-                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#130962] focus:ring-1 focus:ring-[#130962]"
+                className={`w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-colors ${
+                  submitted && !subjek.trim() ? "border-red-400" : "border-gray-300 focus:border-[#130962] focus:ring-1 focus:ring-[#130962]"
+                }`}
               />
             </div>
 
@@ -250,15 +382,15 @@ export const FormPengajuanTiket = ({ onClose }) => {
               <div className="relative">
                 <select
                   value={kategori}
-                  onChange={(e) => { setKategori(e.target.value); setJenisSurat(""); }}
-                  className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm appearance-none focus:outline-none focus:border-[#130962] focus:ring-1 focus:ring-[#130962] bg-white text-gray-600"
+                  onChange={(e) => { setKategori(e.target.value); setJenisSurat(""); setPersyaratan({}); setSubmitted(false); }}
+                  className={`w-full border rounded-xl px-4 py-2.5 text-sm appearance-none focus:outline-none bg-white ${
+                    submitted && !kategori ? "border-red-400" : "border-gray-300 focus:border-[#130962] focus:ring-1 focus:ring-[#130962]"
+                  } ${kategori ? "text-gray-800" : "text-gray-400"}`}
                 >
                   <option value="">Pilih Kategori Layanan</option>
                   {KATEGORI_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
                 </select>
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                  <ChevronDown />
-                </span>
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"><ChevronDown /></span>
               </div>
             </div>
 
@@ -271,15 +403,15 @@ export const FormPengajuanTiket = ({ onClose }) => {
                 <div className="relative">
                   <select
                     value={jenisSurat}
-                    onChange={(e) => setJenisSurat(e.target.value)}
-                    className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm appearance-none focus:outline-none focus:border-[#130962] focus:ring-1 focus:ring-[#130962] bg-white text-gray-600"
+                    onChange={(e) => { setJenisSurat(e.target.value); setPersyaratan({}); setSubmitted(false); }}
+                    className={`w-full border rounded-xl px-4 py-2.5 text-sm appearance-none focus:outline-none bg-white ${
+                      submitted && !jenisSurat ? "border-red-400" : "border-gray-300 focus:border-[#130962] focus:ring-1 focus:ring-[#130962]"
+                    } ${jenisSurat ? "text-gray-800" : "text-gray-400"}`}
                   >
                     <option value="">Pilih Jenis Surat</option>
                     {JENIS_SURAT_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
                   </select>
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                    <ChevronDown />
-                  </span>
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"><ChevronDown /></span>
                 </div>
               </div>
             )}
@@ -292,27 +424,31 @@ export const FormPengajuanTiket = ({ onClose }) => {
               <textarea
                 value={deskripsi}
                 onChange={(e) => setDeskripsi(e.target.value)}
-                rows={5}
+                rows={4}
                 className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#130962] focus:ring-1 focus:ring-[#130962] resize-none"
               />
             </div>
 
-            {/* Persyaratan khusus Persuratan */}
-            {kategori === "Persuratan" && (
-              <PersyaratanPersuratan
-                data={persyaratan}
-                onChange={handlePersyaratan}
-                bahasaSurat={bahasaSurat}
-                onBahasa={setBahasaSurat}
-                ktmFile={ktmFile}
-                onKtm={setKtmFile}
-                uktFile={uktFile}
-                onUkt={setUktFile}
-              />
+            {/* Persyaratan dinamis per jenis surat */}
+            {kategori === "Persuratan" && jenisSurat && (
+              <div>
+                <label className="block font-bold text-[#130962] text-sm mb-2">
+                  Persyaratan: <span className="text-red-500">*</span>
+                </label>
+                <div className="border border-gray-200 rounded-xl p-4 flex flex-col gap-3">
+                  <PersyaratanDinamis
+                    jenisSurat={jenisSurat}
+                    data={persyaratan}
+                    onChange={handlePersyaratan}
+                    submitted={submitted}
+                  />
+                </div>
+                <p className="text-red-500 text-xs italic mt-2">*Persyaratan wajib diisi</p>
+              </div>
             )}
 
-            {/* Upload umum - bukan Persuratan */}
-            {kategori !== "Persuratan" && (
+            {/* Upload umum untuk Informasi */}
+            {kategori === "Informasi" && (
               <UploadBox file={uploadFile} onFileChange={setUploadFile} />
             )}
 
@@ -337,13 +473,8 @@ export const FormPengajuanTiket = ({ onClose }) => {
         </div>
       </div>
 
-      {/* Pop up error */}
       {errorMsg && <ErrorModal message={errorMsg} onClose={() => setErrorMsg("")} />}
-
-      {/* Pop up sukses */}
-      {showSuccess && (
-        <SuccessModal onClose={() => { setShowSuccess(false); onClose(); }} />
-      )}
+      {showSuccess && <SuccessModal onClose={() => { setShowSuccess(false); onClose(); }} />}
     </>
   );
 };
