@@ -156,45 +156,51 @@ class TiketService:
         self._log_aktivitas(f"Update status tiket {id_tiket} → {payload.status}")
         return tiket
 
-    def tanggapi_tiket(self, id_tiket: str, pesan: str, isi_lampiran: bytes | None, nama_lampiran: str | None, isi_pem: bytes) -> dict:
+    def tanggapi_tiket(self, id_tiket: str, pesan: str, isi_lampiran: bytes | None, nama_lampiran: str | None, passphrase: str) -> dict:
         tiket = self.db.query(models.TiketLayanan).filter(models.TiketLayanan.id_tiket == id_tiket).first()
         if not tiket:
             raise HTTPException(status_code=404, detail="Tiket tidak ditemukan.")
         if tiket.tanggapan:
             raise HTTPException(status_code=400, detail="Tiket ini sudah memiliki tanggapan.")
 
+        # AMBIL KUNCI STAFF DARI DATABASE
+        staff = self.db.query(models.StaffAkademik).filter(models.StaffAkademik.email == self.user_data["email"]).first()
+        if not getattr(staff, 'encrypted_private_key', None):
+            raise HTTPException(status_code=403, detail="Anda belum mengaktifkan Kunci Keamanan. Harap buat Profil Keamanan terlebih dahulu.")
+
+        # BUKA BUNGKUS KUNCI MENGGUNAKAN PASSPHRASE
+        try:
+            isi_pem_terbuka = sec_helper.buka_bungkus_kunci_privat(staff.encrypted_private_key, passphrase)
+        except ValueError:
+            raise HTTPException(status_code=401, detail="Passphrase Anda salah! Tanda tangan gagal.")
+
         hash_lampiran = None
         nama_file_tersimpan = None
 
+        # URUS FILE LAMPIRAN
         if isi_lampiran and nama_lampiran:
-            # 1. Pastikan folder uploads tersedia (agar tidak error)
             upload_dir = "uploads"
             os.makedirs(upload_dir, exist_ok=True)
-
-            # 2. Hitung Hash File Lampiran
             hash_lampiran = hashlib.sha256(isi_lampiran).hexdigest()
             nama_file_tersimpan = f"{upload_dir}/{uuid.uuid4()}_{nama_lampiran}"
             
             with open(nama_file_tersimpan, "wb") as f:
                 f.write(isi_lampiran)
 
-        # 3. Rangkai Paket Data yang akan dikunci
+        # RANGKAI PAKET DATA
         paket_data = {
             "pesan": pesan,
             "hash_lampiran": hash_lampiran
         }
         string_paket = json.dumps(paket_data, sort_keys=True)
 
-        # 4. Kunci Payload dengan Private Key
+        # KUNCI PAYLOAD MENGGUNAKAN PRIVATE KEY YANG SUDAH TERBUKA
         try:
-            signature = sec_helper.buat_digital_signature(string_paket, isi_pem)
+            signature = sec_helper.buat_digital_signature(string_paket, isi_pem_terbuka)
         except Exception as e:
-            raise HTTPException(
-                status_code=400, 
-                detail="Gagal membuat Tanda Tangan. Pastikan file .pem valid dan belum dimodifikasi."
-            )
+            raise HTTPException(status_code=500, detail="Terjadi kesalahan internal saat membuat tanda tangan digital.")
 
-        # 5. Simpan ke Database
+        # SIMPAN TANGGAPAN
         tanggapan_baru = models.TanggapanStaff(
             id_tanggapan=str(uuid.uuid4()),
             id_tiket=id_tiket,
@@ -211,11 +217,11 @@ class TiketService:
         self.db.add(tanggapan_baru)
         self.db.commit()
 
-        self._log_aktivitas(f"Membalas tiket {id_tiket} dengan Digital Signature")
+        self._log_aktivitas(f"Membalas tiket {id_tiket} menggunakan Cloud Signature")
 
         return {
             "status": "success",
-            "message": "Tiket berhasil ditanggapi dan diamankan dengan Digital Signature."
+            "message": "Tiket berhasil ditanggapi dan diamankan dengan Cloud Digital Signature."
         }
 
 @router.post("/", response_model=schemas.TiketResponse, status_code=status.HTTP_201_CREATED)
@@ -253,13 +259,13 @@ def update_status_tiket(
 async def tanggapi_tiket(
     id_tiket: str,
     request: Request,
-    pesan: str = Form(...),                      
-    file_lampiran: UploadFile = File(None),      
-    private_key_file: UploadFile = File(...),    
+    pesan: str = Form(...),   
+    passphrase: str = Form(...),                      
+    file_lampiran: UploadFile = File(None),        
     db: Session = Depends(get_db)
 ):
     """
-    Staff menanggapi tiket dengan mengunggah dokumen dan menguncinya menggunakan Private Key (.pem)
+    Staff menanggapi tiket dengan mengunggah dokumen dan menguncinya menggunakan Passphrase (Sistem Cloud Signature).
     """
     # 1. Ekstrak user dan validasi Role
     user_data = sec_helper.ekstrak_token(request)
@@ -268,7 +274,6 @@ async def tanggapi_tiket(
     # 2. Baca isi file yang di-upload secara Asynchronous (agar server tidak hang)
     isi_lampiran = await file_lampiran.read() if file_lampiran else None
     nama_lampiran = file_lampiran.filename if file_lampiran else None
-    isi_pem = await private_key_file.read()
 
     # 3. Oper ke dalam Service
     service = TiketService(db=db, user_data=user_data, ip_address=request.client.host)
@@ -277,5 +282,5 @@ async def tanggapi_tiket(
         pesan=pesan, 
         isi_lampiran=isi_lampiran, 
         nama_lampiran=nama_lampiran, 
-        isi_pem=isi_pem
+        passphrase=passphrase
     )

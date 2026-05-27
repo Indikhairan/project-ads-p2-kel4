@@ -9,10 +9,9 @@ from fastapi import HTTPException, status, Request
 from sqlalchemy.orm import Session
 from sqlalchemy.types import TypeDecorator, String as SAString
 from cryptography.fernet import Fernet
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from backend import models 
 
 load_dotenv()
@@ -48,7 +47,7 @@ class SecurityService:
         """Constructor: Menyiapkan amunisi keamanan saat server baru menyala"""
         self.secret_key = os.getenv("SECRET_KEY")
         self.algorithm = "HS256"
-        self.expire_minutes = 60
+        self.expire_minutes = 180
 
         if not self.secret_key:
             raise ValueError("SECRET_KEY tidak ditemukan. Pastikan file .env sudah ada")
@@ -153,6 +152,49 @@ class SecurityService:
         )
 
         return pem_private.decode('utf-8'), pem_public.decode('utf-8')
+
+    @staticmethod
+    def _get_fernet_from_passphrase(passphrase: str) -> Fernet:
+        """Helper: Mengubah string Passphrase menjadi kunci gembok Fernet (AES)."""
+        salt = b'sapa_ipb_secret_salt_2026' 
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=salt,
+            iterations=100000,
+        )
+        key = base64.urlsafe_b64encode(kdf.derive(passphrase.encode()))
+        return Fernet(key)
+
+    def bungkus_kunci_privat(self, pem_privat: str, passphrase: str) -> str:
+        """Membungkus (enkripsi AES) Private Key RSA menggunakan Passphrase."""
+        f = self._get_fernet_from_passphrase(passphrase)
+        return f.encrypt(pem_privat.encode()).decode()
+
+    def buka_bungkus_kunci_privat(self, kunci_terenkripsi: str, passphrase: str) -> bytes:
+        """Membuka (dekripsi AES) Private Key RSA menggunakan Passphrase."""
+        try:
+            f = self._get_fernet_from_passphrase(passphrase)
+            return f.decrypt(kunci_terenkripsi.encode())
+        except Exception:
+            raise ValueError("Passphrase salah! Gagal membuka kunci.")
+
+    def buat_digital_signature(self, payload: str, private_key_pem: bytes) -> str:
+        """Menandatangani payload menggunakan Private Key RSA yang sudah terbuka."""
+        private_key = serialization.load_pem_private_key(
+            private_key_pem,
+            password=None,
+        )
+        signature = private_key.sign(
+            payload.encode('utf-8'),
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
+        )
+        # Return dalam bentuk Base64 agar bisa disimpan ke database sebagai Text
+        return base64.b64encode(signature).decode('utf-8')
 
 # objek sec_helper yang akan di import ke file router
 sec_helper = SecurityService()
