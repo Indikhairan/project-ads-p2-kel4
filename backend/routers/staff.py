@@ -19,7 +19,7 @@ def buat_kunci_keamanan(request: Request, passphrase: str = Form(...),db: Sessio
         raise HTTPException(status_code=403, detail="Akses Ditolak! Khusus Staff Akademik.")
 
     cek_kekuatan_passphrase(passphrase)
-    
+
     email_staff = user_info.get("email")
     staff = db.query(models.StaffAkademik).filter(models.StaffAkademik.email == email_staff).first()
 
@@ -65,3 +65,20 @@ def cek_kekuatan_passphrase(passphrase: str):
         raise HTTPException(status_code=400, detail="Passphrase harus mengandung minimal 1 angka.")
     if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", passphrase):
         raise HTTPException(status_code=400, detail="Passphrase harus mengandung minimal 1 karakter spesial (contoh: !@#$).")
+    
+@router.get("/status-kunci")
+def cek_status_kunci(request: Request, db: Session = Depends(get_db)):
+    """Mengecek apakah staf sudah membuat Profil Keamanan (Passphrase/Key)."""
+    user_info = sec_helper.ekstrak_token(request)
+    sec_helper.cek_role(user_info, "staff")
+    
+    email_staff = user_info.get("email")
+    staff = db.query(models.StaffAkademik).filter(models.StaffAkademik.email == email_staff).first()
+    
+    if not staff:
+        raise HTTPException(status_code=404, detail="Akun staff tidak ditemukan.")
+        
+    # Cek apakah public_key dan encrypted_private_key sudah terisi
+    punya_kunci = bool(staff.public_key and getattr(staff, 'encrypted_private_key', None))
+    
+    return {"has_key": punya_kunci}

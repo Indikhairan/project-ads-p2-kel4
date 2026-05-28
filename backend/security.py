@@ -195,6 +195,29 @@ class SecurityService:
         )
         # Return dalam bentuk Base64 agar bisa disimpan ke database sebagai Text
         return base64.b64encode(signature).decode('utf-8')
+    
+    def verifikasi_digital_signature(self, payload: str, signature_b64: str, public_key_pem: str) -> bool:
+        """Memverifikasi Tanda Tangan Digital menggunakan Public Key."""
+        try:
+            # 1. Ubah teks PEM menjadi objek Public Key
+            public_key = serialization.load_pem_public_key(public_key_pem.encode('utf-8'))
+            
+            # 2. Ubah Signature dari Base64 kembali ke format bytes asli
+            signature_bytes = base64.b64decode(signature_b64)
+            
+            # 3. Proses Verifikasi RSA
+            public_key.verify(
+                signature_bytes,
+                payload.encode('utf-8'),
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH
+                ),
+                hashes.SHA256()
+            )
+            return True # Kalau tidak ada error, berarti VALID!
+        except Exception:
+            return False # Kalau gagal diverifikasi, berarti PALSU/BERUBAH!
 
 # objek sec_helper yang akan di import ke file router
 sec_helper = SecurityService()
