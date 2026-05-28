@@ -3,6 +3,7 @@ import hashlib
 import json
 import jwt
 import os
+from zoneinfo import ZoneInfo
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from fastapi import HTTPException, status, Request
@@ -120,8 +121,9 @@ class SecurityService:
     # Accounting
     def log_aktivitas(self, db: Session, email: str, role: str, aksi: str, status_log: str, ip_address: str):
         """Simpan audit log ke database tanpa di-commit otomatis."""
+        waktu_sekarang = datetime.now(ZoneInfo("Asia/Jakarta"))
         new_log = models.AuditLog(
-            waktu=datetime.utcnow(),
+            waktu=waktu_sekarang,
             email_aktor=email,
             role_aktor=role,
             aksi=aksi,
