@@ -9,7 +9,7 @@ import {
 
 // Warna untuk chart
 const PIE_COLORS = ["#22c55e", "#ef4444"];
-const ITEMS_PER_PAGE = 3;
+const ITEMS_PER_PAGE = 10; // Sudah diubah jadi 10 data per halaman
 
 // --- Komponen Pendukung UI ---
 const SectionHeader = ({ title, color = "bg-[#130962]" }) => (
@@ -32,7 +32,6 @@ export const DashboardKeamanan = () => {
   // --- STATE UNTUK DATA BACKEND ---
   const [stats, setStats] = useState(null);
   const [logs, setLogs] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
 
   // Pagination Table
@@ -44,7 +43,7 @@ export const DashboardKeamanan = () => {
     weekday: "long", day: "numeric", month: "long", year: "numeric"
   });
 
-  // --- FETCH DATA DARI FASTAPI ---
+  // --- FETCH DATA DARI FASTAPI (REAL-TIME) ---
   useEffect(() => {
     const fetchDashboardData = async () => {
       if (!token) {
@@ -57,7 +56,7 @@ export const DashboardKeamanan = () => {
           fetch("http://localhost:8000/api/v1/admin/security/stats", {
             headers: { "Authorization": `Bearer ${token}` }
           }),
-          fetch("http://localhost:8000/api/v1/admin/security/logs?page=1&limit=20", {
+          fetch("http://localhost:8000/api/v1/admin/security/logs?page=1&limit=50", {
             headers: { "Authorization": `Bearer ${token}` }
           })
         ]);
@@ -74,12 +73,19 @@ export const DashboardKeamanan = () => {
       } catch (error) {
         console.error("Error fetching admin data:", error);
         setErrorMsg(error.message);
-      } finally {
-        setIsLoading(false);
       }
     };
 
+    // 1. Panggil pertama kali saat komponen dirender
     fetchDashboardData();
+
+    // 2. Pasang interval untuk memanggil data ulang setiap 5 detik secara background
+    const intervalId = setInterval(() => {
+      fetchDashboardData();
+    }, 5000);
+
+    // 3. Bersihkan interval saat keluar dari halaman ini
+    return () => clearInterval(intervalId);
   }, [token, navigate]);
 
   // --- MAPPING DATA BACKEND KE GRAFIK ---
@@ -104,14 +110,7 @@ export const DashboardKeamanan = () => {
   // 3. Line Chart (Aktivitas Login per-Jam Hari Ini)
   const loginActivityData = stats ? stats.today.authentication.hourly_activity : [];
 
-  if (isLoading) {
-    return (
-      <main className="bg-[#f8f9fa] w-full min-h-screen flex items-center justify-center">
-        <p className="text-[#130962] font-semibold animate-pulse">Memuat Dashboard Keamanan...</p>
-      </main>
-    );
-  }
-
+  // Jika ada error, tampilkan pesan error
   if (errorMsg) {
     return (
       <main className="bg-[#f8f9fa] w-full min-h-screen flex flex-col items-center justify-center gap-2">
@@ -119,6 +118,11 @@ export const DashboardKeamanan = () => {
         <p className="text-red-500 font-bold">{errorMsg}</p>
       </main>
     );
+  }
+
+  // Mencegah error render grafik sebelum data pertama masuk (tanpa tulisan memuat)
+  if (!stats) {
+    return <main className="bg-[#f8f9fa] w-full min-h-screen flex-1"></main>;
   }
 
   return (
