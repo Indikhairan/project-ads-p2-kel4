@@ -95,13 +95,29 @@ class SecurityService:
         return user_info["data"]
     
     # Authorization
-    def cek_role(self, user_data: dict, *required_roles: str):
-        """Pastikan user memiliki salah satu dari role yang diperbolehkan."""
-        if user_data.get("role") not in required_roles:
-            allowed = " / ".join(required_roles)
+    def cek_role(self, user_data: dict, db, request, *roles_diizinkan):
+        """
+        Mengecek apakah role user ada di dalam daftar roles_diizinkan.
+        Jika tidak, tolak akses dan catat aktivitas ilegal tersebut (RBAC Failed).
+        """
+        role_user = user_data.get("role", "Guest")
+        
+        if role_user not in roles_diizinkan:
+            # 1. Ambil path URL yang dicoba diakses (misal: /api/v1/tiket/123/tanggapan)
+            url_target = request.url.path
+            
+            # 2. Catat Log Pelanggaran RBAC
+            self.log_aktivitas(
+                db=db,
+                aksi=f"Akses terlarang ke {url_target} (Butuh: {', '.join(roles_diizinkan)})",
+                request=request,
+                status_log="Failed (RBAC - Forbidden)"
+            )
+            
+            # 3. Tendang user-nya
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Akses ditolak! Hanya {allowed} yang diperbolehkan."
+                detail=f"Akses ditolak. Fitur ini hanya untuk {', '.join(roles_diizinkan)}."
             )
 
     def cek_kepemilikan_tiket(self, user_email: str, ticket_owner_email: str, user_role: str):
@@ -119,11 +135,43 @@ class SecurityService:
             )
 
     # Accounting
-    def log_aktivitas(self, db: Session, email: str, role: str, aksi: str, status_log: str, ip_address: str):
-        """Simpan audit log ke database tanpa di-commit otomatis."""
-        waktu_sekarang = datetime.now(ZoneInfo("Asia/Jakarta"))
+    def log_aktivitas(
+        self,
+        db, 
+        aksi: str, 
+        request=None, 
+        email: str = None, 
+        role: str = None, 
+        status_log: str = "Success", 
+        ip_address: str = None
+    ):
+        """
+        Fungsi cerdas untuk mencatat log.
+        Bisa mengekstrak data otomatis dari 'request', atau menerima input manual.
+        """
+        # 1. Cari IP Address (Otomatis dari request jika tidak diisi manual)
+        if not ip_address and request:
+            ip_address = request.client.host
+        elif not ip_address:
+            ip_address = "Unknown IP"
+
+        # 2. Cari Email dan Role (Jika tidak diisi manual, ambil dari token request)
+        if not email or not role:
+            try:
+                if request:
+                    # ekstrak_token ini memanggil fungsi ekstrak token milikmu
+                    user_data = self.ekstrak_token(request) 
+                    email = email or user_data.get("email", "Unknown")
+                    role = role or user_data.get("role", "Guest")
+            except Exception:
+                # Jika token expired/tidak valid/tidak ada
+                email = email or "Unknown"
+                role = role or "Guest"
+
+        # 3. Tulis ke Database
+        waktu_jkt = datetime.now(ZoneInfo("Asia/Jakarta"))
         new_log = models.AuditLog(
-            waktu=waktu_sekarang,
+            waktu=waktu_jkt,
             email_aktor=email,
             role_aktor=role,
             aksi=aksi,
@@ -131,6 +179,7 @@ class SecurityService:
             ip_address=ip_address
         )
         db.add(new_log)
+        db.commit()
 
     @staticmethod
     def buat_pasangan_kunci():

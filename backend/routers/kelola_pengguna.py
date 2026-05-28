@@ -54,10 +54,9 @@ class UserUpdate(BaseModel):
 
 @router.get("/")
 def lihat_semua_pengguna(request: Request, db: Session = Depends(get_db)):
-    # SATPAM: Validasi Token & Peran Admin
+    # SATPAM PINTAR: Validasi Token & Peran Admin
     user_info = sec_helper.ekstrak_token(request)
-    if user_info.get("role", "").lower() != "admin":
-        raise HTTPException(status_code=403, detail="Akses Ditolak! Khusus Admin.")
+    sec_helper.cek_role(user_info, db, request, "admin")
     
     pengguna = db.query(models.User).all()
     
@@ -76,8 +75,7 @@ def lihat_semua_pengguna(request: Request, db: Session = Depends(get_db)):
 @router.post("/", status_code=201)
 def tambah_pengguna(data: UserCreate, request: Request, db: Session = Depends(get_db)):
     user_info = sec_helper.ekstrak_token(request)
-    if user_info.get("role", "").lower() != "admin":
-        raise HTTPException(status_code=403, detail="Akses Ditolak!")
+    sec_helper.cek_role(user_info, db, request, "admin")
 
     if db.query(models.User).filter(models.User.email == data.email).first():
         raise HTTPException(status_code=400, detail="Email sudah terdaftar!")
@@ -106,14 +104,20 @@ def tambah_pengguna(data: UserCreate, request: Request, db: Session = Depends(ge
         raise HTTPException(status_code=400, detail="Role tidak valid!")
 
     db.add(user_baru)
-    db.commit()
+    
+    # TANAM LOG AKTIVITAS (Sudah termasuk db.commit)
+    sec_helper.log_aktivitas(
+        db=db,
+        aksi=f"Mendaftarkan pengguna baru: {data.email} ({role_user})",
+        request=request
+    )
+    
     return {"status": "success", "message": f"Pengguna {data.nama_lengkap} ({role_user}) berhasil ditambahkan."}
 
 @router.put("/{email}")
 def edit_pengguna(email: str, data: UserUpdate, request: Request, db: Session = Depends(get_db)):
     user_info = sec_helper.ekstrak_token(request)
-    if user_info.get("role", "").lower() != "admin":
-        raise HTTPException(status_code=403, detail="Akses Ditolak!")
+    sec_helper.cek_role(user_info, db, request, "admin")
 
     # Cari user di base table
     user = db.query(models.User).filter(models.User.email == email).first()
@@ -154,14 +158,19 @@ def edit_pengguna(email: str, data: UserUpdate, request: Request, db: Session = 
         if data.fakultas is not None:
             user.fakultas = data.fakultas
 
-    db.commit()
+    # TANAM LOG AKTIVITAS (Sudah termasuk db.commit)
+    sec_helper.log_aktivitas(
+        db=db,
+        aksi=f"Memperbarui profil pengguna: {email}",
+        request=request
+    )
+    
     return {"status": "success", "message": f"Data pengguna {email} berhasil diperbarui."}
 
 @router.delete("/{email}")
 def nonaktifkan_pengguna(email: str, request: Request, db: Session = Depends(get_db)):
     user_info = sec_helper.ekstrak_token(request)
-    if user_info.get("role", "").lower() != "admin":
-        raise HTTPException(status_code=403, detail="Akses Ditolak!")
+    sec_helper.cek_role(user_info, db, request, "admin")
 
     user = db.query(models.User).filter(models.User.email == email).first()
     if not user:
@@ -172,16 +181,22 @@ def nonaktifkan_pengguna(email: str, request: Request, db: Session = Depends(get
 
     # Ubah flag status aktif menjadi False
     user.is_active = False 
-    db.commit()
+    
+    # TANAM LOG AKTIVITAS (Sudah termasuk db.commit)
+    sec_helper.log_aktivitas(
+        db=db,
+        aksi=f"Menonaktifkan (Disable) akun: {email}",
+        request=request,
+        status_log="Success (Disabled)"
+    )
 
     return {"status": "success", "message": f"Pengguna {email} berhasil dinonaktifkan dari sistem."}
 
 @router.post("/{email}/reset-kunci")
 def reset_kunci_staff(email: str, request: Request, db: Session = Depends(get_db)):
-    # 1. SATPAM: Validasi Peran Admin
+    # 1. SATPAM PINTAR: Validasi Peran Admin
     user_info = sec_helper.ekstrak_token(request)
-    if user_info.get("role", "").lower() != "admin":
-        raise HTTPException(status_code=403, detail="Akses Ditolak! Khusus Admin.")
+    sec_helper.cek_role(user_info, db, request, "admin")
 
     # 2. Cari user di database
     user = db.query(models.User).filter(models.User.email == email).first()
@@ -196,14 +211,22 @@ def reset_kunci_staff(email: str, request: Request, db: Session = Depends(get_db
         )
 
     # 4. Cek apakah memang kuncinya sudah kosong atau belum
-    if user.public_key is None:
+    if user.public_key is None and user.encrypted_private_key is None:
         return {"status": "info", "message": f"Akun staff {email} memang belum memiliki atau sudah di-reset kunci keamanannya."}
 
-    # 5. Eksekusi penghapusan kunci publik (Reset)
+    # 5. Eksekusi penghapusan kunci publik dan privat (Reset Total)
     user.public_key = None
-    db.commit()
+    user.encrypted_private_key = None # <--- TAMBAHKAN BARIS INI
+    
+    # TANAM LOG AKTIVITAS (Sudah termasuk db.commit)
+    sec_helper.log_aktivitas(
+        db=db,
+        aksi=f"Mereset Kunci Publik & Privat milik Staff: {email}",
+        request=request,
+        status_log="Success (Key Revoked)"
+    )
 
     return {
         "status": "success", 
-        "message": f"Kunci keamanan milik {user.nama_lengkap} ({email}) berhasil dicabut. Staff dapat melakukan generate ulang kunci baru pada portal mereka."
+        "message": f"Kunci keamanan milik {user.nama_lengkap} ({email}) berhasil di-reset total. Staff dapat melakukan generate ulang sepasang kunci baru pada portal mereka."
     }

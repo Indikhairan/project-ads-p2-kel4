@@ -12,11 +12,10 @@ router = APIRouter(
 )
 
 @router.post("/generate-key")
-def buat_kunci_keamanan(request: Request, passphrase: str = Form(...),db: Session = Depends(get_db)):
-    # 1. Pastikan yang akses adalah Staff
+def buat_kunci_keamanan(request: Request, passphrase: str = Form(...), db: Session = Depends(get_db)):
+    # 1. SATPAM PINTAR: Pastikan yang akses adalah Staff
     user_info = sec_helper.ekstrak_token(request)
-    if user_info.get("role", "").lower() != "staff":
-        raise HTTPException(status_code=403, detail="Akses Ditolak! Khusus Staff Akademik.")
+    sec_helper.cek_role(user_info, db, request, "staff")
 
     cek_kekuatan_passphrase(passphrase)
 
@@ -39,7 +38,14 @@ def buat_kunci_keamanan(request: Request, passphrase: str = Form(...),db: Sessio
     # 5. Simpan Public Key dan Private Key Terenkripsi ke Database
     staff.public_key = public_pem
     staff.encrypted_private_key = kunci_terenkripsi
-    db.commit()
+    
+    # 6. TANAM LOG AKTIVITAS (Sudah termasuk db.commit)
+    sec_helper.log_aktivitas(
+        db=db,
+        aksi=f"Aktivasi Profil Keamanan (Generate Kunci Kriptografi Baru)",
+        request=request,
+        status_log="Success (Key Generated)"
+    )
 
     return {
         "status": "success", 
@@ -70,7 +76,9 @@ def cek_kekuatan_passphrase(passphrase: str):
 def cek_status_kunci(request: Request, db: Session = Depends(get_db)):
     """Mengecek apakah staf sudah membuat Profil Keamanan (Passphrase/Key)."""
     user_info = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_info, "staff")
+    
+    # SATPAM PINTAR YANG SUDAH DIPERBAIKI (Tambah db dan request)
+    sec_helper.cek_role(user_info, db, request, "staff")
     
     email_staff = user_info.get("email")
     staff = db.query(models.StaffAkademik).filter(models.StaffAkademik.email == email_staff).first()
@@ -81,4 +89,5 @@ def cek_status_kunci(request: Request, db: Session = Depends(get_db)):
     # Cek apakah public_key dan encrypted_private_key sudah terisi
     punya_kunci = bool(staff.public_key and getattr(staff, 'encrypted_private_key', None))
     
+    # Tidak perlu log aktivitas di sini karena ini hanya GET status biasa
     return {"has_key": punya_kunci}

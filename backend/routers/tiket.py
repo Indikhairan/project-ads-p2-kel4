@@ -57,16 +57,6 @@ class TiketService:
         if not mahasiswa.semester and payload.semester:
             mahasiswa.semester = payload.semester
 
-    def _log_aktivitas(self, aksi: str):
-        sec_helper.log_aktivitas(
-            db=self.db,
-            email=self.user_data["email"],
-            role=self.user_data["role"],
-            aksi=aksi,
-            status_log="Success",
-            ip_address=self.ip_address
-        )
-
     def buat_tiket(self, payload: schemas.TiketCreate) -> models.TiketLayanan:
         if payload.kategori not in self.VALID_KATEGORIS:
             raise HTTPException(
@@ -94,7 +84,6 @@ class TiketService:
         self.db.commit()
         self.db.refresh(new_tiket)
 
-        self._log_aktivitas(f"Submit tiket baru: {generated_id} & Update Profil")
         return new_tiket
 
     def lihat_daftar_tiket(self) -> List[models.TiketLayanan]:
@@ -121,6 +110,7 @@ class TiketService:
         if not tiket:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tiket tidak ditemukan.")
 
+        # Pengecekan OBAC tanpa try-except, karena jika error akan dilempar ke router
         sec_helper.cek_kepemilikan_tiket(
             user_email=self.user_data["email"],
             ticket_owner_email=tiket.email_mahasiswa,
@@ -153,7 +143,6 @@ class TiketService:
         self.db.commit()
         self.db.refresh(tiket)
 
-        self._log_aktivitas(f"Update status tiket {id_tiket} → {payload.status}")
         return tiket
 
     def tanggapi_tiket(self, id_tiket: str, pesan: str, isi_lampiran: bytes | None, nama_lampiran: str | None, passphrase: str) -> dict:
@@ -163,12 +152,10 @@ class TiketService:
         if tiket.tanggapan:
             raise HTTPException(status_code=400, detail="Tiket ini sudah memiliki tanggapan.")
 
-        # AMBIL KUNCI STAFF DARI DATABASE
         staff = self.db.query(models.StaffAkademik).filter(models.StaffAkademik.email == self.user_data["email"]).first()
         if not getattr(staff, 'encrypted_private_key', None):
             raise HTTPException(status_code=403, detail="Anda belum mengaktifkan Kunci Keamanan. Harap buat Profil Keamanan terlebih dahulu.")
 
-        # BUKA BUNGKUS KUNCI MENGGUNAKAN PASSPHRASE
         try:
             isi_pem_terbuka = sec_helper.buka_bungkus_kunci_privat(staff.encrypted_private_key, passphrase)
         except ValueError:
@@ -177,7 +164,6 @@ class TiketService:
         hash_lampiran = None
         nama_file_tersimpan = None
 
-        # URUS FILE LAMPIRAN
         if isi_lampiran and nama_lampiran:
             upload_dir = "uploads"
             os.makedirs(upload_dir, exist_ok=True)
@@ -187,20 +173,17 @@ class TiketService:
             with open(nama_file_tersimpan, "wb") as f:
                 f.write(isi_lampiran)
 
-        # RANGKAI PAKET DATA
         paket_data = {
             "pesan": pesan,
             "hash_lampiran": hash_lampiran
         }
         string_paket = json.dumps(paket_data, sort_keys=True)
 
-        # KUNCI PAYLOAD MENGGUNAKAN PRIVATE KEY YANG SUDAH TERBUKA
         try:
             signature = sec_helper.buat_digital_signature(string_paket, isi_pem_terbuka)
         except Exception as e:
             raise HTTPException(status_code=500, detail="Terjadi kesalahan internal saat membuat tanda tangan digital.")
 
-        # SIMPAN TANGGAPAN
         tanggapan_baru = models.TanggapanStaff(
             id_tanggapan=str(uuid.uuid4()),
             id_tiket=id_tiket,
@@ -217,31 +200,60 @@ class TiketService:
         self.db.add(tanggapan_baru)
         self.db.commit()
 
-        self._log_aktivitas(f"Membalas tiket {id_tiket} menggunakan Cloud Signature")
-
         return {
             "status": "success",
             "message": "Tiket berhasil ditanggapi dan diamankan dengan Cloud Digital Signature."
         }
 
+# --- ROUTERS DENGAN PENANAMAN LOG ---
+
 @router.post("/", response_model=schemas.TiketResponse, status_code=status.HTTP_201_CREATED)
 def buat_tiket(payload: schemas.TiketCreate, request: Request, db: Session = Depends(get_db)):
     user_data = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_data, "mahasiswa")
+    
+    # 1. SATPAM PINTAR: Validasi Role
+    sec_helper.cek_role(user_data, db, request, "mahasiswa")
+    
     service = TiketService(db=db, user_data=user_data, ip_address=request.client.host)
-    return service.buat_tiket(payload)
+    hasil_tiket = service.buat_tiket(payload)
+    
+    # LOG: Membuat Tiket
+    sec_helper.log_aktivitas(db, aksi=f"Submit tiket baru: {hasil_tiket.id_tiket}", request=request)
+    
+    return hasil_tiket
 
 @router.get("/", response_model=List[schemas.TiketResponse])
 def lihat_daftar_tiket(request: Request, db: Session = Depends(get_db)):
     user_data = sec_helper.ekstrak_token(request)
+    
+    # Mengizinkan semua role untuk melihat daftar, filter data di-handle oleh Service
+    sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
+    
     service = TiketService(db=db, user_data=user_data, ip_address=request.client.host)
     return service.lihat_daftar_tiket()
 
 @router.get("/{id_tiket}", response_model=schemas.TiketResponse)
 def detail_tiket(id_tiket: str, request: Request, db: Session = Depends(get_db)):
     user_data = sec_helper.ekstrak_token(request)
+    
+    # Semua role bisa akses endpoint ini, tapi akan dihadang oleh OBAC di dalam service
+    sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
+    
     service = TiketService(db=db, user_data=user_data, ip_address=request.client.host)
-    return service.detail_tiket(id_tiket)
+    
+    try:
+        hasil = service.detail_tiket(id_tiket)
+        return hasil
+    except HTTPException as e:
+        # LOG: Jika OBAC Failed (Mahasiswa mencoba lihat tiket orang lain)
+        if e.status_code == 403:
+            sec_helper.log_aktivitas(
+                db=db, 
+                aksi=f"Akses ilegal detail tiket {id_tiket}", 
+                request=request, 
+                status_log="Failed (OBAC - Unauthorized)"
+            )
+        raise e
 
 @router.put("/{id_tiket}", response_model=schemas.TiketResponse)
 def update_status_tiket(
@@ -251,9 +263,17 @@ def update_status_tiket(
     db: Session = Depends(get_db)
 ):
     user_data = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_data, "staff", "admin")
+    
+    # 1. SATPAM PINTAR: Validasi Role
+    sec_helper.cek_role(user_data, db, request, "staff", "admin")
+    
     service = TiketService(db=db, user_data=user_data, ip_address=request.client.host)
-    return service.update_status_tiket(id_tiket, payload)
+    hasil_tiket = service.update_status_tiket(id_tiket, payload)
+    
+    # LOG: Update Status Tiket
+    sec_helper.log_aktivitas(db, aksi=f"Update status tiket {id_tiket} → {payload.status}", request=request)
+    
+    return hasil_tiket
 
 @router.post("/{id_tiket}/tanggapan")
 async def tanggapi_tiket(
@@ -269,7 +289,7 @@ async def tanggapi_tiket(
     """
     # 1. Ekstrak user dan validasi Role
     user_data = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_data, "staff")
+    sec_helper.cek_role(user_data, db, request, "staff")
     
     # 2. Baca isi file yang di-upload secara Asynchronous (agar server tidak hang)
     isi_lampiran = await file_lampiran.read() if file_lampiran else None
@@ -277,41 +297,56 @@ async def tanggapi_tiket(
 
     # 3. Oper ke dalam Service
     service = TiketService(db=db, user_data=user_data, ip_address=request.client.host)
-    return service.tanggapi_tiket(
+    hasil = service.tanggapi_tiket(
         id_tiket=id_tiket, 
         pesan=pesan, 
         isi_lampiran=isi_lampiran, 
         nama_lampiran=nama_lampiran, 
         passphrase=passphrase
     )
+    
+    # LOG: Menanggapi tiket
+    sec_helper.log_aktivitas(db, aksi=f"Membalas tiket {id_tiket} dengan Digital Signature", request=request)
+    
+    return hasil
 
 @router.get("/{id_tiket}/verifikasi")
-def verifikasi_dokumen(id_tiket: str, db: Session = Depends(get_db)):
+def verifikasi_dokumen(id_tiket: str, request: Request, db: Session = Depends(get_db)):
     """Mahasiswa mengecek keaslian dokumen balasan dari Staff"""
-    # 1. Cari tiket dan tanggapannya
+    
+    # Pastikan user sudah login
+    user_data = sec_helper.ekstrak_token(request)
+    sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
+
     tiket = db.query(models.TiketLayanan).filter(models.TiketLayanan.id_tiket == id_tiket).first()
     if not tiket or not tiket.tanggapan:
         raise HTTPException(status_code=404, detail="Tiket atau tanggapan tidak ditemukan.")
 
     tanggapan = tiket.tanggapan
 
-    # 2. Cari Public Key milik Staf yang membalas
     staff = db.query(models.StaffAkademik).filter(models.StaffAkademik.email == tanggapan.email_staff).first()
     if not staff or not staff.public_key:
         raise HTTPException(status_code=400, detail="Kunci Publik Staff tidak ditemukan.")
 
-    # 3. Rangkai kembali paket data persis seperti saat dikunci
     paket_data = {
         "pesan": tanggapan.pesan,
         "hash_lampiran": tanggapan.hash_lampiran
     }
     string_paket = json.dumps(paket_data, sort_keys=True)
 
-    # 4. Lempar ke mesin verifikasi
     is_valid = sec_helper.verifikasi_digital_signature(
         payload=string_paket,
         signature_b64=tanggapan.digital_signature,
         public_key_pem=staff.public_key
+    )
+
+    # LOG: Hasil Verifikasi Dokumen
+    status_verifikasi = "Success" if is_valid else "Failed (Manipulasi Terdeteksi)"
+    sec_helper.log_aktivitas(
+        db=db, 
+        aksi=f"Verifikasi dokumen tiket {id_tiket}", 
+        request=request, 
+        status_log=status_verifikasi
     )
 
     return {
