@@ -1,71 +1,14 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { TopNavigationSection } from "../components/TopNavigationSection";
 import { FormPengajuanTiket } from "../components/FormPengajuanTiket";
 import { ChatbotSAPA } from "../components/ChatbotSAPA";
 import image3 from "../assets/image-3.png";
 
-// Data dummy tiket
-const ticketData = {
-  "001": {
-    id: "#001",
-    status: "processing",
-    kategori: "Persuratan - Surat Keterangan Aktif Kuliah",
-    pengaju: "Budi Santoso (G64012345)",
-    tanggal: "22 April 2026, 08:30 WIB",
-    keterangan: "Mohon dibuatkan surat keterangan aktif untuk syarat beasiswa",
-    lampiran: "KRS_Budi_Genap.pdf",
-    tanggapan: null,
-    log: [
-      { time: "22/04/2026 - 08:30 WIB", text: "Tiket berhasil dibuat (Mahasiswa)", color: "bg-blue-500" },
-      { time: "22/04/2026 - 09:00 WIB", text: "Status berubah: DIPROSES (Staff Agus)", color: "bg-yellow-500" },
-    ],
-  },
-  "002": {
-    id: "#002",
-    status: "completed",
-    kategori: "Persuratan - Surat Keterangan Aktif Kuliah",
-    pengaju: "Budi Santoso (G64012345)",
-    tanggal: "22 April 2026, 08:30 WIB",
-    keterangan: "Mohon dibuatkan surat keterangan aktif untuk syarat beasiswa",
-    lampiran: "KRS_Budi_Genap.pdf",
-    tanggapan: {
-      direspon: "Staff Akademik (Agus S.)",
-      pesan: "Surat pengantar sudah dicetak dan ditandatangani. Silahkan unduh dokumen pada lampiran di bawah ini.",
-      berkas: "Surat_Aktif_Budi_TTD.pdf",
-    },
-    log: [
-      { time: "22/04/2026 - 08:30 WIB", text: "Tiket berhasil dibuat (Mahasiswa)", color: "bg-blue-500" },
-      { time: "22/04/2026 - 09:00 WIB", text: "Status berubah: DIPROSES (Staff Agus)", color: "bg-yellow-500" },
-      { time: "22/04/2026 - 10:00 WIB", text: "Tanggapan & file dikirim (Staff Agus)", color: "bg-blue-500" },
-      { time: "22/04/2026 - 10:00 WIB", text: "Status berubah: SELESAI (Otomatis)", color: "bg-green-500" },
-    ],
-  },
-  "003": {
-    id: "#003",
-    status: "rejected",
-    kategori: "Persuratan - Surat Izin Akademik",
-    pengaju: "Budi Santoso (G64012345)",
-    tanggal: "23 April 2026, 09:15 WIB",
-    keterangan: "Mohon dibuatkan surat izin tidak mengikuti ujian",
-    lampiran: null,
-    tanggapan: {
-      direspon: "Staff Akademik (Agus S.)",
-      pesan: "Maaf, pengajuan Anda ditolak karena dokumen pendukung tidak lengkap.",
-      berkas: null,
-    },
-    log: [
-      { time: "23/04/2026 - 09:15 WIB", text: "Tiket berhasil dibuat (Mahasiswa)", color: "bg-blue-500" },
-      { time: "23/04/2026 - 10:00 WIB", text: "Status berubah: DIPROSES (Staff Agus)", color: "bg-yellow-500" },
-      { time: "23/04/2026 - 11:00 WIB", text: "Status berubah: DITOLAK (Staff Agus)", color: "bg-red-500" },
-    ],
-  },
-};
-
 const StatusBadge = ({ status }) => {
-  if (status === "processing")
+  if (status === "Open" || status === "Diproses")
     return <span className="px-3 py-1 bg-orange-50 border border-orange-400 text-orange-500 font-semibold text-xs rounded flex items-center gap-1">⏱ DIPROSES</span>;
-  if (status === "completed")
+  if (status === "Selesai")
     return <span className="px-3 py-1 bg-green-50 border border-green-500 text-green-600 font-semibold text-xs rounded flex items-center gap-1">✓ SELESAI</span>;
   return <span className="px-3 py-1 bg-red-50 border border-red-500 text-red-500 font-semibold text-xs rounded flex items-center gap-1">⊘ DITOLAK</span>;
 };
@@ -97,19 +40,44 @@ export const DetailTiketPage = () => {
   const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
   const [showChatbot, setShowChatbot] = useState(false);
+  const [ticket, setTicket] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const ticket = ticketData[id];
+  useEffect(() => {
+    const fetchTicket = async () => {
+      setIsLoading(true);
+      setError("");
+      try {
+        const token = localStorage.getItem("sapa_ipb_token");
+        if (!token) {
+          setError("Silakan login terlebih dahulu untuk melihat detail tiket.");
+          setIsLoading(false);
+          return;
+        }
 
-  if (!ticket) {
-    return (
-      <main className="bg-[#f8f9fa] w-full min-h-screen flex flex-col">
-        <TopNavigationSection onBuatTiket={() => setShowForm(true)} />
-        <div className="flex items-center justify-center flex-1">
-          <p className="text-gray-400 italic">Tiket tidak ditemukan.</p>
-        </div>
-      </main>
-    );
-  }
+        const res = await fetch(`http://127.0.0.1:8000/api/v1/tiket/${encodeURIComponent(id)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.detail || "Tiket tidak ditemukan.");
+          setTicket(null);
+        } else {
+          setTicket(data);
+        }
+      } catch (e) {
+        console.error("Error fetching ticket detail:", e);
+        setError("Gagal memuat detail tiket. Periksa koneksi.");
+        setTicket(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTicket();
+  }, [id]);
 
   return (
     <main className="bg-[#f8f9fa] w-full min-h-screen flex flex-col">
@@ -130,26 +98,32 @@ export const DetailTiketPage = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col gap-6">
 
           {/* No tiket & status */}
-          <div className="flex flex-col gap-1">
-            <p className="text-[#130962] text-sm font-semibold">
-              NO. TIKET : <span className="font-bold">{ticket.id}</span>
-            </p>
-            <div className="flex items-center gap-2">
-              <p className="text-[#130962] text-sm font-semibold">STATUS :</p>
-              <StatusBadge status={ticket.status} />
+          {isLoading ? (
+            <div className="py-8 text-center text-gray-500">Memuat detail tiket...</div>
+          ) : error ? (
+            <div className="py-8 text-center text-red-500">{error}</div>
+          ) : ticket ? (
+            <div className="flex flex-col gap-1">
+              <p className="text-[#130962] text-sm font-semibold">
+                NO. TIKET : <span className="font-bold">{ticket.id_tiket}</span>
+              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-[#130962] text-sm font-semibold">STATUS :</p>
+                <StatusBadge status={ticket.status} />
+              </div>
             </div>
-          </div>
+          ) : null}
 
           {/* Informasi Pengajuan */}
           <div className="rounded-lg overflow-hidden border border-gray-200">
             <SectionHeader icon="📋" title="INFORMASI PENGAJUAN" />
             <div className="p-5">
-              <InfoRow label="Kategori" value={ticket.kategori} />
-              <InfoRow label="Pengaju" value={ticket.pengaju} />
-              <InfoRow label="Tanggal" value={ticket.tanggal} />
-              <InfoRow label="Keterangan" value={ticket.keterangan} />
-              {ticket.lampiran && (
-                <InfoRow label="Lampiran" value={ticket.lampiran} isFile />
+              <InfoRow label="Kategori" value={ticket?.kategori || ticket?.id_layanan} />
+              <InfoRow label="Pengaju" value={ticket?.email_mahasiswa || "-"} />
+              <InfoRow label="Tanggal" value={ticket?.waktu_submit ? new Date(ticket.waktu_submit).toLocaleString("id-ID") : "-"} />
+              <InfoRow label="Keterangan" value={ticket?.subjek || ticket?.data_request?.deskripsi || "-"} />
+              {ticket?.file_lampiran && (
+                <InfoRow label="Lampiran" value={ticket.file_lampiran} isFile />
               )}
             </div>
           </div>
@@ -158,7 +132,7 @@ export const DetailTiketPage = () => {
           <div className="rounded-lg overflow-hidden border border-gray-200">
             <SectionHeader icon="💬" title="TANGGAPAN STAFF" />
             <div className="p-5">
-              {ticket.tanggapan ? (
+              {ticket?.tanggapan ? (
                 <>
                   <InfoRow label="Direspon" value={ticket.tanggapan.direspon} />
                   <InfoRow label="Pesan" value={ticket.tanggapan.pesan} />
@@ -178,15 +152,19 @@ export const DetailTiketPage = () => {
           <div className="rounded-lg overflow-hidden border border-gray-200">
             <SectionHeader icon="🕐" title="LOG AKTIVITAS" />
             <div className="p-5 flex flex-col gap-3">
-              {ticket.log.map((item, idx) => (
-                <div key={idx} className="flex items-start gap-3">
-                  <div className={`w-2.5 h-2.5 rounded-full ${item.color} shrink-0 mt-1`} />
-                  <div>
-                    <span className="text-xs text-gray-400 mr-2">{item.time}</span>
-                    <span className="text-xs text-[#130962]">{item.text}</span>
+              {(ticket?.log || []).length === 0 ? (
+                <p className="text-gray-400 italic text-sm text-center py-6">Tidak ada log aktivitas.</p>
+              ) : (
+                (ticket.log || []).map((item, idx) => (
+                  <div key={idx} className="flex items-start gap-3">
+                    <div className={`w-2.5 h-2.5 rounded-full ${item.color} shrink-0 mt-1`} />
+                    <div>
+                      <span className="text-xs text-gray-400 mr-2">{item.time}</span>
+                      <span className="text-xs text-[#130962]">{item.text}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>

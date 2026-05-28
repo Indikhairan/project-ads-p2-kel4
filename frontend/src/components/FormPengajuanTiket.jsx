@@ -174,12 +174,13 @@ export const FormPengajuanTiket = ({ onClose }) => {
   const [uktFile, setUktFile] = useState(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handlePersyaratan = (key, value) => {
     setPersyaratan((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Validasi field wajib
     if (!subjek.trim()) {
       setErrorMsg("Subjek tiket wajib diisi.");
@@ -209,8 +210,63 @@ export const FormPengajuanTiket = ({ onClose }) => {
         return;
       }
     }
-    // Semua valid
-    setShowSuccess(true);
+    setIsSubmitting(true);
+    setErrorMsg("");
+
+    const token = localStorage.getItem("sapa_ipb_token");
+    if (!token) {
+      setErrorMsg("Silakan login terlebih dahulu sebelum mengajukan tiket.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    const id_layanan = kategori === "Persuratan" ? "Persuratan" : "Layanan";
+    const dataRequest = {
+      deskripsi: deskripsi.trim() || undefined,
+      jenis_surat: kategori === "Persuratan" ? jenisSurat : undefined,
+      tujuan: kategori === "Persuratan" ? persyaratan.keperluan : undefined,
+      alamat: kategori === "Persuratan" ? persyaratan.alamat : undefined,
+      bahasa_surat: kategori === "Persuratan" ? bahasaSurat : undefined,
+      upload_file_name: uploadFile?.name || undefined,
+      ktm_file_name: ktmFile?.name || undefined,
+      ukt_file_name: uktFile?.name || undefined,
+      jenis_layanan: kategori !== "Persuratan" ? kategori : undefined,
+    };
+
+    const payload = {
+      id_layanan,
+      kategori: kategori === "Persuratan" ? "Persuratan" : "Layanan",
+      subjek: subjek.trim(),
+      data_request: dataRequest,
+      file_lampiran: uploadFile?.name || null,
+      nim: persyaratan.nim?.trim() || "",
+      program_studi: persyaratan.prodi?.trim() || "",
+      departemen: persyaratan.departemen?.trim() || undefined,
+      fakultas: persyaratan.fakultas?.trim() || undefined,
+    };
+
+    try {
+      const response = await fetch("http://127.0.0.1:8000/api/v1/tiket", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setErrorMsg(data.detail || "Gagal mengajukan tiket. Coba lagi.");
+      } else {
+        setShowSuccess(true);
+      }
+    } catch (err) {
+      console.error("Error submit tiket:", err);
+      setErrorMsg("Tidak dapat menghubungi server. Periksa koneksi backend.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -328,9 +384,10 @@ export const FormPengajuanTiket = ({ onClose }) => {
               <button
                 type="button"
                 onClick={handleSubmit}
+                disabled={isSubmitting}
                 className="flex-1 py-3 bg-[#ffe030] text-[#130962] font-bold rounded-xl hover:bg-yellow-400 transition-colors text-sm"
               >
-                Submit Tiket
+                  {isSubmitting ? "Mengirim Tiket..." : "Submit Tiket"}
               </button>
             </div>
           </div>
