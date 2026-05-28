@@ -69,41 +69,82 @@ auth_helper = GoogleAuthService()
 def login(payload: GoogleLoginPayload, request: Request, db: Session = Depends(get_db)):
     
     # 1. Panggil Dapur Google
-    email_google, nama_google = auth_helper.verifikasi_google(payload.google_id_token)
-    auth_helper.validasi_domain(email_google)
+    try:
+        email_google, nama_google = auth_helper.verifikasi_google(payload.google_id_token)
+    except HTTPException:
+        # Catat jika ada yang mencoba pakai token Google palsu
+        sec_helper.log_aktivitas(
+            db=db, email="Unknown", role="Guest", 
+            aksi="Login via Google", status_log="Failed (Invalid Token)", ip_address=request.client.host
+        )
+        db.commit()
+        raise HTTPException(status_code=401, detail="Token Google tidak valid.")
+
+    # 2. Validasi Domain (Email Kampus)
+    if not email_google.endswith("@apps.ipb.ac.id"):
+        # CATAT LOG GAGAL SEBELUM RAISE ERROR
+        sec_helper.log_aktivitas(
+            db=db, email=email_google, role="Guest", 
+            aksi="Login via Google", status_log="Failed (Non-IPB Email)", ip_address=request.client.host
+        )
+        db.commit()
+        raise HTTPException(status_code=403, detail="Hanya email kampus yang diizinkan.")
+
+    # 3. Kelola User di Database
     user = auth_helper.kelola_user_db(db, email_google, nama_google)
 
     if not user.is_active:
-            raise HTTPException(
-                status_code=403, 
-                detail="Akun Anda telah dinonaktifkan oleh Admin. Silakan hubungi pusat bantuan."
-            )
+        # CATAT LOG GAGAL JIKA AKUN DINONAKTIFKAN
+        sec_helper.log_aktivitas(
+            db=db, email=email_google, role=user.role, 
+            aksi="Login via Google", status_log="Failed (Account Disabled)", ip_address=request.client.host
+        )
+        db.commit()
+        raise HTTPException(status_code=403, detail="Akun Anda telah dinonaktifkan.")
     
-    # 2. Panggil Dapur Keamanan (Membuat JWT)
-    token_data = {"email": user.email, "nama_lengkap": user.nama_lengkap, "role": user.role}
+    # SIMPAN DATA KE VARIABEL LOKAL DULU (Biar aman dari efek db.commit)
+    user_email = user.email
+    user_nama = user.nama_lengkap
+    user_role = user.role
+
+    # 4. Panggil Dapur Keamanan (Membuat JWT)
+    token_data = {"email": user_email, "nama_lengkap": user_nama, "role": user_role}
     token = sec_helper.buat_token_akses(token_data)
 
-    # 3. Panggil Dapur Keamanan (Mencatat Log)
+    # 5. Panggil Dapur Keamanan (Mencatat Log Sukses)
     sec_helper.log_aktivitas(
-        db=db, email=user.email, role=user.role, 
+        db=db, email=user_email, role=user_role, 
         aksi="Login via Google", status_log="Success", ip_address=request.client.host
     )
     db.commit()
 
     return TokenResponse(
-        access_token=token, role=user.role, email=user.email, nama_lengkap=user.nama_lengkap
+        access_token=token, role=user_role, email=user_email, nama_lengkap=user_nama
     )
 
 @router.post("/logout")
 def logout(request: Request, db: Session = Depends(get_db)):
-    # 1. Panggil Dapur Keamanan untuk mengecek siapa yang mau logout
-    user_data = sec_helper.ekstrak_token(request)
-    
-    # 2. Panggil Dapur Keamanan untuk mencatat aktivitasnya
+    # 1. Ambil informasi user (email/role) dari token dengan aman
+    email = "Unknown"
+    role = "Guest"
+    try:
+        user_data = sec_helper.ekstrak_token(request)
+        email = user_data.get("email", "Unknown")
+        role = user_data.get("role", "Guest")
+    except:
+        pass # Biarkan tetap Unknown/Guest kalau token sudah mati
+
+    # 2. Catat log dengan JELAS
     sec_helper.log_aktivitas(
-        db=db, email=user_data["email"], role=user_data["role"], 
-        aksi="Logout", status_log="Success", ip_address=request.client.host
+        db=db, 
+        email=email, 
+        role=role, 
+        aksi="Logout", 
+        status_log="Success", 
+        ip_address=request.client.host
     )
-    db.commit()
+    
+    # 3. PASTIKAN COMMIT!
+    db.commit() 
     
     return {"message": "Logout berhasil."}

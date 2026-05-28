@@ -5,7 +5,23 @@ export const TopNavigationAdmin = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isActive = (path) => location.pathname === path;
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const token = localStorage.getItem("sapa_ipb_token");
+
+    // Kirim sinyal logout ke backend
+    try {
+      await fetch("http://localhost:8000/auth/logout", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      });
+    } catch (err) {
+      console.error("Gagal logout:", err);
+    }
+
+    // Baru hapus token dan pindah halaman
     localStorage.removeItem("sapa_ipb_token");
     navigate("/");
   };
