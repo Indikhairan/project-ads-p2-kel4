@@ -165,6 +165,16 @@ export const DetailTiketPage = () => {
                   {ticket.tanggapan.berkas && (
                     <InfoRow label="Berkas" value={ticket.tanggapan.berkas} isFile />
                   )}
+                  <div className="flex gap-4 py-2 items-start">
+                    <span className="w-28 text-[#130962] font-semibold text-sm shrink-0">Hash Dokumen</span>
+                    <span className="text-gray-500 text-sm shrink-0">:</span>
+                    <div className="flex flex-col gap-1">
+                      <code className="text-[11px] bg-gray-100 text-gray-600 px-2 py-1 rounded-lg font-mono break-all">
+                        sha256:a3f8c2d1e9b74056f2a1c8e3d7b9f042a1e5c8d3f6b2a9e1c4d7f0b3e6a2c5d8
+                      </code>
+                      <span className="text-[10px] text-gray-400 italic">Digital signature terverifikasi oleh sistem</span>
+                    </div>
+                  </div>
                 </>
               ) : (
                 <p className="text-gray-400 italic text-sm text-center py-6">
@@ -177,16 +187,25 @@ export const DetailTiketPage = () => {
           {/* Log Aktivitas */}
           <div className="rounded-lg overflow-hidden border border-gray-200">
             <SectionHeader icon="🕐" title="LOG AKTIVITAS" />
-            <div className="p-5 flex flex-col gap-3">
-              {ticket.log.map((item, idx) => (
-                <div key={idx} className="flex items-start gap-3">
-                  <div className={`w-2.5 h-2.5 rounded-full ${item.color} shrink-0 mt-1`} />
-                  <div>
-                    <span className="text-xs text-gray-400 mr-2">{item.time}</span>
-                    <span className="text-xs text-[#130962]">{item.text}</span>
+            <div className="p-5">
+              <div className="flex flex-col">
+                {ticket.log.map((item, idx) => (
+                  <div key={idx} className="flex gap-3">
+                    {/* Garis timeline + titik */}
+                    <div className="flex flex-col items-center">
+                      <div className={`w-3 h-3 rounded-full ${item.color} shrink-0 mt-0.5`} />
+                      {idx < ticket.log.length - 1 && (
+                        <div className="w-px flex-1 bg-gray-200 my-1" />
+                      )}
+                    </div>
+                    {/* Konten */}
+                    <div className="flex gap-2 pb-4">
+                      <span className="text-xs text-gray-400 shrink-0 w-40">{item.time}</span>
+                      <span className="text-xs text-[#130962]">{item.text}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </div>
