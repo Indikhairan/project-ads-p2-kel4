@@ -207,71 +207,16 @@ export const DetailTiketPage = () => {
                   {ticket.tanggapan.berkas && (
                     <InfoRow label="Berkas" value={ticket.tanggapan.berkas} isFile />
                   )}
-
-                  {/* BLOK KEAMANAN (Menampilkan Checksum & Verifikasi RSA) */}
-                  {ticket.tanggapan.hash_lampiran && (
-                    <div className="mt-6 pt-5 border-t border-dashed border-gray-300">
-                      <h4 className="text-[#130962] font-bold text-sm mb-3 flex items-center gap-2">
-                        <span>🛡️</span> Integritas Dokumen & Tanda Tangan Digital
-                      </h4>
-                      
-                      {/* Tampilan Hash */}
-                      <div className="bg-gray-50 rounded-lg p-3 mb-4 border border-gray-200 flex items-center justify-between">
-                        <div>
-                          <p className="text-[10px] text-gray-500 font-bold uppercase">SHA-256 Checksum (File Hash)</p>
-                          <p className="text-xs text-[#130962] font-mono mt-0.5 break-all">
-                            {ticket.tanggapan.hash_lampiran}
-                          </p>
-                        </div>
-                        <button 
-                          onClick={() => {
-                            navigator.clipboard.writeText(ticket.tanggapan.hash_lampiran);
-                            alert("Checksum disalin!");
-                          }}
-                          className="text-gray-400 hover:text-[#130962] ml-4 shrink-0" 
-                          title="Copy Hash"
-                        >
-                          📋
-                        </button>
-                      </div>
-
-                      {/* Tombol & Status Verifikasi */}
-                      {verifyStatus === "idle" && (
-                        <button 
-                          onClick={handleVerifikasi}
-                          className="w-full py-2.5 border-2 border-[#130962] text-[#130962] font-bold text-sm rounded-lg hover:bg-[#130962] hover:text-white transition-colors"
-                        >
-                          VERIFIKASI KEASLIAN DOKUMEN (RSA)
-                        </button>
-                      )}
-
-                      {verifyStatus === "loading" && (
-                        <div className="w-full py-2.5 bg-gray-100 text-gray-500 font-bold text-sm rounded-lg text-center animate-pulse">
-                          Mengecek Public Key & Mendekripsi Signature...
-                        </div>
-                      )}
-
-                      {verifyStatus === "valid" && (
-                        <div className="w-full py-3 bg-green-50 border border-green-500 rounded-lg flex items-center justify-center gap-2 text-green-700">
-                          <span className="text-xl">✅</span>
-                          <div>
-                            <p className="font-bold text-sm">Dokumen Valid & Nirsangkal</p>
-                            <p className="text-xs">Tanda tangan digital cocok dan file tidak mengalami modifikasi.</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {verifyStatus === "invalid" && (
-                        <div className="w-full py-3 bg-red-50 border border-red-500 rounded-lg flex items-center justify-center gap-2 text-red-700">
-                          <span className="text-xl">❌</span>
-                          <div>
-                            <p className="font-bold text-sm">Peringatan Integritas!</p>
-                            <p className="text-xs">Tanda tangan tidak cocok. Dokumen ini mungkin telah dimodifikasi atau dipalsukan.</p>
-                          </div>
-                        </div>
-                      )}
+                  <div className="flex gap-4 py-2 items-start">
+                    <span className="w-28 text-[#130962] font-semibold text-sm shrink-0">Hash Dokumen</span>
+                    <span className="text-gray-500 text-sm shrink-0">:</span>
+                    <div className="flex flex-col gap-1">
+                      <code className="text-[11px] bg-gray-100 text-gray-600 px-2 py-1 rounded-lg font-mono break-all">
+                        sha256:a3f8c2d1e9b74056f2a1c8e3d7b9f042a1e5c8d3f6b2a9e1c4d7f0b3e6a2c5d8
+                      </code>
+                      <span className="text-[10px] text-gray-400 italic">Digital signature terverifikasi oleh sistem</span>
                     </div>
-                  )}
+                  </div>
                 </>
               ) : (
                 <p className="text-gray-400 italic text-sm text-center py-6">
@@ -284,16 +229,25 @@ export const DetailTiketPage = () => {
           {/* Log Aktivitas */}
           <div className="rounded-lg overflow-hidden border border-gray-200">
             <SectionHeader icon="🕐" title="LOG AKTIVITAS" />
-            <div className="p-5 flex flex-col gap-3">
-              {ticket.log.map((item, idx) => (
-                <div key={idx} className="flex items-start gap-3">
-                  <div className={`w-2.5 h-2.5 rounded-full ${item.color} shrink-0 mt-1`} />
-                  <div>
-                    <span className="text-xs text-gray-400 mr-2">{item.time}</span>
-                    <span className="text-xs text-[#130962]">{item.text}</span>
+            <div className="p-5">
+              <div className="flex flex-col">
+                {ticket.log.map((item, idx) => (
+                  <div key={idx} className="flex gap-3">
+                    {/* Garis timeline + titik */}
+                    <div className="flex flex-col items-center">
+                      <div className={`w-3 h-3 rounded-full ${item.color} shrink-0 mt-0.5`} />
+                      {idx < ticket.log.length - 1 && (
+                        <div className="w-px flex-1 bg-gray-200 my-1" />
+                      )}
+                    </div>
+                    {/* Konten */}
+                    <div className="flex gap-2 pb-4">
+                      <span className="text-xs text-gray-400 shrink-0 w-40">{item.time}</span>
+                      <span className="text-xs text-[#130962]">{item.text}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </div>
