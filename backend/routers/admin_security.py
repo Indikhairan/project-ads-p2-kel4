@@ -28,7 +28,7 @@ class AuditLogResponse(BaseModel):
 class TambahUserPayload(BaseModel):
     email: EmailStr
     nama_lengkap: str
-    role: str                          
+    role: str                                  
     nip: Optional[str] = None
     unit_kerja: Optional[str] = None
     nim: Optional[str] = None
@@ -102,9 +102,10 @@ class AdminSecurityService:
                 ~models.AuditLog.aksi.ilike("%Logout%")
             ).all()
 
+            # --- PERBAIKAN PENGHITUNGAN GRAFIK DI SINI ---
             authz_total_hari_ini = sum(1 for log in log_akses_hari_ini if "Success" in log.status)
-            authz_rbac_hari_ini = sum(1 for log in log_akses_hari_ini if "403" in log.status or "Role" in log.status)
-            authz_obac_hari_ini = sum(1 for log in log_akses_hari_ini if "Unauthorized Object" in log.status or "Milik Orang Lain" in log.status)
+            authz_rbac_hari_ini = sum(1 for log in log_akses_hari_ini if "RBAC" in log.status)
+            authz_obac_hari_ini = sum(1 for log in log_akses_hari_ini if "OBAC" in log.status)
 
         total_login_hari_ini = login_sukses_hari_ini + login_gagal_hari_ini
         persentase_sukses = round((login_sukses_hari_ini / total_login_hari_ini * 100), 1) if total_login_hari_ini > 0 else 0.0
@@ -214,7 +215,7 @@ class AdminSecurityService:
 def get_security_stats(request: Request, db: Session = Depends(get_db)):
     """Statistik keamanan (Authentication & Authorization)."""
     user_data = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_data, "admin")
+    sec_helper.cek_role(user_data, db, request, "admin")
 
     service = AdminSecurityService(db) # Masukkan db ke Service
     return service.get_security_stats()
@@ -224,7 +225,7 @@ def get_security_stats(request: Request, db: Session = Depends(get_db)):
 def get_audit_logs(request: Request, db: Session = Depends(get_db), page: int = 1, limit: int = 10):
     """Ambil audit log dari database (Accounting)."""
     user_data = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_data, "admin")
+    sec_helper.cek_role(user_data, db, request, "admin")
 
     service = AdminSecurityService(db) # Masukkan db ke Service
     return service.get_audit_logs(page=page, limit=limit)
@@ -238,7 +239,16 @@ def tambah_user_manual(
 ):
     """Daftarkan user baru secara manual oleh Admin."""
     user_data = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_data, "admin")
+    sec_helper.cek_role(user_data, db, request, "admin")
 
     service = AdminSecurityService(db)
-    return service.tambah_user_manual(payload)
+    hasil = service.tambah_user_manual(payload)
+    
+    # --- TANAM LOG UNTUK PENAMBAHAN USER BARU ---
+    sec_helper.log_aktivitas(
+        db=db, 
+        aksi=f"Tambah user baru: {payload.email} ({payload.role})", 
+        request=request
+    )
+    
+    return hasil

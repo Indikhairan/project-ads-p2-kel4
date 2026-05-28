@@ -170,7 +170,9 @@ class NotifikasiService:
 @router.get("/", response_model=List[NotifikasiResponse])
 def lihat_notifikasi(request: Request, db: Session = Depends(get_db)):
     user_data = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_data, "mahasiswa", "staff", "admin")
+    
+    # GUNAKAN SATPAM PINTAR BARU
+    sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
 
     service = NotifikasiService(db)
     return service.dapatkan_semua_notifikasi(user_data["email"], user_data["role"])
@@ -179,7 +181,9 @@ def lihat_notifikasi(request: Request, db: Session = Depends(get_db)):
 @router.get("/unread-count")
 def unread_count(request: Request, db: Session = Depends(get_db)):
     user_data = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_data, "mahasiswa", "staff", "admin")
+    
+    # GUNAKAN SATPAM PINTAR BARU
+    sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
 
     service = NotifikasiService(db)
     count = service.dapatkan_jumlah_unread(user_data["email"], user_data["role"])
@@ -189,7 +193,9 @@ def unread_count(request: Request, db: Session = Depends(get_db)):
 @router.patch("/read-all")
 def tandai_semua_dibaca(request: Request, db: Session = Depends(get_db)):
     user_data = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_data, "mahasiswa", "staff", "admin")
+    
+    # GUNAKAN SATPAM PINTAR BARU
+    sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
 
     service = NotifikasiService(db)
     updated = service.tandai_semua_baca(user_data["email"], user_data["role"])
@@ -199,7 +205,13 @@ def tandai_semua_dibaca(request: Request, db: Session = Depends(get_db)):
 @router.patch("/{id_notifikasi}/read", response_model=NotifikasiResponse)
 def tandai_satu_dibaca(id_notifikasi: str, request: Request, db: Session = Depends(get_db)):
     user_data = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_data, "mahasiswa", "staff", "admin")
+    
+    # GUNAKAN SATPAM PINTAR BARU
+    sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
 
     service = NotifikasiService(db)
+    
+    # Logika OBAC sudah tertanam dengan sangat baik di dalam service.tandai_satu_baca
+    # Jika mahasiswa mencoba membaca notif mahasiswa lain, akan di-raise 403.
+    # (Opsional: Kalau kamu mau catat pelanggaran ini, kamu bisa masukkan try-except di sini seperti di tiket.py)
     return service.tandai_satu_baca(id_notifikasi, user_data["email"], user_data["role"])

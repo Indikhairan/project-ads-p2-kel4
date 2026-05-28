@@ -109,29 +109,30 @@ def tanya_bot(request_data: ChatRequest, request: Request, db: Session = Depends
     if bot_kampus is None:
         raise HTTPException(503, "Chatbot belum siap.")
 
-    # 1. SATPAM: Pastikan yang nanya punya tiket/token JWT yang valid
+    # 1. SATPAM PINTAR: Ekstrak Token & Validasi RBAC
     user_info = sec_helper.ekstrak_token(request)
+    
+    # Hanya mahasiswa yang boleh menggunakan resource Chatbot
+    sec_helper.cek_role(user_info, db, request, "mahasiswa")
+    
     email_user = user_info["email"]
     nama_user = user_info["nama_lengkap"]
     
     # 2. AI ENGINE: Minta bot merumuskan jawaban
     jawaban_ai = bot_kampus.jawab_pertanyaan(request_data.pesan)
     
-    # 3. ACCOUNTING: Catat aktivitas bahwa user membuka chatbot
-    sec_helper.log_aktivitas(
-        db=db,
-        email=email_user,
-        role=user_info["role"],
-        aksi="Menggunakan fitur Chatbot SAPA",
-        status_log="Success",
-        ip_address=request.client.host
-    )
-    
-    # 4. DATABASE: Simpan riwayat obrolan (Tinggal hapus tanda # kalau database Mutica sudah siap)
+    # 3. DATABASE: Daftarkan riwayat chat ke antrean simpan (belum di-commit)
     bot_kampus.simpan_riwayat_chat(db, email_user, request_data.pesan, jawaban_ai)
     
-    # 5. COMMIT TRANSAKSI: Simpan log dan chat ke dalam database sekaligus
-    db.commit() 
+    # 4. ACCOUNTING: Catat aktivitas & Commit semuanya sekaligus!
+    # Gunakan pemanggilan log pintar yang sangat ringkas
+    sec_helper.log_aktivitas(
+        db=db,
+        aksi="Menggunakan fitur Chatbot SAPA",
+        request=request
+    )
+    # (Catatan: sec_helper.log_aktivitas sudah memanggil db.commit() di dalamnya, 
+    #  jadi riwayat chat pada langkah ke-3 otomatis ikut tersimpan ke PostgreSQL)
     
     return ChatResponse(
         pengguna=nama_user,
@@ -142,9 +143,13 @@ def tanya_bot(request_data: ChatRequest, request: Request, db: Session = Depends
 def get_riwayat_chat(request: Request, db: Session = Depends(get_db)):
     # 1. Cek siapa yang sedang login
     user_info = sec_helper.ekstrak_token(request)
+    
+    # Tambahkan RBAC untuk memastikan hanya role yang valid yang bisa akses
+    sec_helper.cek_role(user_info, db, request, "mahasiswa")
+    
     email_user = user_info["email"]
     
-    # 2. Ambil semua riwayat chat miliknya dari database, urutkan dari yang terlama ke terbaru
+    # 2. OBAC Implisit: Mengambil data khusus milik user tersebut
     riwayat = db.query(models.ChatbotSession).filter(
         models.ChatbotSession.email_mahasiswa == email_user
     ).all()

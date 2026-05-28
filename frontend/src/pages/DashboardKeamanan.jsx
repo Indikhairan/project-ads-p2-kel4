@@ -45,6 +45,8 @@ export const DashboardKeamanan = () => {
 
   // --- FETCH DATA DARI FASTAPI (REAL-TIME) ---
   useEffect(() => {
+    let intervalId; // Deklarasikan di luar supaya bisa dimatikan dari dalam fungsi
+
     const fetchDashboardData = async () => {
       if (!token) {
         navigate("/login");
@@ -61,8 +63,14 @@ export const DashboardKeamanan = () => {
           })
         ]);
 
-        if (!resStats.ok || !resLogs.ok) {
+        // CEK JIKA AKSES DITOLAK (401 atau 403)
+        if (resStats.status === 401 || resStats.status === 403 || resLogs.status === 401 || resLogs.status === 403) {
+          clearInterval(intervalId); // MATIKAN TIMER! Jangan ngeyel minta data lagi
           throw new Error("Gagal mengambil data dari server (Akses Ditolak).");
+        }
+
+        if (!resStats.ok || !resLogs.ok) {
+          throw new Error("Terjadi kesalahan pada server.");
         }
 
         const dataStats = await resStats.json();
@@ -73,18 +81,19 @@ export const DashboardKeamanan = () => {
       } catch (error) {
         console.error("Error fetching admin data:", error);
         setErrorMsg(error.message);
+        clearInterval(intervalId); // Matikan timer juga kalau ada error lain (misal server mati)
       }
     };
 
-    // 1. Panggil pertama kali saat komponen dirender
+    // 1. Panggil pertama kali
     fetchDashboardData();
 
-    // 2. Pasang interval untuk memanggil data ulang setiap 5 detik secara background
-    const intervalId = setInterval(() => {
+    // 2. Pasang interval
+    intervalId = setInterval(() => {
       fetchDashboardData();
     }, 5000);
 
-    // 3. Bersihkan interval saat keluar dari halaman ini
+    // 3. Bersihkan saat pindah halaman
     return () => clearInterval(intervalId);
   }, [token, navigate]);
 
