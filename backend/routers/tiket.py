@@ -284,3 +284,38 @@ async def tanggapi_tiket(
         nama_lampiran=nama_lampiran, 
         passphrase=passphrase
     )
+
+@router.get("/{id_tiket}/verifikasi")
+def verifikasi_dokumen(id_tiket: str, db: Session = Depends(get_db)):
+    """Mahasiswa mengecek keaslian dokumen balasan dari Staff"""
+    # 1. Cari tiket dan tanggapannya
+    tiket = db.query(models.TiketLayanan).filter(models.TiketLayanan.id_tiket == id_tiket).first()
+    if not tiket or not tiket.tanggapan:
+        raise HTTPException(status_code=404, detail="Tiket atau tanggapan tidak ditemukan.")
+
+    tanggapan = tiket.tanggapan
+
+    # 2. Cari Public Key milik Staf yang membalas
+    staff = db.query(models.StaffAkademik).filter(models.StaffAkademik.email == tanggapan.email_staff).first()
+    if not staff or not staff.public_key:
+        raise HTTPException(status_code=400, detail="Kunci Publik Staff tidak ditemukan.")
+
+    # 3. Rangkai kembali paket data persis seperti saat dikunci
+    paket_data = {
+        "pesan": tanggapan.pesan,
+        "hash_lampiran": tanggapan.hash_lampiran
+    }
+    string_paket = json.dumps(paket_data, sort_keys=True)
+
+    # 4. Lempar ke mesin verifikasi
+    is_valid = sec_helper.verifikasi_digital_signature(
+        payload=string_paket,
+        signature_b64=tanggapan.digital_signature,
+        public_key_pem=staff.public_key
+    )
+
+    return {
+        "status": "success",
+        "is_valid": is_valid,
+        "penandatangan": staff.email
+    }
