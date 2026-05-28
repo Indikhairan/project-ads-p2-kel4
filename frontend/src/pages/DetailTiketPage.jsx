@@ -5,7 +5,7 @@ import { FormPengajuanTiket } from "../components/FormPengajuanTiket";
 import { ChatbotSAPA } from "../components/ChatbotSAPA";
 import image3 from "../assets/image-3.png";
 
-// Data dummy tiket
+// Data dummy tiket (Ditambah Hash & Signature untuk tiket 002)
 const ticketData = {
   "001": {
     id: "#001",
@@ -33,6 +33,9 @@ const ticketData = {
       direspon: "Staff Akademik (Agus S.)",
       pesan: "Surat pengantar sudah dicetak dan ditandatangani. Silahkan unduh dokumen pada lampiran di bawah ini.",
       berkas: "Surat_Aktif_Budi_TTD.pdf",
+      // DATA TAMBAHAN UNTUK KEAMANAN
+      hash_lampiran: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      digital_signature: "base64_encoded_signature..."
     },
     log: [
       { time: "22/04/2026 - 08:30 WIB", text: "Tiket berhasil dibuat (Mahasiswa)", color: "bg-blue-500" },
@@ -78,25 +81,29 @@ const SectionHeader = ({ icon, title }) => (
 );
 
 const InfoRow = ({ label, value, isFile }) => (
-  <div className="flex gap-4 py-2 border-b border-gray-100 last:border-0">
+  <div className="flex gap-4 py-2 border-b border-gray-100 last:border-0 items-center">
     <span className="w-28 text-[#130962] font-semibold text-sm shrink-0">{label}</span>
-    <span className="text-gray-500 text-sm">:</span>
+    <span className="text-gray-500 text-sm shrink-0">:</span>
     {isFile ? (
       <button className="text-sm text-blue-600 underline flex items-center gap-1 hover:opacity-70">
         📄 {value}
         <span className="bg-gray-200 text-gray-600 text-[10px] px-1.5 py-0.5 rounded ml-1">Unduh</span>
       </button>
     ) : (
-      <span className="text-[#130962] text-sm">{value}</span>
+      <span className="text-[#130962] text-sm break-all">{value}</span>
     )}
   </div>
 );
 
 export const DetailTiketPage = () => {
-  const { id } = useParams();
+  // Sementara id dipaksa "002" agar bisa melihat tampilan Selesai (Hapus default="002" jika ingin dinamis)
+  const { id = "002" } = useParams(); 
   const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
   const [showChatbot, setShowChatbot] = useState(false);
+
+  // STATE UNTUK VERIFIKASI KEAMANAN (idle, loading, valid, invalid)
+  const [verifyStatus, setVerifyStatus] = useState("idle"); 
 
   const ticket = ticketData[id];
 
@@ -110,6 +117,41 @@ export const DetailTiketPage = () => {
       </main>
     );
   }
+
+  // FUNGSI VERIFIKASI ASLI KE BACKEND
+  const handleVerifikasi = async () => {
+    setVerifyStatus("loading");
+    
+    try {
+      const token = localStorage.getItem("sapa_ipb_token");
+      // Hapus tanda '#' dari id tiket (misal '#002' jadi '002')
+      const cleanId = ticket.id.replace('#', ''); 
+      
+      const res = await fetch(`http://localhost:8000/api/v1/tiket/${cleanId}/verifikasi`, {
+        method: "GET",
+        headers: { 
+          "Authorization": `Bearer ${token}` 
+        }
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        // Cek hasil dari backend (True / False)
+        if (data.is_valid === true) {
+          setVerifyStatus("valid");
+        } else {
+          setVerifyStatus("invalid");
+        }
+      } else {
+        throw new Error(data.detail || "Gagal menghubungi server verifikasi.");
+      }
+    } catch (error) {
+      console.error("Error verifikasi:", error);
+      alert(error.message);
+      setVerifyStatus("idle"); // Kembalikan tombol seperti semula kalau error jaringan
+    }
+  };
 
   return (
     <main className="bg-[#f8f9fa] w-full min-h-screen flex flex-col">
@@ -154,7 +196,7 @@ export const DetailTiketPage = () => {
             </div>
           </div>
 
-          {/* Tanggapan Staff */}
+          {/* Tanggapan Staff (Dengan UI Verifikasi RSA) */}
           <div className="rounded-lg overflow-hidden border border-gray-200">
             <SectionHeader icon="💬" title="TANGGAPAN STAFF" />
             <div className="p-5">

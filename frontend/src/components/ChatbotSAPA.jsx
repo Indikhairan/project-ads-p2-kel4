@@ -1,56 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import image3 from "../assets/image-3.png";
 
-// Database jawaban chatbot (knowledge base sederhana)
-const knowledgeBase = [
-  {
-    keywords: ["cuti", "cuti akademik", "cara cuti"],
-    answer: "Untuk mengajukan cuti akademik, berikut langkah-langkahnya:\n1. Unduh formulir cuti di website akademik IPB.\n2. Isi formulir dan minta tanda tangan dosen wali.\n3. Serahkan ke bagian akademik fakultas.\n4. Tunggu persetujuan dari Direktorat Administrasi Pendidikan.\n\nPastikan pengajuan dilakukan sebelum batas waktu yang ditentukan.",
-  },
-  {
-    keywords: ["krs", "isi krs", "cara krs", "kontrak mata kuliah"],
-    answer: "Cara mengisi KRS di IPB:\n1. Login ke SIMAK IPB di simak.ipb.ac.id.\n2. Pilih menu 'Kartu Rencana Studi'.\n3. Pilih mata kuliah yang ingin dikontrak.\n4. Simpan dan cetak KRS.\n\nPastikan pengisian KRS dilakukan sesuai jadwal yang ditetapkan.",
-  },
-  {
-    keywords: ["beasiswa", "informasi beasiswa", "daftar beasiswa"],
-    answer: "Informasi beasiswa di IPB dapat ditemukan melalui:\n1. Website resmi IPB di beasiswa.ipb.ac.id.\n2. Pengumuman di papan informasi fakultas.\n3. Email resmi dari kemahasiswaan.\n\nJenis beasiswa yang tersedia antara lain: Beasiswa Bidikmisi, KIP-K, Beasiswa Prestasi, dan beasiswa dari pihak swasta.",
-  },
-  {
-    keywords: ["surat", "surat aktif", "surat keterangan", "surat mahasiswa"],
-    answer: "Untuk mengajukan surat keterangan mahasiswa aktif:\n1. Klik menu '+ Buat Tiket' di halaman utama.\n2. Isi subjek dan pilih kategori 'Persuratan'.\n3. Pilih jenis surat yang dibutuhkan.\n4. Lengkapi persyaratan yang diminta.\n5. Klik 'Submit Tiket'.\n\nSurat akan diproses dalam 1-3 hari kerja.",
-  },
-  {
-    keywords: ["tiket", "buat tiket", "pengajuan", "ajukan"],
-    answer: "Cara membuat tiket pengajuan layanan:\n1. Klik menu '+ Buat Tiket' di navbar.\n2. Isi subjek tiket.\n3. Pilih kategori layanan (Persuratan/Informasi/Lainnya).\n4. Isi deskripsi keperluan.\n5. Unggah dokumen pendukung jika ada.\n6. Klik 'Submit Tiket'.\n\nKamu bisa memantau status tiket di menu 'Riwayat Tiket'.",
-  },
-  {
-    keywords: ["status tiket", "cek tiket", "riwayat tiket"],
-    answer: "Untuk melihat status tiket pengajuan kamu:\n1. Klik menu 'Riwayat Tiket' di navbar.\n2. Daftar semua tiket kamu akan muncul beserta statusnya.\n3. Klik salah satu tiket untuk melihat detail dan balasan dari staff.\n\nStatus tiket: Sedang Diproses, Selesai, atau Ditolak.",
-  },
-  {
-    keywords: ["halo", "hai", "hello", "hi", "selamat pagi", "selamat siang", "selamat malam", "hei"],
-    answer: "Halo! Selamat datang di CHATBOT SAPA 👋\nSaya siap membantu kamu dengan informasi seputar layanan akademik IPB.\n\nKamu bisa tanyakan seputar:\n- Cara cuti akademik\n- Pengisian KRS\n- Informasi beasiswa\n- Pengajuan surat\n- Status tiket\n\nAda yang bisa saya bantu?",
-  },
-  {
-    keywords: ["terima kasih", "makasih", "thanks", "thank you"],
-    answer: "Sama-sama! Senang bisa membantu 😊\nJika ada pertanyaan lain seputar layanan akademik, jangan ragu untuk bertanya ya!",
-  },
-];
-
-const FALLBACK_ANSWER =
-  "Maaf, SAPA tidak mengerti pertanyaan Anda. Silahkan hubungi staff via tiket atau ajukan pertanyaan seputar layanan akademik IPB.";
-
-const findAnswer = (input) => {
-  const lower = input.toLowerCase().trim();
-  for (const item of knowledgeBase) {
-    if (item.keywords.some((kw) => lower.includes(kw))) {
-      return item.answer;
-    }
-  }
-  return FALLBACK_ANSWER;
-};
-
-// Bubble chat
 const ChatBubble = ({ message }) => {
   const isBot = message.sender === "bot";
   return (
@@ -72,35 +22,108 @@ const ChatBubble = ({ message }) => {
 };
 
 export const ChatbotSAPA = ({ onClose }) => {
+  // State awal hanya berisi pesan sapaan bot
   const [messages, setMessages] = useState([
-    { id: 1, sender: "bot", text: "Halo! Ada yang bisa saya bantu?" },
+    { id: "greeting", sender: "bot", text: "Halo! Selamat datang di CHATBOT SAPA 👋\nAda yang bisa saya bantu?" },
   ]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  
+  // State baru untuk mengontrol tombol Muat Riwayat
+  const [isHistoryLoaded, setIsHistoryLoaded] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  
   const bottomRef = useRef(null);
 
+  // Efek untuk auto-scroll ke bawah setiap ada pesan baru
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  const handleSend = () => {
+  // Fungsi untuk menarik riwayat saat tombol diklik
+  const handleLoadHistory = async () => {
+    setIsLoadingHistory(true);
+    try {
+      const token = localStorage.getItem("sapa_ipb_token");
+      if (!token) return;
+
+      const response = await fetch("http://127.0.0.1:8000/chatbot/riwayat", {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error("Gagal mengambil riwayat dari server");
+      }
+
+      const data = await response.json();
+
+      if (data && data.length > 0) {
+        const formattedHistory = data.flatMap((chat, index) => [
+          { id: `hist-user-${index}`, sender: "user", text: chat.pesan_user },
+          { id: `hist-bot-${index}`, sender: "bot", text: chat.jawaban_bot }
+        ]);
+
+        // Menyisipkan riwayat ke bagian paling atas (sebelum pesan saat ini)
+        setMessages((prev) => [...formattedHistory, ...prev]);
+      }
+      
+      // Sembunyikan tombol setelah diklik
+      setIsHistoryLoaded(true);
+    } catch (error) {
+      console.error("Error load history:", error);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  const handleSend = async () => {
     const trimmed = input.trim();
     if (!trimmed) return;
 
+    // 1. Tampilkan pesan user ke layar
     const userMsg = { id: Date.now(), sender: "user", text: trimmed };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
-    setIsTyping(true);
+    setIsTyping(true); // Munculkan animasi loading 3 titik
 
-    // Simulasi delay seperti bot sedang mengetik
-    setTimeout(() => {
-      const botAnswer = findAnswer(trimmed);
+    try {
+      // 2. Ambil token JWT dari brankas browser
+      const token = localStorage.getItem("sapa_ipb_token"); 
+
+      // 3. Tembak API FastAPI (Tetap Konsisten Menggunakan Fetch)
+      const response = await fetch("http://127.0.0.1:8000/chatbot/tanya", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ pesan: trimmed })
+      });
+
+      if (!response.ok) {
+        throw new Error("Gagal mendapat respons dari server");
+      }
+
+      // 4. Ekstrak jawaban JSON dari backend
+      const data = await response.json();
+
+      // 5. Tampilkan jawaban Gemini ke layar
       setMessages((prev) => [
         ...prev,
-        { id: Date.now() + 1, sender: "bot", text: botAnswer },
+        { id: Date.now() + 1, sender: "bot", text: data.jawaban },
       ]);
+    } catch (error) {
+      console.error("Error chatbot:", error);
+      setMessages((prev) => [
+        ...prev,
+        { id: Date.now() + 1, sender: "bot", text: "Maaf, sistem SAPA sedang gangguan atau sesi kamu habis. Coba refresh halaman ya!" },
+      ]);
+    } finally {
       setIsTyping(false);
-    }, 800);
+    }
   };
 
   const handleKeyDown = (e) => {
@@ -130,6 +153,18 @@ export const ChatbotSAPA = ({ onClose }) => {
 
       {/* Area pesan */}
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3 bg-[#f4f6fb]">
+        
+        {/* TOMBOL MUAT RIWAYAT (Hanya muncul jika belum diload) */}
+        {!isHistoryLoaded && (
+          <button 
+            onClick={handleLoadHistory}
+            disabled={isLoadingHistory}
+            className="text-xs bg-white border border-[#ffe030] text-[#130962] font-semibold py-1.5 px-4 rounded-full mx-auto mb-2 hover:bg-[#ffe030] transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoadingHistory ? "Memuat..." : "Lihat obrolan sebelumnya"}
+          </button>
+        )}
+
         {messages.map((msg) => (
           <ChatBubble key={msg.id} message={msg} />
         ))}
