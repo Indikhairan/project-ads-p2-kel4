@@ -5,6 +5,26 @@ export const TopNavigationSection = ({ onBuatTiket, formOpen }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const isActive = (path) => location.pathname === path;
+  const handleLogout = async () => {
+    const token = localStorage.getItem("sapa_ipb_token");
+
+    // Kirim sinyal logout ke backend
+    try {
+      await fetch("http://localhost:8000/auth/logout", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      });
+    } catch (err) {
+      console.error("Gagal logout:", err);
+    }
+
+    // Baru hapus token dan pindah halaman
+    localStorage.removeItem("sapa_ipb_token");
+    navigate("/");
+  };
 
   return (
     <header className="w-full bg-white border-b border-gray-200 flex items-center justify-between px-8 py-3">

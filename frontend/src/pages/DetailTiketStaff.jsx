@@ -2,71 +2,11 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { TopNavigationStaff } from "../components/TopNavigationStaff";
 
-const ticketData = {
-  "001": {
-    id: "#001",
-    noTiket: "REQ-20260401-001",
-    status: "processing",
-    kategori: "Persuratan - Surat Keterangan Aktif Kuliah",
-    pengaju: "Budi Santoso",
-    nim: "G64012345",
-    email: "budisantoso@apps.ipb.ac.id",
-    tanggal: "22 April 2026, 08:30 WIB",
-    keterangan: "Mohon dibuatkan surat keterangan aktif untuk syarat beasiswa",
-    lampiran: "KRS_Budi_Genap.pdf",
-    mahasiswa: {
-      nama: "Budi Santoso",
-      nim: "G64012345",
-      ttl: "Jakarta, 15 Januari 2002",
-      alamat: "Jl. Raya Dramaga No. 123, Bogor",
-      prodi: "Ilmu Komputer",
-      fakultas: "Matematika dan Ilmu Pengetahuan Alam",
-      angkatan: "2020",
-      semester: "8",
-      statusAkademik: "Aktif",
-      ipk: "3.75",
-    },
-    log: [
-      { time: "22/04/2026 - 09:00 WIB", text: "Tiket berhasil di-submit (Mahasiswa)", color: "bg-blue-500" },
-      { time: "22/04/2026 - 09:15 WIB", text: "Tiket dilihat oleh Staff Agus", color: "bg-yellow-500" },
-    ],
-  },
-  "002": {
-    id: "#002",
-    noTiket: "REQ-20260401-002",
-    status: "completed",
-    kategori: "Persuratan - Surat Keterangan Aktif Kuliah",
-    pengaju: "Budi Santoso",
-    nim: "G64012345",
-    email: "budisantoso@apps.ipb.ac.id",
-    tanggal: "22 April 2026, 08:30 WIB",
-    keterangan: "Mohon dibuatkan surat keterangan aktif untuk syarat beasiswa",
-    lampiran: "KRS_Budi_Genap.pdf",
-    mahasiswa: {
-      nama: "Budi Santoso",
-      nim: "G64012345",
-      ttl: "Jakarta, 15 Januari 2002",
-      alamat: "Jl. Raya Dramaga No. 123, Bogor",
-      prodi: "Ilmu Komputer",
-      fakultas: "Matematika dan Ilmu Pengetahuan Alam",
-      angkatan: "2020",
-      semester: "8",
-      statusAkademik: "Aktif",
-      ipk: "3.75",
-    },
-    log: [
-      { time: "22/04/2026 - 09:00 WIB", text: "Tiket berhasil di-submit (Mahasiswa)", color: "bg-blue-500" },
-      { time: "22/04/2026 - 09:15 WIB", text: "Tiket dilihat oleh Staff Agus", color: "bg-yellow-500" },
-      { time: "22/04/2026 - 10:00 WIB", text: "Tanggapan & file dikirim (Staff Agus)", color: "bg-blue-500" },
-      { time: "22/04/2026 - 10:00 WIB", text: "Status berubah: SELESAI (Otomatis)", color: "bg-green-500" },
-    ],
-  },
-};
-
 const STATUS_OPTIONS = [
-  { value: "processing", label: "DIPROSES" },
-  { value: "completed", label: "SELESAI" },
-  { value: "rejected", label: "DITOLAK" },
+  { value: "Open", label: "OPEN" },
+  { value: "Diproses", label: "DIPROSES" },
+  { value: "Selesai", label: "SELESAI" },
+  { value: "Ditolak", label: "DITOLAK" },
 ];
 
 // Lock scroll background saat modal terbuka
@@ -273,43 +213,363 @@ const ModalPreviewSurat = ({ mahasiswa, onClose }) => {
   );
 };
 
+// --- Fungsi Validasi Realtime Passphrase ---
+const cekKekuatan = (teks) => {
+  if (teks.length < 8) return "Minimal 8 karakter.";
+  if (!/[A-Z]/.test(teks)) return "Harus ada huruf besar.";
+  if (!/[a-z]/.test(teks)) return "Harus ada huruf kecil.";
+  if (!/[0-9]/.test(teks)) return "Harus ada angka.";
+  if (!/[!@#$%^&*(),.?":{}|<>]/.test(teks)) return "Harus ada simbol spesial.";
+  return ""; 
+};
+
 export const DetailTiketStaff = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const fileRef = useRef();
 
-  const ticket = ticketData[id];
-  const [status, setStatus] = useState(ticket?.status || "processing");
+  const [ticket, setTicket] = useState(null);
+  const [status, setStatus] = useState("Open");
   const [pesan, setPesan] = useState("");
   const [uploadedFile, setUploadedFile] = useState(null);
+  const [privateKeyFile, setPrivateKeyFile] = useState(null);
   const [showProfil, setShowProfil] = useState(false);
   const [showSurat, setShowSurat] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [errorPesan, setErrorPesan] = useState("");
+  const [errorStatus, setErrorStatus] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState("");
 
-  if (!ticket) {
+  useEffect(() => {
+    const token = localStorage.getItem("sapa_ipb_token");
+    if (!token) {
+      setError("Token tidak ditemukan. Silakan login kembali.");
+      setIsLoading(false);
+      return;
+    }
+  const [errorSubmit, setErrorSubmit] = useState(""); // Ganti nama biar umum
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // --- STATE KEAMANAN BARU ---
+  const [passphrase, setPassphrase] = useState("");
+  const [passphraseConfirm, setPassphraseConfirm] = useState("");
+  const [showPass, setShowPass] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [hasKey, setHasKey] = useState(null); // null = masih ngecek ke backend
+  const token = localStorage.getItem("sapa_ipb_token"); // Ambil token login
+
+    const fetchTicket = async () => {
+      setIsLoading(true);
+      setError("");
+      try {
+        const response = await fetch(`http://127.0.0.1:8000/api/v1/tiket/${encodeURIComponent(id)}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(text || "Gagal memuat detail tiket.");
+        }
+
+        const data = await response.json();
+        setTicket(data);
+        setStatus(data.status || "Open");
+      } catch (err) {
+        setError(err.message || "Gagal memuat detail tiket.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTicket();
+  }, [id]);
+
+  const formatDate = (value) => {
+    if (!value) return "-";
+    const date = new Date(value);
+    return date.toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+  };
+
+  const formatDataRequest = (payload) => {
+    if (!payload) return "-";
+    if (typeof payload === "string") return payload;
+    if (typeof payload === "object") {
+      return Object.entries(payload)
+        .map(([key, value]) => `${key}: ${typeof value === "object" ? JSON.stringify(value) : value}`)
+        .join(" | ");
+    }
+    return String(payload);
+  };
+
+  const statusColor =
+    status === "Selesai" ? "text-green-600" :
+    status === "Ditolak" ? "text-red-500" : "text-orange-500";
+
+  const handleUpdateStatus = async () => {
+    if (!ticket) return;
+    setErrorStatus("");
+    setStatusMessage("");
+    setIsUpdating(true);
+
+    const token = localStorage.getItem("sapa_ipb_token");
+    if (!token) {
+      setErrorStatus("Token tidak ditemukan. Silakan login kembali.");
+      setIsUpdating(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/v1/tiket/${encodeURIComponent(id)}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status }),
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || "Gagal memperbarui status tiket.");
+      }
+
+      const data = await response.json();
+      setTicket(data);
+      setStatus(data.status || "Open");
+      setStatusMessage("Status tiket berhasil diperbarui.");
+    } catch (err) {
+      setErrorStatus(err.message || "Gagal memperbarui status tiket.");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleKirim = async () => {
+    if (!pesan.trim()) {
+      setErrorPesan("Pesan tanggapan tidak boleh kosong!");
+      return;
+    }
+
+    if (!privateKeyFile) {
+      setErrorPesan("Private Key (.pem) wajib diunggah untuk menandatangani tanggapan.");
+      return;
+    }
+
+    setErrorPesan("");
+    setIsSending(true);
+
+    const token = localStorage.getItem("sapa_ipb_token");
+    if (!token) {
+      setErrorPesan("Token tidak ditemukan. Silakan login kembali.");
+      setIsSending(false);
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("pesan", pesan);
+      formData.append("private_key_file", privateKeyFile);
+      if (uploadedFile) {
+        formData.append("file_lampiran", uploadedFile);
+      }
+
+      const response = await fetch(`http://127.0.0.1:8000/api/v1/tiket/${encodeURIComponent(id)}/tanggapan`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || "Gagal mengirim tanggapan.");
+      }
+
+      setSubmitted(true);
+    } catch (err) {
+      setErrorPesan(err.message || "Gagal mengirim tanggapan.");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  if (isLoading) {
     return (
       <main className="bg-[#f8f9fa] w-full min-h-screen flex flex-col">
         <TopNavigationStaff />
-        <div className="flex items-center justify-center flex-1">
-          <p className="text-gray-400 italic">Tiket tidak ditemukan.</p>
+        <div className="flex items-center justify-center flex-1 py-20">
+          <p className="text-gray-500">Memuat detail tiket...</p>
         </div>
       </main>
     );
   }
 
-  const handleKirim = () => {
-    if (!pesan.trim()) {
-      setErrorPesan("Pesan tanggapan tidak boleh kosong!");
+  if (error) {
+    return (
+      <main className="bg-[#f8f9fa] w-full min-h-screen flex flex-col">
+        <TopNavigationStaff />
+        <div className="flex items-center justify-center flex-1 py-20">
+          <div className="bg-white rounded-xl shadow-sm border border-red-200 p-8 text-center max-w-md">
+            <p className="text-red-500 font-semibold mb-3">{error}</p>
+            <button
+              onClick={() => navigate(-1)}
+              className="px-4 py-2 bg-[#130962] text-white rounded-xl hover:bg-[#1a237e]"
+            >Kembali</button>
+          </div>
+        </div>
+      </main>
+    );
+  }
+  // 1. Cek apakah staf sudah punya kunci saat halaman dibuka
+    useEffect(() => {
+    const fetchKeyStatus = async () => {
+      try {
+        // Cek apakah token ada di browser
+        if (!token) {
+          console.error("Token JWT tidak ditemukan di browser!");
+          setHasKey(false);
+          return;
+        }
+
+        const res = await fetch("http://localhost:8000/api/v1/staff/status-kunci", {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setHasKey(data.has_key);
+        } else {
+          // Tangkap error dari backend (misal 401 Unauthorized atau 404 Not Found)
+          const errorData = await res.json();
+          console.error("Gagal dari backend:", errorData);
+          setHasKey(false); // Paksa keluar dari animasi loading
+        }
+      } catch (error) {
+        console.error("Network/CORS Error:", error);
+        setHasKey(false); // Paksa keluar dari animasi loading
+      }
+    };
+    fetchKeyStatus();
+  }, [token]);
+
+  // 2. Fungsi kalau staf mau bikin kunci baru
+  const handleGenerateKey = async () => {
+    if (passphrase !== passphraseConfirm) {
+      setErrorSubmit("Konfirmasi passphrase tidak cocok!");
       return;
     }
-    setErrorPesan("");
-    setSubmitted(true);
+    setErrorSubmit("");
+    setIsSubmitting(true);
+    
+    try {
+      // 1. AMBIL TOKEN SEGAR DARI LOCAL STORAGE DI SINI
+      // Cek apakah key-nya benar "token" atau "access_token" sesuai waktu kamu nyimpen pas login
+      const currentToken = localStorage.getItem("sapa_ipb_token"); 
+      
+      // Cek di console browser, apakah tokennya benar-benar ada isinya?
+      console.log("Cek JWT Token:", currentToken); 
+
+      if (!currentToken) {
+        throw new Error("Sesi tidak valid atau Token JWT kosong. Coba Logout dan Login kembali.");
+      }
+
+      const formData = new FormData();
+      formData.append("passphrase", passphrase);
+
+      const res = await fetch("http://localhost:8000/api/v1/staff/generate-key", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${currentToken}` },
+        body: formData
+      });
+
+      const data = await res.json();
+      
+      // 2. TANGKAP PESAN ERROR ASLI DARI BACKEND
+      if (!res.ok) {
+        const errorDetail = Array.isArray(data.detail) ? data.detail[0].msg : data.detail;
+        throw new Error(errorDetail || "Gagal membuat kunci (401 Unauthorized)");
+      }
+      
+      setPassphrase(""); 
+      setHasKey(true);
+      alert("Kunci Keamanan berhasil dibuat! Silakan lanjutkan membalas tiket.");
+      
+    } catch (error) {
+      setErrorSubmit(error.message); // UI akan menampilkan error aslinya!
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const statusColor =
-    status === "completed" ? "text-green-600" :
-    status === "rejected" ? "text-red-500" : "text-orange-500";
+  // 3. Fungsi utama balas tiket
+  const handleKirim = async () => {
+    if (!pesan.trim()) {
+      setErrorSubmit("Pesan tanggapan tidak boleh kosong!");
+      return;
+    }
+    if (!passphrase.trim()) {
+      setErrorSubmit("Passphrase wajib diisi untuk keamanan!");
+      return;
+    }
+    setErrorSubmit("");
+    setIsSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append("pesan", pesan);
+      formData.append("passphrase", passphrase);
+      if (uploadedFile) formData.append("file_lampiran", uploadedFile);
+
+      const cleanId = ticket.id.replace('#', '');
+      const res = await fetch(`http://localhost:8000/api/v1/tiket/${cleanId}/tanggapan`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` },
+        body: formData
+      });
+      const data = await res.json(); 
+
+      // 2. JIKA GAGAL (TERMASUK PASSPHRASE SALAH)
+      if (!res.ok) {
+        // Ambil pesan error asli dari FastAPI (data.detail)
+        const errorDetail = Array.isArray(data.detail) ? data.detail[0].msg : data.detail;
+        throw new Error(errorDetail || "Gagal mengirim tanggapan"); 
+      }
+
+      setSubmitted(true);
+      setStatus("completed"); 
+    } catch (error) {
+      // 3. TAMPILKAN PESAN ERROR ASLI KE TULISAN MERAH DI LAYAR
+      setErrorSubmit(error.message); 
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  // Tambahkan baris ini biar React nggak bingung:
+  const errorPassphraseRealtime = (!hasKey && passphrase) ? cekKekuatan(passphrase) : "";
+
+  const mahasiswa = ticket.data_request || {};
+  const logItems = [
+    {
+      time: ticket.waktu_submit ? formatDate(ticket.waktu_submit) : "-",
+      text: `Tiket dibuat oleh ${ticket.email_mahasiswa}`,
+      color: "bg-blue-500",
+    },
+    ...(ticket.email_staff ? [{
+      time: ticket.waktu_submit ? formatDate(ticket.waktu_submit) : "-",
+      text: `Staff menangani tiket: ${ticket.email_staff}`,
+      color: "bg-yellow-500",
+    }] : []),
+  ];
 
   return (
     <main className="bg-[#f8f9fa] w-full min-h-screen flex flex-col">
@@ -330,143 +590,254 @@ export const DetailTiketStaff = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col gap-6">
 
           {/* No tiket & status */}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-4">
             <p className="text-[#130962] text-sm font-semibold">
-              NO. TIKET : <span className="font-bold">{ticket.noTiket}</span>
+              NO. TIKET : <span className="font-bold">{ticket.id_tiket}</span>
             </p>
-            <div className="flex items-center gap-3">
-              <p className="text-[#130962] text-sm font-semibold">STATUS :</p>
-              <div className="relative">
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  className={`border rounded-lg px-3 py-1.5 text-sm font-semibold appearance-none pr-7 focus:outline-none focus:border-[#130962] bg-white border-gray-300 ${statusColor}`}
-                >
-                  {STATUS_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-                <span className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
-                </span>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-3">
+                <p className="text-[#130962] text-sm font-semibold">STATUS :</p>
+                <div className="relative">
+                  <select
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                    className={`border rounded-lg px-3 py-1.5 text-sm font-semibold appearance-none pr-7 focus:outline-none focus:border-[#130962] bg-white border-gray-300 ${statusColor}`}
+                  >
+                    {STATUS_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </span>
+                </div>
               </div>
+              <button
+                onClick={handleUpdateStatus}
+                disabled={isUpdating}
+                className="px-4 py-2 bg-[#130962] text-white rounded-xl text-sm hover:bg-[#1a237e] transition-colors disabled:opacity-50"
+              >{isUpdating ? "Menyimpan..." : "Simpan Status"}</button>
             </div>
+            {statusMessage && <p className="text-green-600 text-sm">{statusMessage}</p>}
+            {errorStatus && <p className="text-red-500 text-sm">{errorStatus}</p>}
           </div>
 
           {/* Informasi Pengajuan */}
           <div className="rounded-lg overflow-hidden border border-gray-200">
             <SectionHeader icon="📋" title="INFORMASI PENGAJUAN" />
             <div className="p-5">
-              <InfoRow label="Kategori" value={ticket.kategori} />
-              <InfoRow label="Pengaju" value={`${ticket.pengaju} (${ticket.nim})`} />
-              <InfoRow label="Email" value={ticket.email} />
-              <InfoRow label="Tanggal" value={ticket.tanggal} />
-              <InfoRow label="Keterangan" value={ticket.keterangan} />
-              {ticket.lampiran && <InfoRow label="Lampiran" value={ticket.lampiran} isFile />}
+              <InfoRow label="Kategori" value={ticket.kategori || "-"} />
+              <InfoRow label="Pengaju" value={ticket.email_mahasiswa || "-"} />
+              <InfoRow label="Tanggal" value={formatDate(ticket.waktu_submit)} />
+              <InfoRow label="Subjek" value={ticket.subjek || "-"} />
+              <InfoRow label="Data Request" value={formatDataRequest(ticket.data_request)} />
+              {ticket.file_lampiran && <InfoRow label="Lampiran" value={ticket.file_lampiran} isFile />}
 
-              <div className="flex gap-3 mt-5">
+              <div className="flex flex-col gap-3 mt-5 sm:flex-row">
                 <button
                   onClick={() => setShowProfil(true)}
                   className="flex items-center gap-2 px-4 py-2 bg-[#ffe030] text-[#130962] font-semibold text-xs rounded-lg hover:bg-yellow-400 transition-colors"
                 >
-                  👤 Lihat Data Lengkap Mahasiswa
+                  👤 Lihat Info Pengaju
                 </button>
                 <button
                   onClick={() => setShowSurat(true)}
                   className="flex items-center gap-2 px-4 py-2 bg-[#130962] text-white font-semibold text-xs rounded-lg hover:bg-[#1a237e] transition-colors"
                 >
-                  📄 Generate Surat Otomatis
+                  📄 Preview Data Request
                 </button>
               </div>
             </div>
           </div>
-
+          
           {/* Form Tanggapan */}
           <div className="rounded-lg overflow-hidden border border-gray-200">
             <SectionHeader icon="💬" title="FORM TANGGAPAN STAFF" />
             <div className="p-5 flex flex-col gap-4">
-              {submitted ? (
-                <div className="flex flex-col items-center py-6 gap-2">
-                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  </div>
-                  <p className="font-semibold text-[#130962] text-sm">Tanggapan berhasil dikirim!</p>
+              
+              {/* Skenario 0: Sedang Mengecek Status Kunci (Loading) */}
+              {hasKey === null && (
+                <div className="flex flex-col items-center justify-center py-10 gap-2">
+                  <div className="w-6 h-6 border-4 border-gray-200 border-t-[#130962] rounded-full animate-spin"></div>
+                  <p className="text-sm text-gray-400 animate-pulse">Menyiapkan profil keamanan...</p>
                 </div>
-              ) : (
+              )}
+
+              {/* Skenario 1: Belum Punya Kunci */}
+              {hasKey === false && (
+                <div className="bg-yellow-50 border border-yellow-300 rounded-xl p-5 mb-2">
+                  <div className="flex items-start gap-3 mb-4">
+                    <span className="text-xl">⚠️</span>
+                    <div>
+                      <h3 className="text-[#130962] font-bold text-sm">Profil Keamanan Belum Aktif</h3>
+                      <p className="text-xs text-gray-600 mt-1">Anda wajib membuat Sertifikat Digital (Passphrase) terlebih dahulu sebelum dapat menyetujui dokumen resmi.</p>
+                      <div className="mt-2 bg-yellow-100/50 p-2.5 rounded-lg border border-yellow-200">
+                        <p className="text-[11px] font-semibold text-yellow-800 mb-1">Ketentuan Passphrase:</p>
+                        <ul className="text-[11px] text-yellow-700 list-disc list-inside space-y-0.5 ml-1">
+                          <li>Minimal 8 karakter</li>
+                          <li>Kombinasi huruf besar (A-Z) dan kecil (a-z)</li>
+                          <li>Mengandung minimal 1 angka (0-9)</li>
+                          <li>Mengandung minimal 1 simbol (!@#$%^&*)</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    {/* Input Passphrase Baru */}
+                    <div className="relative">
+                      <input
+                        type={showPass ? "text" : "password"}
+                        value={passphrase}
+                        onChange={(e) => setPassphrase(e.target.value)}
+                        placeholder="Buat Passphrase Baru"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-10 text-sm focus:outline-none focus:border-[#130962]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPass(!showPass)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#130962]"
+                      >
+                        {showPass ? "👁️" : "👁️‍🗨️"}
+                      </button>
+                    </div>
+                    {errorPassphraseRealtime && <p className="text-red-500 text-xs mt-1">{errorPassphraseRealtime}</p>}
+
+                    {/* Input Konfirmasi Passphrase */}
+                    <div className="relative">
+                      <input
+                        type={showConfirm ? "text" : "password"}
+                        value={passphraseConfirm}
+                        onChange={(e) => setPassphraseConfirm(e.target.value)}
+                        placeholder="Konfirmasi Passphrase"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-10 text-sm focus:outline-none focus:border-[#130962]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirm(!showConfirm)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#130962]"
+                      >
+                        {showConfirm ? "👁️" : "👁️‍🗨️"}
+                      </button>
+                    </div>
+                  
+                    {errorSubmit && <p className="text-red-500 text-xs font-medium">{errorSubmit}</p>}
+                    <button
+                      onClick={handleGenerateKey}
+                      disabled={isSubmitting}
+                      className="w-full py-2.5 bg-[#130962] text-white font-bold rounded-lg hover:bg-[#1a237e] transition-colors text-sm disabled:opacity-50 mt-2"
+                    >
+                      {isSubmitting ? "MEMPROSES..." : "AKTIFKAN KUNCI SEKARANG"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Skenario 2: Sudah Punya Kunci, Belum Submit */}
+              {hasKey === true && !submitted && (
                 <>
                   <div>
-                    <p className="text-sm font-semibold text-[#130962] mb-1">
-                      Pesan Balasan: <span className="font-normal text-gray-400">Staff Akademik</span>
-                    </p>
+                    <p className="text-sm font-semibold text-[#130962] mb-1">Pesan Balasan Resmi</p>
                     <textarea
                       value={pesan}
-                      onChange={(e) => { setPesan(e.target.value); setErrorPesan(""); }}
+                      onChange={(e) => { setPesan(e.target.value); setErrorSubmit(""); }}
                       placeholder="Tulis tanggapan Anda untuk mahasiswa..."
                       rows={4}
-                      className={`w-full border rounded-xl px-4 py-3 text-sm focus:outline-none resize-none transition-colors ${
-                        errorPesan ? "border-red-400" : "border-gray-300 focus:border-[#130962]"
-                      }`}
+                      className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#130962] resize-none"
                     />
-                    {errorPesan && <p className="text-red-500 text-xs mt-1">{errorPesan}</p>}
                   </div>
 
                   <div>
                     <p className="text-sm font-semibold text-[#130962] mb-2">Upload Dokumen Balasan (Opsional):</p>
-                    <div
-                      onClick={() => fileRef.current.click()}
-                      className="border border-dashed border-gray-300 rounded-xl p-5 flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:bg-gray-50 hover:border-[#130962] transition-all"
-                    >
-                      <input
-                        ref={fileRef}
-                        type="file"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        className="hidden"
-                        onChange={(e) => setUploadedFile(e.target.files[0])}
-                      />
+                    <div onClick={() => fileRef.current.click()} className="border border-dashed border-gray-300 rounded-xl p-5 flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:bg-gray-50 hover:border-[#130962] transition-all">
+                      <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={(e) => setUploadedFile(e.target.files[0])} />
                       {uploadedFile ? (
                         <>
                           <span className="text-2xl">📄</span>
                           <span className="text-sm font-medium text-[#130962]">{uploadedFile.name}</span>
-                          <span className="text-xs text-green-500">File terpilih</span>
                         </>
                       ) : (
-                        <>
-                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="16 16 12 12 8 16" />
-                            <line x1="12" y1="12" x2="12" y2="21" />
-                            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
-                          </svg>
-                          <span className="text-sm font-semibold text-[#130962]">Unggah Dokumen</span>
-                          <span className="text-xs text-gray-400">Hanya format PDF atau JPG (Maksimal 5 MB)</span>
-                        </>
+                        <span className="text-sm font-semibold text-[#130962]">Unggah Dokumen (Klik Disini)</span>
                       )}
                     </div>
                   </div>
 
+                  <div>
+                    <p className="text-sm font-semibold text-[#130962] mb-2">Private Key (.pem) untuk menandatangani tanggapan:</p>
+                    <input
+                      type="file"
+                      accept=".pem"
+                      onChange={(e) => setPrivateKeyFile(e.target.files[0])}
+                      className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#130962]"
+                    />
+                  </div>
+
                   <button
                     onClick={handleKirim}
-                    className="w-full py-3 bg-[#ffe030] text-[#130962] font-bold rounded-xl hover:bg-yellow-400 transition-colors text-sm flex items-center justify-center gap-2"
+                    disabled={isSending}
+                    className="w-full py-3 bg-[#ffe030] text-[#130962] font-bold rounded-xl hover:bg-yellow-400 transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="22" y1="2" x2="11" y2="13" />
-                      <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                    </svg>
-                    KIRIM TANGGAPAN
+                    {isSending ? "Mengirim..." : (
+                      <>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="22" y1="2" x2="11" y2="13" />
+                          <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                        </svg>
+                        KIRIM TANGGAPAN
+                      </>
+                    )}
+                  {/* INPUT PASSPHRASE SEBELUM KIRIM */}
+                  <div className="mt-2 p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                    <p className="text-sm font-semibold text-[#130962] mb-1 flex items-center gap-2"><span>🔒</span> Passphrase Keamanan</p>
+                    <p className="text-xs text-gray-500 mb-3">Masukkan passphrase Anda untuk menempelkan Tanda Tangan Digital pada balasan ini.</p>
+                    <div className="relative">
+                    <input
+                      type="password"
+                      value={passphrase}
+                      onChange={(e) => { setPassphrase(e.target.value); setErrorSubmit(""); }}
+                      placeholder="Masukkan Passphrase Anda"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-[#130962]"
+                    />
+
+                    <button
+                        type="button"
+                        onClick={() => setShowPass(!showPass)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#130962]"
+                      >
+                        {showPass ? "👁️" : "👁️‍🗨️"}
+                    </button>
+                    </div>
+                  </div>
+
+                  {errorSubmit && <p className="text-red-500 text-xs text-center font-medium">{errorSubmit}</p>}
+
+                  <button onClick={handleKirim} disabled={isSubmitting} className="w-full mt-2 py-3 bg-[#ffe030] text-[#130962] font-bold rounded-xl hover:bg-yellow-400 transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+                    {isSubmitting ? "MEMPROSES SIGNATURE..." : "KIRIM TANGGAPAN"}
                   </button>
                 </>
               )}
+
+              {/* Skenario 3: Sudah Submit */}
+              {submitted && (
+                <div className="flex flex-col items-center py-6 gap-2">
+                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                  </div>
+                  <p className="font-semibold text-[#130962] text-sm">Tanggapan & Digital Signature berhasil dikirim!</p>
+                </div>
+              )}
             </div>
           </div>
+
+          
 
           {/* Log Aktivitas */}
           <div className="rounded-lg overflow-hidden border border-gray-200">
             <SectionHeader icon="🕐" title="LOG AKTIVITAS" />
             <div className="p-5 flex flex-col gap-3">
-              {ticket.log.map((item, idx) => (
+              {logItems.map((item, idx) => (
                 <div key={idx} className="flex items-start gap-3">
                   <div className={`w-2.5 h-2.5 rounded-full ${item.color} shrink-0 mt-1`} />
                   <div>
@@ -484,8 +855,8 @@ export const DetailTiketStaff = () => {
         </footer>
       </div>
 
-      {showProfil && <ModalProfilMahasiswa mahasiswa={ticket.mahasiswa} onClose={() => setShowProfil(false)} />}
-      {showSurat && <ModalPreviewSurat mahasiswa={ticket.mahasiswa} onClose={() => setShowSurat(false)} />}
+      {showProfil && <ModalProfilMahasiswa mahasiswa={mahasiswa} onClose={() => setShowProfil(false)} />}
+      {showSurat && <ModalPreviewSurat mahasiswa={mahasiswa} onClose={() => setShowSurat(false)} />}
     </main>
   );
 };

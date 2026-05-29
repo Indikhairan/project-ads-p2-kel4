@@ -1,113 +1,179 @@
-from sqlalchemy import Column, String, Integer, DateTime, Boolean, ForeignKey, JSON
+from sqlalchemy import (
+    Column, String, Integer, DateTime, Boolean,
+    ForeignKey, Text
+)
+from sqlalchemy.dialects.postgresql import JSONB   # ← ganti JSON → JSONB (lebih efisien di PostgreSQL)
 from sqlalchemy.orm import relationship
 from backend.database import Base
-from datetime import datetime
+from datetime import datetime, timezone
 
-# --- 1. USER INHERITANCE ---
+
+def _now():
+    """Waktu UTC sekarang — menggantikan datetime.utcnow() yang deprecated."""
+    return datetime.now(timezone.utc)
+
+
+# ─── 1. USER INHERITANCE ──────────────────────────────────────────────────────
+
 class User(Base):
     __tablename__ = "users"
-    email = Column(String, primary_key=True)
+    email = Column(String, primary_key=True, index=True)
     nama_lengkap = Column(String, nullable=False)
-    role = Column(String)  # 'mahasiswa', 'staff', 'admin'
-    
+    role = Column(String)           # 'mahasiswa' | 'staff' | 'admin'
+    tanggal_terdaftar = Column(DateTime, default=datetime.now)
+    is_active = Column(Boolean, default=True)
+
     __mapper_args__ = {
-        'polymorphic_identity': 'user',
-        'polymorphic_on': role
+        "polymorphic_identity": "user",
+        "polymorphic_on": role,
     }
-    
-    activities = relationship("AuditLog", back_populates="aktor")
 
 class Mahasiswa(User):
     __tablename__ = "mahasiswa"
-    email = Column(String, ForeignKey('users.email'), primary_key=True)
-    nim = Column(String, unique=True)
-    program_studi = Column(String)
-    departemen = Column(String)
-    fakultas = Column(String)
-    semester = Column(Integer)
+    email = Column(String, ForeignKey("users.email"), primary_key=True)
+    nim = Column(String, unique=True, nullable=True)
+    program_studi = Column(String, nullable=True)
+    departemen = Column(String, nullable=True)
+    fakultas = Column(String, nullable=True)
 
-    __mapper_args__ = {'polymorphic_identity': 'mahasiswa'}
-    
+    __mapper_args__ = {"polymorphic_identity": "mahasiswa"}
+
     tikets = relationship("TiketLayanan", back_populates="pengaju")
-    sessions = relationship("ChatbotSession", back_populates="mahasiswa")
+    chatbot_sessions = relationship("ChatbotSession", back_populates="mahasiswa")
 
 class StaffAkademik(User):
     __tablename__ = "staff_akademik"
-    email = Column(String, ForeignKey('users.email'), primary_key=True)
-    nip = Column(String, unique=True)
-    unit_kerja = Column(String)
+    email = Column(String, ForeignKey("users.email"), primary_key=True)
+    nip = Column(String, unique=True, nullable=True)
+    unit_kerja = Column(String, nullable=True)
+    public_key = Column(Text, nullable=True)
+    encrypted_private_key = Column(Text, nullable=True)
 
-    __mapper_args__ = {'polymorphic_identity': 'staff'}
-    
+    __mapper_args__ = {"polymorphic_identity": "staff"}
+
     tikets_diproses = relationship("TiketLayanan", back_populates="pemroses")
+    dokumen_diupload = relationship("KnowledgeBase", foreign_keys="[KnowledgeBase.diupload_oleh]", back_populates="uploader")
+
 
 class AdminSistem(User):
-    __mapper_args__ = {'polymorphic_identity': 'admin'}
+    __tablename__ = "admin_sistem"
+    email = Column(String, ForeignKey("users.email"), primary_key=True)
+    nip = Column(String, unique=True, nullable=True)
+    __mapper_args__ = {"polymorphic_identity": "admin"}
 
-# --- 2. LAYANAN & TIKET ---
+    dokumen_disetujui = relationship("KnowledgeBase", foreign_keys="[KnowledgeBase.disetujui_oleh]", back_populates="approver")
+    dokumen_ditolak = relationship("KnowledgeBase", foreign_keys="[KnowledgeBase.ditolak_oleh]", back_populates="rejecter")
+
+
+# ─── 2. LAYANAN & TIKET ───────────────────────────────────────────────────────
+
 class Layanan(Base):
     __tablename__ = "layanan"
     id_layanan = Column(String, primary_key=True)
     nama_layanan = Column(String)
     tipe_output = Column(String)
     unit_penanggung_jawab = Column(String)
-    
+
     tikets = relationship("TiketLayanan", back_populates="layanan")
+
 
 class TiketLayanan(Base):
     __tablename__ = "tiket_layanan"
     id_tiket = Column(String, primary_key=True)
-    waktu_submit = Column(DateTime, default=datetime.utcnow)
+    waktu_submit = Column(DateTime(timezone=True), default=datetime.now)
     status = Column(String, default="Open")
-    data_request = Column(JSON)
+    subjek = Column(String, nullable=True)
+    kategori = Column(String, nullable=True)   # "Persuratan" | "Informasi"
+    deskripsi = Column(Text, nullable=True)
+
+    data_request = Column(JSONB, nullable=True)   # JSONB lebih cepat & bisa diindex di PostgreSQL
     file_lampiran = Column(String, nullable=True)
 
     # Foreign Keys
-    email_mahasiswa = Column(String, ForeignKey('mahasiswa.email'))
-    email_staff = Column(String, ForeignKey('staff_akademik.email'), nullable=True)
-    id_layanan = Column(String, ForeignKey('layanan.id_layanan'))
+    email_mahasiswa = Column(String, ForeignKey("mahasiswa.email"), index=True)
+    email_staff = Column(String, ForeignKey("staff_akademik.email"), nullable=True)
+    id_layanan = Column(String, ForeignKey("layanan.id_layanan"), nullable=True)
 
     # Relasi
     pengaju = relationship("Mahasiswa", back_populates="tikets")
     pemroses = relationship("StaffAkademik", back_populates="tikets_diproses")
     layanan = relationship("Layanan", back_populates="tikets")
-    notifikasi = relationship("Notifikasi", back_populates="tiket", cascade="all, delete-orphan")
+    notifikasi = relationship(
+        "Notifikasi", back_populates="tiket", cascade="all, delete-orphan"
+    )
+    tanggapan = relationship(
+        "TanggapanStaff", back_populates="tiket",
+        uselist=False, cascade="all, delete-orphan"
+    )
 
-# --- 3. FITUR PENDUKUNG ---
+
+# ─── 3. TANGGAPAN STAFF ───────────────────────────────────────────────────────
+
+class TanggapanStaff(Base):
+    __tablename__ = "tanggapan_staff"
+    id_tanggapan = Column(String, primary_key=True)
+    id_tiket = Column(String, ForeignKey("tiket_layanan.id_tiket"), unique=True)
+    email_staff = Column(String, ForeignKey("staff_akademik.email"))
+    pesan = Column(Text, nullable=False)
+    file_output = Column(String, nullable=True)
+    waktu = Column(DateTime(timezone=True), default=datetime.now)
+    digital_signature = Column(Text, nullable=True)
+
+    tiket = relationship("TiketLayanan", back_populates="tanggapan")
+
+
+# ─── 4. FITUR PENDUKUNG ───────────────────────────────────────────────────────
+
 class Notifikasi(Base):
     __tablename__ = "notifikasi"
     id_notifikasi = Column(String, primary_key=True)
     pesan = Column(String)
-    waktu = Column(DateTime, default=datetime.utcnow)
+    waktu = Column(DateTime(timezone=True), default=_now)
     is_read = Column(Boolean, default=False)
-    id_tiket = Column(String, ForeignKey('tiket_layanan.id_tiket'))
+    id_tiket = Column(String, ForeignKey("tiket_layanan.id_tiket"), index=True)
 
     tiket = relationship("TiketLayanan", back_populates="notifikasi")
 
+
 class KnowledgeBase(Base):
     __tablename__ = "knowledge_base"
-    id_keyword = Column(String, primary_key=True)
-    kata_kunci = Column(String)
-    jawaban = Column(String)
+    id_kb = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    judul = Column(String, index=True)
+    kategori = Column(String)
+    path = Column(String)
+    filename = Column(String)
+    status = Column(String, default="Pending")
+
+    waktu_upload = Column(DateTime, default=datetime.now)
+    diupload_oleh = Column(String, ForeignKey("staff_akademik.email"))
+
+    waktu_setujui = Column(DateTime, nullable=True)
+    disetujui_oleh = Column(String, ForeignKey("admin_sistem.email"), nullable=True)
+
+    waktu_tolak = Column(DateTime, nullable=True)
+    ditolak_oleh = Column(String, ForeignKey("admin_sistem.email"), nullable=True)
+
+    uploader = relationship("StaffAkademik", foreign_keys=[diupload_oleh], back_populates="dokumen_diupload")
+    approver = relationship("AdminSistem", foreign_keys=[disetujui_oleh], back_populates="dokumen_disetujui")
+    rejecter = relationship("AdminSistem", foreign_keys=[ditolak_oleh], back_populates="dokumen_ditolak")
 
 class ChatbotSession(Base):
     __tablename__ = "chatbot_sessions"
     id_chat = Column(String, primary_key=True)
-    email_mahasiswa = Column(String, ForeignKey('mahasiswa.email'))
+    email_mahasiswa = Column(String, ForeignKey("mahasiswa.email"), index=True)
     pesan_user = Column(String)
-    waktu_kirim = Column(DateTime, default=datetime.utcnow)
-    id_keyword_terdeteksi = Column(String, ForeignKey('knowledge_base.id_keyword'), nullable=True)
-    
-    mahasiswa = relationship("Mahasiswa", back_populates="sessions")
+    jawaban_bot = Column(Text, nullable=True)
+    waktu_kirim = Column(DateTime(timezone=True), default=datetime.now)
+
+    mahasiswa = relationship("Mahasiswa", back_populates="chatbot_sessions")
+
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
     id_log = Column(Integer, primary_key=True, autoincrement=True)
-    waktu = Column(DateTime, default=datetime.utcnow)
-    email_aktor = Column(String, ForeignKey('users.email'))
+    waktu = Column(DateTime(timezone=True), default=_now)
+    email_aktor = Column(String, index=True)
     role_aktor = Column(String)
     aksi = Column(String)
     status = Column(String)
     ip_address = Column(String)
-
-    aktor = relationship("User", back_populates="activities")
