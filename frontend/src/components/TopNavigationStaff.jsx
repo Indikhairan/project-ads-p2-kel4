@@ -1,29 +1,28 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 export const TopNavigationStaff = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isActive = (path) => location.pathname === path;
-  const handleLogout = async () => {
-    const token = localStorage.getItem("sapa_ipb_token");
+  const [showProfile, setShowProfile] = useState(false);
+  const profileRef = useRef(null);
 
-    // Kirim sinyal logout ke backend
-    try {
-      await fetch("http://localhost:8000/auth/logout", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
-      });
-    } catch (err) {
-      console.error("Gagal logout:", err);
-    }
+  useEffect(() => {
+    const handler = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target)) {
+        setShowProfile(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
-    // Baru hapus token dan pindah halaman
-    localStorage.removeItem("sapa_ipb_token");
-    navigate("/");
+  // Nanti diganti data dari backend
+  const user = {
+    nama: "Agus Salim",
+    email: "agus.staff@apps.ipb.ac.id",
+    initial: "A",
   };
 
   return (
@@ -41,7 +40,7 @@ export const TopNavigationStaff = () => {
             onClick={() => navigate("/staff/dashboard")}
             className={`cursor-pointer pb-0.5 transition-colors ${
               isActive("/staff/dashboard")
-                ? "font-bold text-[#130962] border-b-2 border-[#130962]"
+                ? "font-bold text-[#130962] border-b-2 border-[#ffe030]"
                 : "font-medium text-gray-400 hover:text-[#130962]"
             }`}
           >
@@ -51,7 +50,7 @@ export const TopNavigationStaff = () => {
             onClick={() => navigate("/staff/knowledge-base")}
             className={`cursor-pointer pb-0.5 transition-colors ${
               isActive("/staff/knowledge-base")
-                ? "font-bold text-[#130962] border-b-2 border-[#130962]"
+                ? "font-bold text-[#130962] border-b-2 border-[#ffe030]"
                 : "font-medium text-gray-400 hover:text-[#130962]"
             }`}
           >
@@ -60,17 +59,19 @@ export const TopNavigationStaff = () => {
         </nav>
       </div>
 
-      <button
-        onClick={handleLogout}
-        className="flex items-center gap-1.5 bg-red-600 text-white px-4 py-1.5 rounded-full font-semibold text-xs hover:bg-red-700 transition-colors"
-      >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-          <polyline points="16 17 21 12 16 7" />
-          <line x1="21" y1="12" x2="9" y2="12" />
-        </svg>
-        Log Out
-      </button>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => navigate("/")}
+          className="flex items-center gap-1.5 bg-gray-100 text-[#130962] px-3 py-1.5 rounded-full font-semibold text-xs hover:bg-red-200 transition-colors"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+          Log Out
+        </button>
+      </div>
     </header>
   );
 };
