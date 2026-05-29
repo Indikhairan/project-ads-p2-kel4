@@ -28,9 +28,6 @@ class User(Base):
         "polymorphic_on": role,
     }
 
-    activities = relationship("AuditLog", back_populates="aktor")
-
-
 class Mahasiswa(User):
     __tablename__ = "mahasiswa"
     email = Column(String, ForeignKey("users.email"), primary_key=True)
@@ -50,6 +47,7 @@ class StaffAkademik(User):
     nip = Column(String, unique=True, nullable=True)
     unit_kerja = Column(String, nullable=True)
     public_key = Column(Text, nullable=True)
+    encrypted_private_key = Column(Text, nullable=True)
 
     __mapper_args__ = {"polymorphic_identity": "staff"}
 
@@ -174,10 +172,8 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
     id_log = Column(Integer, primary_key=True, autoincrement=True)
     waktu = Column(DateTime(timezone=True), default=_now)
-    email_aktor = Column(String, ForeignKey("users.email"), index=True)
+    email_aktor = Column(String, index=True)
     role_aktor = Column(String)
     aksi = Column(String)
     status = Column(String)
     ip_address = Column(String)
-
-    aktor = relationship("User", back_populates="activities")

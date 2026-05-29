@@ -10,20 +10,20 @@ const ITEMS_PER_PAGE = 10;
 const StatusBadge = ({ status }) => {
   if (status === "Open" || status === "Diproses")
     return (
-      <span className="px-3 py-1 bg-orange-50 border border-orange-400 text-orange-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
+      <div className="px-3 py-1 bg-orange-50 border border-orange-400 text-orange-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
         ⏱ DIPROSES
-      </span>
+      </div>
     );
   if (status === "Selesai")
     return (
-      <span className="px-3 py-1 bg-green-50 border border-green-500 text-green-600 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
+      <div className="px-3 py-1 bg-green-50 border border-green-500 text-green-600 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
         ✓ SELESAI
-      </span>
+      </div>
     );
   return (
-    <span className="px-3 py-1 bg-red-50 border border-red-500 text-red-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
+    <div className="px-3 py-1 bg-red-50 border border-red-500 text-red-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
       ⊘ DITOLAK
-    </span>
+    </div>
   );
 };
 
@@ -125,7 +125,7 @@ export const RiwayatTiketPage = () => {
     <main className="bg-[#f8f9fa] w-full min-h-screen flex flex-col">
       <TopNavigationSection onBuatTiket={() => setShowForm(true)} />
 
-      <div className="w-full max-w-[1000px] mx-auto px-6 mt-8 pb-20">
+      <div className="w-full max-w-[1000px] mx-auto px-6 mt-4 gap-4 pb-20">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
 
           {/* Header */}
@@ -161,8 +161,10 @@ export const RiwayatTiketPage = () => {
               <div className="relative" ref={sortRef}>
                 <button
                   onClick={() => setShowSort((prev) => !prev)}
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-                    showSort ? "bg-[#130962] text-white" : "bg-[#130962] text-white hover:bg-[#1a237e]"
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors border ${
+                    showSort
+                      ? "bg-[#130962] text-white border-[#130962]"
+                      : "bg-white text-[#130962] border-[#130962] hover:bg-gray-50"
                   }`}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

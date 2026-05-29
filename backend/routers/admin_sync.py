@@ -19,10 +19,12 @@ os.makedirs(DATA_DIR, exist_ok=True)
 
 # 1. GET DATA DASHBOARD
 @router.get("/")
-def lihat_data_sinkronisasi(request: Request,db: Session = Depends(get_db)):
+def lihat_data_sinkronisasi(request: Request, db: Session = Depends(get_db)):
     user_info = sec_helper.ekstrak_token(request)
-    if user_info.get("role", "").lower() != "admin": 
-        raise HTTPException(status_code=403, detail="Akses Ditolak! Hanya Admin yang diizinkan.")
+    
+    # GUNAKAN SATPAM PINTAR (Otomatis catat log kalau ada pelanggaran RBAC)
+    sec_helper.cek_role(user_info, db, request, "admin")
+    
     pending = db.query(models.KnowledgeBase).filter_by(status="Pending").all()
     approved = db.query(models.KnowledgeBase).filter_by(status="Approved").all()
     rejected = db.query(models.KnowledgeBase).filter_by(status="Rejected").all()
@@ -41,10 +43,10 @@ def setujui_ingest(
     background_tasks: BackgroundTasks, 
     db: Session = Depends(get_db)
 ):
-    # 1. SATPAM: Ekstrak token untuk tahu email Admin yang sedang login
     user_info = sec_helper.ekstrak_token(request)
-    if user_info.get("role", "").lower() != "admin": 
-        raise HTTPException(status_code=403, detail="Akses Ditolak! Hanya Admin yang diizinkan.")
+    
+    # GUNAKAN SATPAM PINTAR
+    sec_helper.cek_role(user_info, db, request, "admin")
     email_admin = user_info["email"]
 
     doc = db.query(models.KnowledgeBase).filter(models.KnowledgeBase.id == doc_id).first()
@@ -71,37 +73,50 @@ def setujui_ingest(
     print(f"🚀 Memulai proses Ingest AI untuk {doc.filename}...")
     background_tasks.add_task(knowledge_base, path_data_utama)
 
+    # --- TANAM LOG AKTIVITAS DI SINI ---
+    sec_helper.log_aktivitas(
+        db=db, 
+        aksi=f"Approve dokumen Knowledge Base: {doc.filename}", 
+        request=request
+    )
+
     return {"status": "success", "message": f"Dokumen {doc.filename} disetujui. AI sedang belajar."}
 
 # 3. REJECT DOKUMEN
 @router.post("/reject/{doc_id}")
 def tolak_dokumen(
     doc_id: int, 
-    request: Request, # <--- Tambahkan request untuk mengambil token JWT
+    request: Request, 
     db: Session = Depends(get_db)
 ):
-    # 1. SATPAM: Ekstrak token untuk tahu email Admin yang menolak
     user_info = sec_helper.ekstrak_token(request)
-    if user_info.get("role", "").lower() != "admin": 
-        raise HTTPException(status_code=403, detail="Akses Ditolak! Hanya Admin yang diizinkan.")
-        
+    
+    # GUNAKAN SATPAM PINTAR
+    sec_helper.cek_role(user_info, db, request, "admin")
     email_admin = user_info["email"]
 
-    # 2. Cari dokumen di database
+    # Cari dokumen di database
     doc = db.query(models.KnowledgeBase).filter(models.KnowledgeBase.id == doc_id).first()
     
     if not doc or doc.status != "Pending":
         raise HTTPException(status_code=404, detail="Dokumen tidak ditemukan atau sudah diproses")
 
-    # 3. Hapus file fisik dari folder ./data_pending agar storage server bersih
+    # Hapus file fisik dari folder ./data_pending agar storage server bersih
     if os.path.exists(doc.path):
         os.remove(doc.path)
 
-    # 4. UPDATE DATABASE DENGAN REKAM JEJAK PENOLAKAN
+    # UPDATE DATABASE DENGAN REKAM JEJAK PENOLAKAN
     doc.status = "Rejected"
-    doc.waktu_tolak = datetime.now() # Catat waktu penolakan
-    doc.ditolak_oleh = email_admin   # Catat email eksekutornya
-    
+    doc.waktu_tolak = datetime.now() 
+    doc.ditolak_oleh = email_admin   
     db.commit()
+
+    # --- TANAM LOG AKTIVITAS DI SINI ---
+    sec_helper.log_aktivitas(
+        db=db, 
+        aksi=f"Reject dokumen Knowledge Base: {doc.filename}", 
+        request=request,
+        status_log="Success (Rejected)" # Status log bisa disesuaikan agar mudah difilter
+    )
 
     return {"status": "success", "message": f"Dokumen {doc.filename} ditolak dan dihapus oleh Admin {email_admin}."}

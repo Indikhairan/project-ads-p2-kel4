@@ -41,10 +41,6 @@ class GoogleAuthService:
         except ValueError:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token Google tidak valid.")
 
-    def validasi_domain(self, email: str):
-        if not email.endswith("@apps.ipb.ac.id"):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hanya email kampus yang diizinkan.")
-
     def kelola_user_db(self, db: Session, email: str, nama: str):
         user = db.query(models.User).filter(models.User.email == email).first()
         if not user:
@@ -69,41 +65,81 @@ auth_helper = GoogleAuthService()
 def login(payload: GoogleLoginPayload, request: Request, db: Session = Depends(get_db)):
     
     # 1. Panggil Dapur Google
-    email_google, nama_google = auth_helper.verifikasi_google(payload.google_id_token)
-    auth_helper.validasi_domain(email_google)
+    try:
+        email_google, nama_google = auth_helper.verifikasi_google(payload.google_id_token)
+    except HTTPException:
+        # PENGGUNAAN FUNGSI PINTAR (Input Manual karena token belum ada)
+        sec_helper.log_aktivitas(
+            db=db, 
+            aksi="Login via Google",
+            request=request, # Supaya otomatis ngambil IP
+            email="Unknown", 
+            role="Guest", 
+            status_log="Failed (Invalid Token)"
+        )
+        raise HTTPException(status_code=401, detail="Token Google tidak valid.")
+
+    # 2. Validasi Domain (Email Kampus)
+    if not email_google.endswith("@apps.ipb.ac.id"):
+        # PENGGUNAAN FUNGSI PINTAR (Input Manual)
+        sec_helper.log_aktivitas(
+            db=db, 
+            aksi="Login via Google", 
+            request=request,
+            email=email_google, 
+            role="Guest", 
+            status_log="Failed (Non-IPB Email)"
+        )
+        raise HTTPException(status_code=403, detail="Hanya email kampus yang diizinkan.")
+
+    # 3. Kelola User di Database
     user = auth_helper.kelola_user_db(db, email_google, nama_google)
 
     if not user.is_active:
-            raise HTTPException(
-                status_code=403, 
-                detail="Akun Anda telah dinonaktifkan oleh Admin. Silakan hubungi pusat bantuan."
-            )
+        # PENGGUNAAN FUNGSI PINTAR (Input Manual)
+        sec_helper.log_aktivitas(
+            db=db, 
+            aksi="Login via Google", 
+            request=request,
+            email=email_google, 
+            role=user.role, 
+            status_log="Failed (Account Disabled)"
+        )
+        raise HTTPException(status_code=403, detail="Akun Anda telah dinonaktifkan.")
     
-    # 2. Panggil Dapur Keamanan (Membuat JWT)
-    token_data = {"email": user.email, "nama_lengkap": user.nama_lengkap, "role": user.role}
+    # SIMPAN DATA KE VARIABEL LOKAL DULU
+    user_email = user.email
+    user_nama = user.nama_lengkap
+    user_role = user.role
+
+    # 4. Panggil Dapur Keamanan (Membuat JWT)
+    token_data = {"email": user_email, "nama_lengkap": user_nama, "role": user_role}
     token = sec_helper.buat_token_akses(token_data)
 
-    # 3. Panggil Dapur Keamanan (Mencatat Log)
+    # 5. Panggil Dapur Keamanan (Mencatat Log Sukses)
+    # PENGGUNAAN FUNGSI PINTAR (Input Manual)
     sec_helper.log_aktivitas(
-        db=db, email=user.email, role=user.role, 
-        aksi="Login via Google", status_log="Success", ip_address=request.client.host
+        db=db, 
+        aksi="Login via Google", 
+        request=request,
+        email=user_email, 
+        role=user_role, 
+        status_log="Success"
     )
-    db.commit()
 
     return TokenResponse(
-        access_token=token, role=user.role, email=user.email, nama_lengkap=user.nama_lengkap
+        access_token=token, role=user_role, email=user_email, nama_lengkap=user_nama
     )
 
 @router.post("/logout")
 def logout(request: Request, db: Session = Depends(get_db)):
-    # 1. Panggil Dapur Keamanan untuk mengecek siapa yang mau logout
-    user_data = sec_helper.ekstrak_token(request)
-    
-    # 2. Panggil Dapur Keamanan untuk mencatat aktivitasnya
+    # PENGGUNAAN FUNGSI PINTAR (Otomatis ekstrak token dari request)
+    # Karena ini endpoint logout yang punya token di header, kita cukup lempar 'request'-nya saja!
     sec_helper.log_aktivitas(
-        db=db, email=user_data["email"], role=user_data["role"], 
-        aksi="Logout", status_log="Success", ip_address=request.client.host
+        db=db, 
+        aksi="Logout", 
+        request=request, 
+        status_log="Success"
     )
-    db.commit()
     
     return {"message": "Logout berhasil."}

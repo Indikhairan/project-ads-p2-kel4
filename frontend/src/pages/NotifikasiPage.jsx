@@ -20,6 +20,38 @@ const mapBackendToNotif = (n) => {
     tiketId: n.id_tiket,
   };
 };
+const initialNotifications = [
+  {
+    id: 1,
+    group: "Today",
+    type: "status",
+    title: "STATUS TIKET #007 TELAH DIPERBARUI",
+    description: "Surat Anda telah disetujui dan siap diunduh.",
+    time: "20:46",
+    read: false,
+    tiketId: "001",
+  },
+  {
+    id: 2,
+    group: "Today",
+    type: "status",
+    title: "STATUS TIKET #003 TELAH DIPERBARUI",
+    description: "Terdapat kesalahan pada dokumen yang Anda unggah.",
+    time: "15:03",
+    read: true,
+    tiketId: "003",
+  },
+  {
+    id: 3,
+    group: "10 April 2026",
+    type: "status",
+    title: "STATUS TIKET #001 TELAH DIPERBARUI",
+    description: "Permohonan surat Anda telah diterima dan sedang diproses",
+    time: "09:01",
+    read: true,
+    tiketId: "001",
+  },
+];
 
 const TicketIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

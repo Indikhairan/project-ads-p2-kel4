@@ -19,7 +19,7 @@ const StatusBadge = ({ status }) => {
   if (status === "processing")
     return (
       <div className="px-3 py-1 bg-orange-50 border border-orange-400 text-orange-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
-        ⏱ SEDANG DIPROSES
+        ⏱ DIPROSES
       </div>
     );
   if (status === "completed")

@@ -27,6 +27,7 @@ export const HomepageStaff = () => {
   const [sortDir, setSortDir] = useState("Ascending");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showFilter, setShowFilter] = useState(false);
   const sortRef = useRef(null);
 
   useEffect(() => {
@@ -149,7 +150,16 @@ export const HomepageStaff = () => {
             </div>
 
             {/* Tombol Filter (dekoratif, filter sudah di bawah) */}
-            <button className="w-10 h-10 bg-[#130962] text-white rounded-xl flex items-center justify-center hover:bg-[#1a237e] transition-colors">
+            <button
+              onClick={() => setShowFilter((p) => !p)}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors border ${
+                filterStatus !== "Semua Status" || filterKategori !== "Semua Kategori" || dariTanggal || sampaiTanggal
+                  ? "bg-[#130962] text-white border-[#130962]"
+                  : showFilter
+                  ? "bg-gray-100 text-[#130962] border-gray-300"
+                  : "bg-white text-gray-400 border-gray-300 hover:text-[#130962] hover:border-[#130962]"
+              }`}
+            >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
                 <path d="M4.25 5.61C6.27 8.2 10 13 10 13v6c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-6s3.72-4.8 5.74-7.39A1 1 0 0 0 18.95 4H5.04a1 1 0 0 0-.79 1.61z"/>
               </svg>
@@ -159,12 +169,15 @@ export const HomepageStaff = () => {
             <div className="relative" ref={sortRef}>
               <button
                 onClick={() => setShowSort((p) => !p)}
-                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-                  showSort ? "bg-[#283593]" : "bg-[#130962]"
-                } text-white hover:bg-[#1a237e]`}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors border ${
+                  showSort || sortBy !== "ID Tiket" || sortDir !== "Ascending"
+                    ? "bg-[#130962] text-white border-[#130962]"
+                    : "bg-white text-gray-400 border-gray-300 hover:text-[#130962] hover:border-[#130962]"
+                }`}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="12" y1="5" x2="12" y2="19" /><polyline points="19 12 12 19 5 12" />
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <polyline points="19 12 12 19 5 12" />
                 </svg>
               </button>
               {showSort && (
@@ -190,36 +203,47 @@ export const HomepageStaff = () => {
 
           {/* Filter row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <p className="text-xs font-medium text-[#130962] mb-1">Status</p>
-              <div className="relative">
-                <select
-                  value={filterStatus}
-                  onChange={(e) => { setFilterStatus(e.target.value); resetPage(); }}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm appearance-none focus:outline-none focus:border-[#130962] bg-white text-[#130962]"
-                >
-                  {["Semua Status", "Diproses", "Selesai", "Ditolak"].map((s) => (
-                    <option key={s}>{s}</option>
-                  ))}
-                </select>
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs">∨</span>
+            {/* Status */}
+              <div>
+                <p className="text-xs font-medium text-[#130962] mb-1">Status</p>
+                <div className="relative">
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => { setFilterStatus(e.target.value); resetPage(); }}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm appearance-none focus:outline-none focus:border-[#130962] bg-white text-[#130962]"
+                  >
+                    {["Semua Status", "Diproses", "Selesai", "Ditolak"].map((s) => (
+                      <option key={s}>{s}</option>
+                    ))}
+                  </select>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </span>
+                </div>
               </div>
-            </div>
-            <div>
-              <p className="text-xs font-medium text-[#130962] mb-1">Kategori</p>
-              <div className="relative">
-                <select
-                  value={filterKategori}
-                  onChange={(e) => { setFilterKategori(e.target.value); resetPage(); }}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm appearance-none focus:outline-none focus:border-[#130962] bg-white text-[#130962]"
-                >
-                  {["Semua Kategori", "Persuratan", "Informasi", "Lainnya"].map((k) => (
-                    <option key={k}>{k}</option>
-                  ))}
-                </select>
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs">∨</span>
+
+              {/* Kategori */}
+              <div>
+                <p className="text-xs font-medium text-[#130962] mb-1">Kategori</p>
+                <div className="relative">
+                  <select
+                    value={filterKategori}
+                    onChange={(e) => { setFilterKategori(e.target.value); resetPage(); }}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm appearance-none focus:outline-none focus:border-[#130962] bg-white text-[#130962]"
+                  >
+                    {["Semua Kategori", "Persuratan", "Informasi"].map((k) => (
+                      <option key={k}>{k}</option>
+                    ))}
+                  </select>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </span>
+                </div>
               </div>
-            </div>
             <div>
               <p className="text-xs font-medium text-[#130962] mb-1">Dari Tanggal</p>
               <input
