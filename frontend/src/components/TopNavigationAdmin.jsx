@@ -1,10 +1,29 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 export const TopNavigationAdmin = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isActive = (path) => location.pathname === path;
+  const [showProfile, setShowProfile] = useState(false);
+  const profileRef = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target)) {
+        setShowProfile(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // Nanti diganti data dari backend
+  const user = {
+    nama: "Admin SAPA",
+    email: "admin@apps.ipb.ac.id",
+    initial: "A",
+  };
 
   return (
     <header className="w-full bg-white border-b border-gray-200 flex items-center justify-between px-8 py-3">
@@ -49,13 +68,16 @@ export const TopNavigationAdmin = () => {
           </span>
         </nav>
       </div>
+
       <div className="flex items-center gap-3">
-        <span className="bg-purple-100 text-purple-600 font-bold text-xs px-3 py-1 rounded-full">
-          Superadmin
+        {/* Badge Admin */}
+        <span className="bg-[#ffe030] text-[#130962] font-bold text-xs px-3 py-1 rounded-full">
+          Admin
         </span>
+
         <button
           onClick={() => navigate("/")}
-          className="flex items-center gap-1.5 bg-red-600 text-white px-3 py-1.5 rounded-full font-semibold text-xs hover:bg-red-700 transition-colors"
+          className="flex items-center gap-1.5 bg-gray-100 text-[#130962] px-3 py-1.5 rounded-full font-semibold text-xs hover:bg-red-200 transition-colors"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
