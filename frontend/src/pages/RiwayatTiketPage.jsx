@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { TopNavigationSection } from "../components/TopNavigationSection";
 import { FormPengajuanTiket } from "../components/FormPengajuanTiket";
 import { ChatbotSAPA } from "../components/ChatbotSAPA";
+import { apiGet } from "../utils/apiClient";
+import API_ENDPOINTS from "../config/api";
 import image3 from "../assets/image-3.png";
 
 const ITEMS_PER_PAGE = 10;
@@ -57,30 +59,25 @@ export const RiwayatTiketPage = () => {
       setIsLoading(true);
       setError("");
 
-      const token = localStorage.getItem("sapa_ipb_token");
-      if (!token) {
-        setError("Silakan login terlebih dahulu untuk melihat riwayat tiket.");
-        setIsLoading(false);
-        return;
-      }
-
       try {
-        const response = await fetch("http://127.0.0.1:8000/api/v1/tiket", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        const data = await response.json();
-        if (!response.ok) {
-          setError(data.detail || "Gagal memuat riwayat tiket.");
+        const token = localStorage.getItem("sapa_ipb_token");
+        if (!token) {
+          setError("Silakan login terlebih dahulu untuk melihat riwayat tiket.");
           setTickets([]);
-        } else {
+          setIsLoading(false);
+          return;
+        }
+
+        const data = await apiGet(API_ENDPOINTS.TICKETS.LIST, "Fetch Tickets");
+        if (data && Array.isArray(data)) {
           setTickets(data);
+        } else {
+          setError("Format data tiket tidak sesuai.");
+          setTickets([]);
         }
       } catch (err) {
-        console.error("Error fetch tickets:", err);
-        setError("Gagal memuat riwayat tiket. Periksa koneksi backend.");
+        console.error("Error fetching tickets:", err);
+        setError(err.message || "Gagal memuat riwayat tiket. Periksa koneksi backend.");
         setTickets([]);
       } finally {
         setIsLoading(false);

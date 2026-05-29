@@ -1,29 +1,25 @@
 import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { apiPost, clearAuthToken } from "../utils/apiClient";
+import API_ENDPOINTS from "../config/api";
 
 export const TopNavigationSection = ({ onBuatTiket, formOpen }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const isActive = (path) => location.pathname === path;
   const handleLogout = async () => {
-    const token = localStorage.getItem("sapa_ipb_token");
-
-    // Kirim sinyal logout ke backend
     try {
-      await fetch("http://localhost:8000/auth/logout", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
-      });
+      await apiPost(API_ENDPOINTS.AUTH.LOGOUT, {}, "Logout");
+      clearAuthToken();
+      localStorage.removeItem("sapa_ipb_role");
+      navigate("/");
     } catch (err) {
-      console.error("Gagal logout:", err);
+      console.error("Logout error:", err);
+      // Clear tokens locally even if API call fails
+      localStorage.removeItem("sapa_ipb_token");
+      localStorage.removeItem("sapa_ipb_role");
+      navigate("/");
     }
-
-    // Baru hapus token dan pindah halaman
-    localStorage.removeItem("sapa_ipb_token");
-    navigate("/");
   };
 
   return (

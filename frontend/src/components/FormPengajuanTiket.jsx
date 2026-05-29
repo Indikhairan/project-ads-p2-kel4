@@ -299,16 +299,6 @@ export const FormPengajuanTiket = ({ onClose }) => {
   };
 
   const handleSubmit = async () => {
-    // Validasi field wajib
-    if (!subjek.trim()) {
-      setErrorMsg("Subjek tiket wajib diisi.");
-      return;
-    }
-    if (!kategori) {
-      setErrorMsg("Kategori Layanan wajib dipilih.");
-      return;
-    }
-  const handleSubmit = () => {
     setSubmitted(true);
 
     if (!subjek.trim()) { setErrorMsg("Subjek tiket wajib diisi."); return; }

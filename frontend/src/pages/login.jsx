@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { GoogleLogin } from "@react-oauth/google";
+import { apiPost } from "../utils/apiClient";
+import API_ENDPOINTS from "../config/api";
 import image5 from "../assets/image-5.png";
 
 export const LoginPage = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   // Cek apakah user sudah punya token di brankas browser.
   // Kalau ada, langsung tendang ke dashboard tanpa harus login lagi!
@@ -27,37 +30,28 @@ export const LoginPage = () => {
   // Fungsi ini dipanggil otomatis oleh komponen <GoogleLogin /> bawaan
   const handleSuccess = async (credentialResponse) => {
     setIsLoading(true);
+    setError(null);
     try {
       // credentialResponse.credential INILAH yang berisi ID Token (eyJ...)
-      // yang sangat didambakan oleh backend FastAPI-mu!
-      const response = await fetch("http://127.0.0.1:8000/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ google_id_token: credentialResponse.credential }),
-      });
+      const response = await apiPost(API_ENDPOINTS.AUTH.LOGIN, {
+        google_id_token: credentialResponse.credential
+      }, "Google Login");
 
-      const data = await response.json();
-      console.log("Cek isi paket dari backend:", data);
-
-      if (response.ok) {
-        localStorage.setItem("sapa_ipb_token", data.access_token);
-        localStorage.setItem("sapa_ipb_role", data.role);
+      if (response) {
+        localStorage.setItem("sapa_ipb_token", response.access_token);
+        localStorage.setItem("sapa_ipb_role", response.role);
         
-        if (data.role === "admin") {
+        if (response.role === "admin") {
           navigate("/admin/dashboard");
-        } else if (data.role === "staff") {
+        } else if (response.role === "staff") {
           navigate("/staff/dashboard");
         } else {
           navigate("/dashboard");
         }
-      } else {
-        alert("Akses ditolak:\n" + JSON.stringify(data.detail, null, 2));
       }
-    } catch (error) {
-      console.error("Error nembak backend:", error);
-      alert("Server sedang bermasalah, coba lagi nanti.");
+    } catch (err) {
+      console.error("Login error:", err);
+      setError(err.message || "Gagal login. Coba lagi nanti.");
     } finally {
       setIsLoading(false);
     }
@@ -85,6 +79,13 @@ export const LoginPage = () => {
           className="w-[130px] h-[130px] object-contain mb-10"
         />
 
+        {/* Error message */}
+        {error && (
+          <div className="w-full bg-red-50 border border-red-200 rounded-lg p-3 mb-5 text-sm text-red-600">
+            ⚠️ {error}
+          </div>
+        )}
+
         {/* Ganti elemen <button> buatan kita dengan komponen bawaan Google */}
         <div className="mb-5 flex justify-center w-full">
           {isLoading ? (
@@ -96,12 +97,12 @@ export const LoginPage = () => {
               onSuccess={handleSuccess}
               onError={() => {
                 console.error("Login Failed");
-                alert("Gagal memunculkan pop-up Google.");
+                setError("Gagal memunculkan pop-up Google. Coba refresh halaman.");
               }}
               useOneTap={false}
-              shape="pill"      // Biar bentuknya tetap melengkung
-              size="large"      // Biar ukurannya proporsional
-              width="280"       // Lebar sesuai tombol sebelumnya
+              shape="pill"
+              size="large"
+              width="280"
             />
           )}
         </div>

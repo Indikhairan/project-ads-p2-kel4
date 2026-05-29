@@ -11,3 +11,5 @@ venv/
 env/
 .venv-1/
 .venv
+INTEGRATION_STATUS.md
+OVERVIEW_DETAIL.md

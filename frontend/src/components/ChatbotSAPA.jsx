@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
+import { apiGet, apiPost } from "../utils/apiClient";
+import API_ENDPOINTS from "../config/api";
 import image3 from "../assets/image-3.png";
 
 const ChatBubble = ({ message }) => {
@@ -44,23 +46,9 @@ export const ChatbotSAPA = ({ onClose }) => {
   const handleLoadHistory = async () => {
     setIsLoadingHistory(true);
     try {
-      const token = localStorage.getItem("sapa_ipb_token");
-      if (!token) return;
+      const data = await apiGet(API_ENDPOINTS.CHATBOT.HISTORY, "Load Chat History");
 
-      const response = await fetch("http://127.0.0.1:8000/chatbot/riwayat", {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error("Gagal mengambil riwayat dari server");
-      }
-
-      const data = await response.json();
-
-      if (data && data.length > 0) {
+      if (data && Array.isArray(data) && data.length > 0) {
         const formattedHistory = data.flatMap((chat, index) => [
           { id: `hist-user-${index}`, sender: "user", text: chat.pesan_user },
           { id: `hist-bot-${index}`, sender: "bot", text: chat.jawaban_bot }
@@ -73,7 +61,7 @@ export const ChatbotSAPA = ({ onClose }) => {
       // Sembunyikan tombol setelah diklik
       setIsHistoryLoaded(true);
     } catch (error) {
-      console.error("Error load history:", error);
+      console.error("Error loading chat history:", error);
     } finally {
       setIsLoadingHistory(false);
     }
@@ -90,36 +78,23 @@ export const ChatbotSAPA = ({ onClose }) => {
     setIsTyping(true); // Munculkan animasi loading 3 titik
 
     try {
-      // 2. Ambil token JWT dari brankas browser
-      const token = localStorage.getItem("sapa_ipb_token"); 
+      // 2. Tembak API FastAPI menggunakan apiClient
+      const response = await apiPost(API_ENDPOINTS.CHATBOT.ASK, { pesan: trimmed }, "Chatbot Ask");
 
-      // 3. Tembak API FastAPI (Tetap Konsisten Menggunakan Fetch)
-      const response = await fetch("http://127.0.0.1:8000/chatbot/tanya", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ pesan: trimmed })
-      });
-
-      if (!response.ok) {
-        throw new Error("Gagal mendapat respons dari server");
+      if (response && response.jawaban) {
+        // 3. Tampilkan jawaban Gemini ke layar
+        setMessages((prev) => [
+          ...prev,
+          { id: Date.now() + 1, sender: "bot", text: response.jawaban },
+        ]);
+      } else {
+        throw new Error("Invalid response format");
       }
-
-      // 4. Ekstrak jawaban JSON dari backend
-      const data = await response.json();
-
-      // 5. Tampilkan jawaban Gemini ke layar
-      setMessages((prev) => [
-        ...prev,
-        { id: Date.now() + 1, sender: "bot", text: data.jawaban },
-      ]);
     } catch (error) {
       console.error("Error chatbot:", error);
       setMessages((prev) => [
         ...prev,
-        { id: Date.now() + 1, sender: "bot", text: "Maaf, sistem SAPA sedang gangguan atau sesi kamu habis. Coba refresh halaman ya!" },
+        { id: Date.now() + 1, sender: "bot", text: `Maaf, sistem SAPA sedang gangguan: ${error.message || "Unknown error"}. Coba refresh halaman ya!` },
       ]);
     } finally {
       setIsTyping(false);
