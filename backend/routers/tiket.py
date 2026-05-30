@@ -208,6 +208,17 @@ class TiketService:
         self.db.commit()
         self.db.refresh(tiket)
 
+        # ── BUAT NOTIFIKASI UNTUK MAHASISWA ──
+        notifikasi_pesan = f"Status tiket Anda {tiket.id_tiket} telah diperbarui menjadi: {payload.status}"
+        notifikasi_baru = models.Notifikasi(
+            id_notifikasi=str(uuid.uuid4()),
+            pesan=notifikasi_pesan,
+            id_tiket=id_tiket,
+            is_read=False
+        )
+        self.db.add(notifikasi_baru)
+        self.db.commit()
+
         return tiket
 
     def tanggapi_tiket(self, id_tiket: str, pesan: str, isi_lampiran: bytes | None, nama_lampiran: str | None, passphrase: str) -> dict:

@@ -23,21 +23,36 @@ def seed_data():
         
         # Daftar pengguna pertama aplikasi SAPA IPB
         initial_users = [
-            {"email": "ccmuthia@apps.ipb.ac.id", "nama_lengkap": "Muthia Khansa", "role": "admin"},
-            {"email": "indikhairan@apps.ipb.ac.id", "nama_lengkap": "Indriyani Khairan Nisa", "role": "staff"}
+            {"email": "ccmuthia@apps.ipb.ac.id", "nama_lengkap": "Muthia Khansa", "role": "admin", "nip": "19970000000000001"},
+            {"email": "indikhairan@apps.ipb.ac.id", "nama_lengkap": "Indriyani Khairan Nisa", "role": "staff", "nip": "19980000000000002"}
         ]
 
         for user_data in initial_users:
-            # Sesuaikan 'models.Pengguna' dengan nama class tabel usermu
             existing_user = db.query(models.User).filter(models.User.email == user_data["email"]).first()
             
             if not existing_user:
-                new_user = models.User(
-                    email=user_data["email"],
-                    nama_lengkap=user_data["nama_lengkap"],
-                    role=user_data["role"]
-
-                )
+                # ── CREATE USER DENGAN CLASS YANG SESUAI (bukan generic User) ──
+                if user_data["role"] == "admin":
+                    new_user = models.AdminSistem(
+                        email=user_data["email"],
+                        nama_lengkap=user_data["nama_lengkap"],
+                        role="admin",
+                        nip=user_data.get("nip", "00000000")
+                    )
+                elif user_data["role"] == "staff":
+                    new_user = models.StaffAkademik(
+                        email=user_data["email"],
+                        nama_lengkap=user_data["nama_lengkap"],
+                        role="staff",
+                        nip=user_data.get("nip", "11111111")
+                    )
+                else:
+                    new_user = models.Mahasiswa(
+                        email=user_data["email"],
+                        nama_lengkap=user_data["nama_lengkap"],
+                        role="mahasiswa"
+                    )
+                
                 db.add(new_user)
                 print(f"✅ Akun {user_data['email']} berhasil ditambahkan sebagai {user_data['role']}.")
             else:

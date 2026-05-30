@@ -31,6 +31,18 @@ class TokenResponse(BaseModel):
 class GoogleAuthService:
     def __init__(self):
         self.client_id = os.getenv("GOOGLE_CLIENT_ID")
+        
+        # ── VALIDASI: Pastikan GOOGLE_CLIENT_ID sudah diset ──
+        if not self.client_id:
+            print("⚠️ WARNING: GOOGLE_CLIENT_ID tidak ditemukan di .env!")
+            print("   Tambahkan ke .env: GOOGLE_CLIENT_ID=your-client-id-from-google-oauth")
+        
+        # ─── Daftar email admin & staff (bisa dari .env atau hardcoded) ──
+        self.admin_emails = os.getenv("ADMIN_EMAILS", "").split(",") if os.getenv("ADMIN_EMAILS") else []
+        self.staff_emails = os.getenv("STAFF_EMAILS", "").split(",") if os.getenv("STAFF_EMAILS") else []
+        # Clean whitespace
+        self.admin_emails = [e.strip() for e in self.admin_emails if e.strip()]
+        self.staff_emails = [e.strip() for e in self.staff_emails if e.strip()]
 
     def verifikasi_google(self, token: str):
         try:
@@ -40,20 +52,51 @@ class GoogleAuthService:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token Google tidak valid.")
 
     def kelola_user_db(self, db: Session, email: str, nama: str):
-        user = db.query(models.User).filter(models.User.email == email).first()
-        if not user:
+        """
+        Kelola user di database:
+        - Jika user sudah ada: return user
+        - Jika user belum ada: buat user baru di role yang sesuai
+        """
+        try:
+            user = db.query(models.User).filter(models.User.email == email).first()
+            if user:
+                return user
+            
+            # ── AUTO-CREATE user baru berdasarkan role ──
             if email in self.admin_emails:
-                new_user = models.StaffAkademik(email=email, nama_lengkap=nama, role="admin", nip="00000000")
+                new_user = models.AdminSistem(
+                    email=email, 
+                    nama_lengkap=nama, 
+                    role="admin", 
+                    nip="00000000"
+                )
             elif email in self.staff_emails:
-                new_user = models.StaffAkademik(email=email, nama_lengkap=nama, role="staff", nip="11111111")
+                new_user = models.StaffAkademik(
+                    email=email, 
+                    nama_lengkap=nama, 
+                    role="staff", 
+                    nip="11111111"
+                )
             else:
-                new_user = models.Mahasiswa(email=email, nama_lengkap=nama, role="mahasiswa")
+                new_user = models.Mahasiswa(
+                    email=email, 
+                    nama_lengkap=nama, 
+                    role="mahasiswa"
+                )
             
             db.add(new_user)
             db.commit()
             db.refresh(new_user)
+            print(f"✓ User baru dibuat: {email} ({new_user.role})")
             return new_user
-        return user
+        
+        except Exception as e:
+            db.rollback()
+            print(f"✗ ERROR saat membuat user {email}: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Gagal membuat user di database: {str(e)}"
+            )
 
 # instansiasi objek
 auth_helper = GoogleAuthService()

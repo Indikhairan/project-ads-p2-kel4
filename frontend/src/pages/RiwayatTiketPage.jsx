@@ -88,6 +88,10 @@ export const RiwayatTiketPage = () => {
     };
 
     fetchTickets();
+
+    // ── POLLING: Auto-refresh setiap 5 detik ──
+    const pollingInterval = setInterval(fetchTickets, 5000);
+    return () => clearInterval(pollingInterval);
   }, []);
 
   // Filter berdasarkan search
