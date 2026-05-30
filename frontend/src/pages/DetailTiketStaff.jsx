@@ -53,7 +53,7 @@ const InfoRow = ({ label, value, isFile }) => (
   </div>
 );
 
-// Modal profil mahasiswa - tanpa tombol tutup bawah, hanya X
+// Modal profil mahasiswa
 const ModalProfilMahasiswa = ({ mahasiswa, onClose }) => {
   useScrollLock(true);
   return (
@@ -69,7 +69,7 @@ const ModalProfilMahasiswa = ({ mahasiswa, onClose }) => {
           </button>
         </div>
 
-        {/* Konten - bisa scroll kalau overflow */}
+        {/* Konten */}
         <div className="overflow-y-auto p-6 flex flex-col gap-4">
           <div>
             <p className="font-semibold text-[#130962] text-sm mb-2 border-b pb-1">Informasi Pribadi</p>
@@ -107,7 +107,7 @@ const ModalProfilMahasiswa = ({ mahasiswa, onClose }) => {
   );
 };
 
-// Modal preview surat - fix scroll
+// Modal preview surat
 const ModalPreviewSurat = ({ mahasiswa, onClose }) => {
   useScrollLock(true);
   const today = new Date();
@@ -116,8 +116,7 @@ const ModalPreviewSurat = ({ mahasiswa, onClose }) => {
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4 py-8">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-
-        {/* Header modal - tidak ikut scroll */}
+        {/* Header modal */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 shrink-0">
           <span className="font-bold text-[#130962] text-sm">Preview Surat - Surat Keterangan Aktif Kuliah</span>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
@@ -127,9 +126,8 @@ const ModalPreviewSurat = ({ mahasiswa, onClose }) => {
           </button>
         </div>
 
-        {/* Isi surat - yang scroll hanya bagian ini */}
+        {/* Isi surat */}
         <div className="overflow-y-auto flex-1 p-8 font-serif text-sm leading-relaxed">
-          {/* Kop surat */}
           <div className="flex items-start gap-4 border-b-2 border-gray-800 pb-4 mb-6">
             <div className="w-14 h-14 shrink-0 flex items-center justify-center">
               <img src="/src/assets/image-5.png" alt="Logo IPB" className="w-full h-full object-contain" />
@@ -142,13 +140,11 @@ const ModalPreviewSurat = ({ mahasiswa, onClose }) => {
             </div>
           </div>
 
-          {/* Judul */}
           <div className="text-center mb-6">
             <p className="font-bold underline text-base">SURAT KETERANGAN</p>
             <p className="text-xs text-gray-500 mt-1">Nomor: ___/IT3.KM.00.00/M/B/{today.getFullYear()}</p>
           </div>
 
-          {/* Isi */}
           <p className="mb-4 text-justify">
             Yang bertanda tangan di bawah ini, Direktur Administrasi Pendidikan dan Penerimaan Mahasiswa Baru Institut Pertanian Bogor menerangkan bahwa:
           </p>
@@ -171,7 +167,6 @@ const ModalPreviewSurat = ({ mahasiswa, onClose }) => {
             Demikian Surat Keterangan ini dibuat untuk digunakan sebagaimana mestinya.
           </p>
 
-          {/* TTD */}
           <div className="flex justify-end">
             <div className="text-center">
               <p>Bogor, {tglSurat}</p>
@@ -188,7 +183,7 @@ const ModalPreviewSurat = ({ mahasiswa, onClose }) => {
           </div>
         </div>
 
-        {/* Footer tombol - tidak ikut scroll */}
+        {/* Footer tombol */}
         <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3 shrink-0">
           <button
             onClick={onClose}
@@ -213,7 +208,7 @@ const ModalPreviewSurat = ({ mahasiswa, onClose }) => {
   );
 };
 
-// --- Fungsi Validasi Realtime Passphrase ---
+// Fungsi Validasi Realtime Passphrase
 const cekKekuatan = (teks) => {
   if (teks.length < 8) return "Minimal 8 karakter.";
   if (!/[A-Z]/.test(teks)) return "Harus ada huruf besar.";
@@ -228,39 +223,39 @@ export const DetailTiketStaff = () => {
   const navigate = useNavigate();
   const fileRef = useRef();
 
+  // State Manajemen Utama
   const [ticket, setTicket] = useState(null);
   const [status, setStatus] = useState("Open");
   const [pesan, setPesan] = useState("");
   const [uploadedFile, setUploadedFile] = useState(null);
-  const [privateKeyFile, setPrivateKeyFile] = useState(null);
   const [showProfil, setShowProfil] = useState(false);
   const [showSurat, setShowSurat] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [errorPesan, setErrorPesan] = useState("");
+  
   const [errorStatus, setErrorStatus] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState("");
 
+  // State Keamanan & Form
+  const [errorSubmit, setErrorSubmit] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [passphrase, setPassphrase] = useState("");
+  const [passphraseConfirm, setPassphraseConfirm] = useState("");
+  const [showPass, setShowPass] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [hasKey, setHasKey] = useState(null); 
+
+  const token = localStorage.getItem("sapa_ipb_token");
+
+  // 1. Fetch data tiket utama saat halaman dibuka
   useEffect(() => {
-    const token = localStorage.getItem("sapa_ipb_token");
     if (!token) {
       setError("Token tidak ditemukan. Silakan login kembali.");
       setIsLoading(false);
       return;
     }
-  const [errorSubmit, setErrorSubmit] = useState(""); // Ganti nama biar umum
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // --- STATE KEAMANAN BARU ---
-  const [passphrase, setPassphrase] = useState("");
-  const [passphraseConfirm, setPassphraseConfirm] = useState("");
-  const [showPass, setShowPass] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [hasKey, setHasKey] = useState(null); // null = masih ngecek ke backend
-  const token = localStorage.getItem("sapa_ipb_token"); // Ambil token login
 
     const fetchTicket = async () => {
       setIsLoading(true);
@@ -288,7 +283,36 @@ export const DetailTiketStaff = () => {
     };
 
     fetchTicket();
-  }, [id]);
+  }, [id, token]);
+
+  // 2. Fetch status kunci keamanan staff
+  useEffect(() => {
+    const fetchKeyStatus = async () => {
+      if (!token) {
+        console.error("Token JWT tidak ditemukan di browser!");
+        setHasKey(false);
+        return;
+      }
+      try {
+        const res = await fetch("http://localhost:8000/api/v1/staff/status-kunci", {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setHasKey(data.has_key);
+        } else {
+          const errorData = await res.json();
+          console.error("Gagal dari backend:", errorData);
+          setHasKey(false);
+        }
+      } catch (error) {
+        console.error("Network/CORS Error:", error);
+        setHasKey(false);
+      }
+    };
+    fetchKeyStatus();
+  }, [token]);
 
   const formatDate = (value) => {
     if (!value) return "-";
@@ -321,7 +345,6 @@ export const DetailTiketStaff = () => {
     setStatusMessage("");
     setIsUpdating(true);
 
-    const token = localStorage.getItem("sapa_ipb_token");
     if (!token) {
       setErrorStatus("Token tidak ditemukan. Silakan login kembali.");
       setIsUpdating(false);
@@ -354,116 +377,6 @@ export const DetailTiketStaff = () => {
     }
   };
 
-  const handleKirim = async () => {
-    if (!pesan.trim()) {
-      setErrorPesan("Pesan tanggapan tidak boleh kosong!");
-      return;
-    }
-
-    if (!privateKeyFile) {
-      setErrorPesan("Private Key (.pem) wajib diunggah untuk menandatangani tanggapan.");
-      return;
-    }
-
-    setErrorPesan("");
-    setIsSending(true);
-
-    const token = localStorage.getItem("sapa_ipb_token");
-    if (!token) {
-      setErrorPesan("Token tidak ditemukan. Silakan login kembali.");
-      setIsSending(false);
-      return;
-    }
-
-    try {
-      const formData = new FormData();
-      formData.append("pesan", pesan);
-      formData.append("private_key_file", privateKeyFile);
-      if (uploadedFile) {
-        formData.append("file_lampiran", uploadedFile);
-      }
-
-      const response = await fetch(`http://127.0.0.1:8000/api/v1/tiket/${encodeURIComponent(id)}/tanggapan`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || "Gagal mengirim tanggapan.");
-      }
-
-      setSubmitted(true);
-    } catch (err) {
-      setErrorPesan(err.message || "Gagal mengirim tanggapan.");
-    } finally {
-      setIsSending(false);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <main className="bg-[#f8f9fa] w-full min-h-screen flex flex-col">
-        <TopNavigationStaff />
-        <div className="flex items-center justify-center flex-1 py-20">
-          <p className="text-gray-500">Memuat detail tiket...</p>
-        </div>
-      </main>
-    );
-  }
-
-  if (error) {
-    return (
-      <main className="bg-[#f8f9fa] w-full min-h-screen flex flex-col">
-        <TopNavigationStaff />
-        <div className="flex items-center justify-center flex-1 py-20">
-          <div className="bg-white rounded-xl shadow-sm border border-red-200 p-8 text-center max-w-md">
-            <p className="text-red-500 font-semibold mb-3">{error}</p>
-            <button
-              onClick={() => navigate(-1)}
-              className="px-4 py-2 bg-[#130962] text-white rounded-xl hover:bg-[#1a237e]"
-            >Kembali</button>
-          </div>
-        </div>
-      </main>
-    );
-  }
-  // 1. Cek apakah staf sudah punya kunci saat halaman dibuka
-    useEffect(() => {
-    const fetchKeyStatus = async () => {
-      try {
-        // Cek apakah token ada di browser
-        if (!token) {
-          console.error("Token JWT tidak ditemukan di browser!");
-          setHasKey(false);
-          return;
-        }
-
-        const res = await fetch("http://localhost:8000/api/v1/staff/status-kunci", {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          setHasKey(data.has_key);
-        } else {
-          // Tangkap error dari backend (misal 401 Unauthorized atau 404 Not Found)
-          const errorData = await res.json();
-          console.error("Gagal dari backend:", errorData);
-          setHasKey(false); // Paksa keluar dari animasi loading
-        }
-      } catch (error) {
-        console.error("Network/CORS Error:", error);
-        setHasKey(false); // Paksa keluar dari animasi loading
-      }
-    };
-    fetchKeyStatus();
-  }, [token]);
-
-  // 2. Fungsi kalau staf mau bikin kunci baru
   const handleGenerateKey = async () => {
     if (passphrase !== passphraseConfirm) {
       setErrorSubmit("Konfirmasi passphrase tidak cocok!");
@@ -473,13 +386,7 @@ export const DetailTiketStaff = () => {
     setIsSubmitting(true);
     
     try {
-      // 1. AMBIL TOKEN SEGAR DARI LOCAL STORAGE DI SINI
-      // Cek apakah key-nya benar "token" atau "access_token" sesuai waktu kamu nyimpen pas login
       const currentToken = localStorage.getItem("sapa_ipb_token"); 
-      
-      // Cek di console browser, apakah tokennya benar-benar ada isinya?
-      console.log("Cek JWT Token:", currentToken); 
-
       if (!currentToken) {
         throw new Error("Sesi tidak valid atau Token JWT kosong. Coba Logout dan Login kembali.");
       }
@@ -495,24 +402,21 @@ export const DetailTiketStaff = () => {
 
       const data = await res.json();
       
-      // 2. TANGKAP PESAN ERROR ASLI DARI BACKEND
       if (!res.ok) {
         const errorDetail = Array.isArray(data.detail) ? data.detail[0].msg : data.detail;
-        throw new Error(errorDetail || "Gagal membuat kunci (401 Unauthorized)");
+        throw new Error(errorDetail || "Gagal membuat kunci.");
       }
       
       setPassphrase(""); 
       setHasKey(true);
       alert("Kunci Keamanan berhasil dibuat! Silakan lanjutkan membalas tiket.");
-      
     } catch (error) {
-      setErrorSubmit(error.message); // UI akan menampilkan error aslinya!
+      setErrorSubmit(error.message);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // 3. Fungsi utama balas tiket
   const handleKirim = async () => {
     if (!pesan.trim()) {
       setErrorSubmit("Pesan tanggapan tidak boleh kosong!");
@@ -530,7 +434,7 @@ export const DetailTiketStaff = () => {
       formData.append("passphrase", passphrase);
       if (uploadedFile) formData.append("file_lampiran", uploadedFile);
 
-      const cleanId = ticket.id.replace('#', '');
+      const cleanId = ticket.id ? ticket.id.replace('#', '') : id;
       const res = await fetch(`http://localhost:8000/api/v1/tiket/${cleanId}/tanggapan`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}` },
@@ -538,24 +442,49 @@ export const DetailTiketStaff = () => {
       });
       const data = await res.json(); 
 
-      // 2. JIKA GAGAL (TERMASUK PASSPHRASE SALAH)
       if (!res.ok) {
-        // Ambil pesan error asli dari FastAPI (data.detail)
         const errorDetail = Array.isArray(data.detail) ? data.detail[0].msg : data.detail;
         throw new Error(errorDetail || "Gagal mengirim tanggapan"); 
       }
 
       setSubmitted(true);
-      setStatus("completed"); 
+      setStatus("Selesai"); 
     } catch (error) {
-      // 3. TAMPILKAN PESAN ERROR ASLI KE TULISAN MERAH DI LAYAR
       setErrorSubmit(error.message); 
     } finally {
       setIsSubmitting(false);
     }
   };
-  // Tambahkan baris ini biar React nggak bingung:
+
   const errorPassphraseRealtime = (!hasKey && passphrase) ? cekKekuatan(passphrase) : "";
+
+  if (isLoading) {
+    return (
+      <main className="bg-[#f8f9fa] w-full min-h-screen flex flex-col">
+        <TopNavigationStaff />
+        <div className="flex items-center justify-center flex-1 py-20">
+          <p className="text-gray-500">Memuat detail tiket...</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (error || !ticket) {
+    return (
+      <main className="bg-[#f8f9fa] w-full min-h-screen flex flex-col">
+        <TopNavigationStaff />
+        <div className="flex items-center justify-center flex-1 py-20">
+          <div className="bg-white rounded-xl shadow-sm border border-red-200 p-8 text-center max-w-md">
+            <p className="text-red-500 font-semibold mb-3">{error || "Tiket tidak ditemukan"}</p>
+            <button
+              onClick={() => navigate(-1)}
+              className="px-4 py-2 bg-[#130962] text-white rounded-xl hover:bg-[#1a237e]"
+            >Kembali</button>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   const mahasiswa = ticket.data_request || {};
   const logItems = [
@@ -576,7 +505,6 @@ export const DetailTiketStaff = () => {
       <TopNavigationStaff />
 
       <div className="w-full max-w-[900px] mx-auto px-6 mt-8 pb-20">
-
         {/* Header */}
         <div className="flex items-center gap-3 mb-5">
           <button onClick={() => navigate(-1)} className="text-[#130962] hover:opacity-70 transition-opacity">
@@ -588,11 +516,10 @@ export const DetailTiketStaff = () => {
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col gap-6">
-
           {/* No tiket & status */}
           <div className="flex flex-col gap-4">
             <p className="text-[#130962] text-sm font-semibold">
-              NO. TIKET : <span className="font-bold">{ticket.id_tiket}</span>
+              NO. TIKET : <span className="font-bold">{ticket.id_tiket || ticket.id}</span>
             </p>
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-3">
@@ -657,7 +584,7 @@ export const DetailTiketStaff = () => {
             <SectionHeader icon="💬" title="FORM TANGGAPAN STAFF" />
             <div className="p-5 flex flex-col gap-4">
               
-              {/* Skenario 0: Sedang Mengecek Status Kunci (Loading) */}
+              {/* Skenario 0: Loading Kunci */}
               {hasKey === null && (
                 <div className="flex flex-col items-center justify-center py-10 gap-2">
                   <div className="w-6 h-6 border-4 border-gray-200 border-t-[#130962] rounded-full animate-spin"></div>
@@ -686,7 +613,6 @@ export const DetailTiketStaff = () => {
                   </div>
 
                   <div className="flex flex-col gap-3">
-                    {/* Input Passphrase Baru */}
                     <div className="relative">
                       <input
                         type={showPass ? "text" : "password"}
@@ -705,7 +631,6 @@ export const DetailTiketStaff = () => {
                     </div>
                     {errorPassphraseRealtime && <p className="text-red-500 text-xs mt-1">{errorPassphraseRealtime}</p>}
 
-                    {/* Input Konfirmasi Passphrase */}
                     <div className="relative">
                       <input
                         type={showConfirm ? "text" : "password"}
@@ -735,7 +660,7 @@ export const DetailTiketStaff = () => {
                 </div>
               )}
 
-              {/* Skenario 2: Sudah Punya Kunci, Belum Submit */}
+              {/* Skenario 2: Sudah Punya Kunci, Belum Berhasil Kirim */}
               {hasKey === true && !submitted && (
                 <>
                   <div>
@@ -764,74 +689,51 @@ export const DetailTiketStaff = () => {
                     </div>
                   </div>
 
-                  <div>
-                    <p className="text-sm font-semibold text-[#130962] mb-2">Private Key (.pem) untuk menandatangani tanggapan:</p>
-                    <input
-                      type="file"
-                      accept=".pem"
-                      onChange={(e) => setPrivateKeyFile(e.target.files[0])}
-                      className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#130962]"
-                    />
-                  </div>
-
-                  <button
-                    onClick={handleKirim}
-                    disabled={isSending}
-                    className="w-full py-3 bg-[#ffe030] text-[#130962] font-bold rounded-xl hover:bg-yellow-400 transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    {isSending ? "Mengirim..." : (
-                      <>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <line x1="22" y1="2" x2="11" y2="13" />
-                          <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                        </svg>
-                        KIRIM TANGGAPAN
-                      </>
-                    )}
                   {/* INPUT PASSPHRASE SEBELUM KIRIM */}
                   <div className="mt-2 p-4 bg-gray-50 border border-gray-200 rounded-xl">
                     <p className="text-sm font-semibold text-[#130962] mb-1 flex items-center gap-2"><span>🔒</span> Passphrase Keamanan</p>
                     <p className="text-xs text-gray-500 mb-3">Masukkan passphrase Anda untuk menempelkan Tanda Tangan Digital pada balasan ini.</p>
                     <div className="relative">
-                    <input
-                      type="password"
-                      value={passphrase}
-                      onChange={(e) => { setPassphrase(e.target.value); setErrorSubmit(""); }}
-                      placeholder="Masukkan Passphrase Anda"
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-[#130962]"
-                    />
-
-                    <button
+                      <input
+                        type={showPass ? "text" : "password"}
+                        value={passphrase}
+                        onChange={(e) => { setPassphrase(e.target.value); setErrorSubmit(""); }}
+                        placeholder="Masukkan Passphrase Anda"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 pr-10 text-sm focus:outline-none focus:border-[#130962]"
+                      />
+                      <button
                         type="button"
                         onClick={() => setShowPass(!showPass)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#130962]"
                       >
                         {showPass ? "👁️" : "👁️‍🗨️"}
-                    </button>
+                      </button>
                     </div>
                   </div>
 
                   {errorSubmit && <p className="text-red-500 text-xs text-center font-medium">{errorSubmit}</p>}
 
-                  <button onClick={handleKirim} disabled={isSubmitting} className="w-full mt-2 py-3 bg-[#ffe030] text-[#130962] font-bold rounded-xl hover:bg-yellow-400 transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+                  <button 
+                    onClick={handleKirim} 
+                    disabled={isSubmitting} 
+                    className="w-full mt-2 py-3 bg-[#ffe030] text-[#130962] font-bold rounded-xl hover:bg-yellow-400 transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
                     {isSubmitting ? "MEMPROSES SIGNATURE..." : "KIRIM TANGGAPAN"}
                   </button>
                 </>
               )}
 
-              {/* Skenario 3: Sudah Submit */}
+              {/* Skenario 3: Sudah Berhasil Submit */}
               {submitted && (
                 <div className="flex flex-col items-center py-6 gap-2">
                   <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                   </div>
-                  <p className="font-semibold text-[#130962] text-sm">Tanggapan & Digital Signature berhasil dikirim!</p>
+                  <p className="font-semibold text-[#16a34a] text-sm">Tanggapan & Digital Signature berhasil dikirim!</p>
                 </div>
               )}
             </div>
           </div>
-
-          
 
           {/* Log Aktivitas */}
           <div className="rounded-lg overflow-hidden border border-gray-200">
