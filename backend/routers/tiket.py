@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from datetime import datetime, timezone
 import json
 import hashlib
 import uuid
 import os
+from pydantic import ValidationError
 
 from backend.database import get_db
 from backend import models, schemas
@@ -15,6 +16,52 @@ router = APIRouter(
     prefix="/api/v1/tiket",
     tags=["Kelola Tiket Layanan"]
 )
+
+# ─── Konfigurasi direktori upload ─────────────────────────────────────────────
+UPLOAD_DIR = "uploads"
+ALLOWED_MIME_TYPES = {
+    "image/jpeg", "image/png", "image/jpg",
+    "application/pdf",
+}
+MAX_FILE_SIZE_MB = 5
+MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+
+
+# ─── Helper: simpan UploadFile ke disk ────────────────────────────────────────
+
+async def _simpan_file(upload_file: UploadFile, subfolder: str = "") -> str:
+    """
+    Baca UploadFile, validasi ukuran & tipe, lalu simpan ke disk.
+    """
+    if upload_file.content_type not in ALLOWED_MIME_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Tipe file '{upload_file.content_type}' tidak diizinkan untuk '{upload_file.filename}'. "
+                f"Hanya menerima: {', '.join(sorted(ALLOWED_MIME_TYPES))}."
+            )
+        )
+
+    isi = await upload_file.read()
+
+    if len(isi) > MAX_FILE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Ukuran file '{upload_file.filename}' melebihi batas {MAX_FILE_SIZE_MB} MB."
+        )
+
+    target_dir = os.path.join(UPLOAD_DIR, subfolder) if subfolder else UPLOAD_DIR
+    os.makedirs(target_dir, exist_ok=True)
+
+    ext = os.path.splitext(upload_file.filename or "file")[1]
+    nama_tersimpan = f"{uuid.uuid4().hex}{ext}"
+    path_tersimpan = os.path.join(target_dir, nama_tersimpan)
+
+    with open(path_tersimpan, "wb") as f:
+        f.write(isi)
+
+    return path_tersimpan
+
 
 class TiketService:
     VALID_STATUSES = {"Open", "Diproses", "Selesai", "Ditolak"}
@@ -57,7 +104,17 @@ class TiketService:
         if not mahasiswa.semester and payload.semester:
             mahasiswa.semester = payload.semester
 
-    def buat_tiket(self, payload: schemas.TiketCreate) -> models.TiketLayanan:
+    def _log_aktivitas(self, aksi: str):
+        sec_helper.log_aktivitas(
+            db=self.db,
+            aksi=aksi,
+            email=self.user_data["email"],
+            role=self.user_data["role"],
+            status_log="Success",
+            ip_address=self.ip_address,
+        )
+
+    def buat_tiket(self, payload: schemas.TiketCreate, file_lampiran_db: Optional[str] = None) -> models.TiketLayanan:
         if payload.kategori not in self.VALID_KATEGORIS:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -76,7 +133,11 @@ class TiketService:
             kategori=payload.kategori,
             subjek=payload.subjek,
             data_request=payload.data_request,
-            file_lampiran=payload.file_lampiran,
+            # Menggunakan path file_lampiran_tambahan jika ada untuk kolom DB utama
+            file_lampiran=file_lampiran_db,
+            # Simpan metadata pengaju agar mudah diquery tanpa perlu JOIN ke Mahasiswa
+            nim_pengaju=payload.nim,
+            program_studi_pengaju=payload.program_studi,
             status="Open"
         )
 
@@ -84,6 +145,7 @@ class TiketService:
         self.db.commit()
         self.db.refresh(new_tiket)
 
+        self._log_aktivitas(f"Submit tiket baru: {generated_id} & Update Profil")
         return new_tiket
 
     def lihat_daftar_tiket(self) -> List[models.TiketLayanan]:
@@ -207,20 +269,105 @@ class TiketService:
 
 # --- ROUTERS DENGAN PENANAMAN LOG ---
 
-@router.post("/", response_model=schemas.TiketResponse, status_code=status.HTTP_201_CREATED)
-def buat_tiket(payload: schemas.TiketCreate, request: Request, db: Session = Depends(get_db)):
+@router.post("/", response_model=schemas.TiketResponse, status_code=status.HTTP_201_CREATED,
+             summary="Buat Tiket Baru (multipart/form-data)")
+async def buat_tiket(
+    request: Request,
+    db: Session = Depends(get_db),
+    id_layanan: str = Form(..., description="ID layanan yang dituju"),
+    kategori: str = Form(..., description="Kategori tiket: 'Persuratan' atau 'Layanan'"),
+    subjek: Optional[str] = Form(None, description="Subjek/judul tiket"),
+    deskripsi: Optional[str] = Form(None, description="Deskripsi tiket"),
+    
+    # Terima sebagai string, akan di-parse manual
+    data_request: str = Form(..., description="Data spesifik tiket dalam format JSON string."),
+    
+    nim: Optional[str] = Form(None, description="NIM mahasiswa"),
+    program_studi: Optional[str] = Form(None, description="Program studi mahasiswa"),
+    departemen: Optional[str] = Form(None, description="Departemen"),
+    fakultas: Optional[str] = Form(None, description="Fakultas/Sekolah"),
+    semester: Optional[str] = Form(None, description="Semester aktif."),
+    ktm_file: Optional[UploadFile] = File(None, description="File KTM"),
+    ukt_file: Optional[UploadFile] = File(None, description="Bukti Pembayaran UKT"),
+    lampiran_file: Optional[UploadFile] = File(None, description="File lampiran tambahan untuk persuratan"),
+    file_lampiran: Optional[UploadFile] = File(None, description="File lampiran untuk kategori informasi"),
+):
     user_data = sec_helper.ekstrak_token(request)
-    
-    # 1. SATPAM PINTAR: Validasi Role
     sec_helper.cek_role(user_data, db, request, "mahasiswa")
-    
+
+    # ── 0. Parse JSON string menjadi dict ──
+    try:
+        data_request_dict = json.loads(data_request)
+    except json.JSONDecodeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"data_request harus berupa JSON string yang valid. Error: {str(e)}"
+        )
+
+    # ── 1. Mengambil jenis_surat dari data_request yang sudah di-parse ──
+    jenis_surat = data_request_dict.get("jenis_surat", "")
+    path_tambahan_db = None
+
+    # ── 1b. Tambahkan nim ke data_request_dict agar validator tidak error ──
+    # (Validator mengharapkan nim ada di dalam data_request)
+    if nim and not data_request_dict.get("nim"):
+        data_request_dict["nim"] = nim
+
+    # ── 2. Simpan file ke disk jika diunggah frontend ───
+    if ktm_file and ktm_file.filename and ktm_file.filename.strip():
+        path_ktm = await _simpan_file(ktm_file, subfolder="ktm")
+        data_request_dict["file_ktm"] = path_ktm
+
+    if ukt_file and ukt_file.filename and ukt_file.filename.strip():
+        path_ukt = await _simpan_file(ukt_file, subfolder="ukt")
+        data_request_dict["file_ukt"] = path_ukt
+
+    if lampiran_file and lampiran_file.filename and lampiran_file.filename.strip():
+        path_tambahan = await _simpan_file(lampiran_file, subfolder="lampiran")
+        path_tambahan_db = path_tambahan
+        
+        field_mapping = {
+            "Surat Izin Akademik":         "file_form_izin",
+            "Surat Perubahan KRS":         "file_form_krs",
+            "Surat Rekomendasi Beasiswa":  "file_form_rekomendasi",
+            "Permohonan Surat Magang":     "file_form_persetujuan_dsb",
+        }
+        target_field = field_mapping.get(jenis_surat, "file_lampiran_tambahan")
+        data_request_dict[target_field] = path_tambahan
+
+    # Handle file_lampiran untuk kategori Informasi
+    if file_lampiran and file_lampiran.filename and file_lampiran.filename.strip():
+        path_info = await _simpan_file(file_lampiran, subfolder="lampiran")
+        path_tambahan_db = path_info
+
+    # ── 3. Validasi skema via Pydantic tanpa bentrok field file_lampiran ─────
+    try:
+        payload = schemas.TiketCreate(
+            id_layanan=id_layanan,
+            kategori=kategori,
+            subjek=subjek or "Tiket " + jenis_surat if jenis_surat else "Tiket Layanan",
+            data_request=data_request_dict,
+            file_lampiran=path_tambahan_db, 
+            nim=nim,
+            program_studi=program_studi,
+            departemen=departemen,
+            fakultas=fakultas,
+            semester=semester,
+        )
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, 
+            detail=f"Validasi data tiket gagal: {exc.errors()}"
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail=str(exc)
+        )
+
+    # ── 4. Jalankan Service ───────────────────────────────────────────────────
     service = TiketService(db=db, user_data=user_data, ip_address=request.client.host)
-    hasil_tiket = service.buat_tiket(payload)
-    
-    # LOG: Membuat Tiket
-    sec_helper.log_aktivitas(db, aksi=f"Submit tiket baru: {hasil_tiket.id_tiket}", request=request)
-    
-    return hasil_tiket
+    return service.buat_tiket(payload, file_lampiran_db=path_tambahan_db)
 
 @router.get("/", response_model=List[schemas.TiketResponse])
 def lihat_daftar_tiket(request: Request, db: Session = Depends(get_db)):
