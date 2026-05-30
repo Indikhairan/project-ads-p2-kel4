@@ -128,13 +128,15 @@ export const HomepageStaff = () => {
       <div className="w-full max-w-[1100px] mx-auto px-6 mt-8 pb-20">
 
         {/* Welcome */}
-        <h1 className="text-[#130962] text-lg font-medium mb-5">
-          Selamat datang!
+        <h1 className="text-[#130962] text-lg mb-5">
+          <span className="font-medium">Selamat datang, </span>
+          <span className="font-bold underline">Andi</span>
+          <span className="font-medium">!</span>
         </h1>
 
         {/* Search & Filter Card */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-5">
-          <div className="flex gap-3 mb-4">
+          <div className="flex gap-3 mb-2">
             {/* Search */}
             <div className="flex-1 flex items-center border border-gray-300 rounded-full px-4 py-2.5 gap-2 bg-white">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -156,7 +158,7 @@ export const HomepageStaff = () => {
                 filterStatus !== "Semua Status" || filterKategori !== "Semua Kategori" || dariTanggal || sampaiTanggal
                   ? "bg-[#130962] text-white border-[#130962]"
                   : showFilter
-                  ? "bg-gray-100 text-[#130962] border-gray-300"
+                  ? "bg-[#130962] text-white border-[#130962]"
                   : "bg-white text-gray-400 border-gray-300 hover:text-[#130962] hover:border-[#130962]"
               }`}
             >
@@ -180,6 +182,7 @@ export const HomepageStaff = () => {
                   <polyline points="19 12 12 19 5 12" />
                 </svg>
               </button>
+
               {showSort && (
                 <div className="absolute right-0 top-14 bg-white border border-gray-200 rounded-xl shadow-lg p-4 z-50 w-44">
                   <p className="text-xs font-semibold text-gray-400 mb-2">Urutkan berdasarkan</p>
@@ -202,6 +205,7 @@ export const HomepageStaff = () => {
           </div>
 
           {/* Filter row */}
+          {showFilter && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {/* Status */}
               <div>
@@ -263,6 +267,7 @@ export const HomepageStaff = () => {
               />
             </div>
           </div>
+          )}
         </div>
 
         {/* Info & tampilkan */}
