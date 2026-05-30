@@ -89,8 +89,8 @@ class TiketService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Data mahasiswa tidak ditemukan di sistem.")
         return mahasiswa
 
-    def _generate_tiket_id(self, id_layanan: str) -> str:
-        return f"{id_layanan}-{int(datetime.now(timezone.utc).timestamp())}"
+    def _generate_tiket_id(self, id_layanan: str, nomor_urut: int) -> str:
+        return f"{id_layanan}-{nomor_urut:03d}"
 
     def _update_profil_mahasiswa(self, mahasiswa: models.Mahasiswa, payload: schemas.TiketCreate):
         if not mahasiswa.nim:

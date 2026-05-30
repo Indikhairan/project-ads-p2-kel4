@@ -12,7 +12,6 @@ router = APIRouter(
     tags=["Files"]
 )
 
-
 class FileStorageService:
     """Mengelola upload dan download file lampiran tiket."""
 
@@ -81,28 +80,17 @@ async def upload_file(
 ):
     """
     Upload file lampiran (KTM, UKT, dokumen pendukung) atau output surat dari staff.
-    - **Hak akses**: Mahasiswa, Staff, Admin
+    - **Hak akses**: Mahasiswa & Staff
     - **Format**: PDF, JPG, PNG | **Maks**: 5 MB
     """
-    # 1. SATPAM PINTAR: Validasi Token dan Role
-    user_info = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_info, db, request, "mahasiswa", "staff", "admin")
+    sec_helper.ekstrak_token(request)   # wajib login
 
     file_service.validasi_tipe(file.content_type)
 
     contents = await file.read()
     file_service.validasi_ukuran(contents)
 
-    hasil = file_service.simpan_file(contents, file.filename)
-
-    # 2. TANAM LOG: Catat siapa yang mengunggah file ke server
-    sec_helper.log_aktivitas(
-        db=db,
-        aksi=f"Upload dokumen: {hasil['filename_saved']}",
-        request=request
-    )
-
-    return hasil
+    return file_service.simpan_file(contents, file.filename)
 
 
 # ─── GET /files/{file_id} ─────────────────────────────────────────────────────
@@ -113,19 +101,10 @@ def download_file(file_id: str, request: Request, db: Session = Depends(get_db))
     Unduh file berdasarkan file_id.
     - **Hak akses**: Wajib login (file tidak boleh diakses publik)
     """
-    # 1. SATPAM PINTAR: Validasi Token
-    user_info = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_info, db, request, "mahasiswa", "staff", "admin")
+    sec_helper.ekstrak_token(request)
 
     filepath = file_service.cari_filepath(file_id)
     fname = os.path.basename(filepath)
-
-    # 2. TANAM LOG: Forensik digital untuk melacak siapa yang mengunduh file ini
-    sec_helper.log_aktivitas(
-        db=db,
-        aksi=f"Download/Akses dokumen: {fname}",
-        request=request
-    )
 
     return FileResponse(
         path=filepath,
