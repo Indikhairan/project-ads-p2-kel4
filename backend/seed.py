@@ -23,8 +23,8 @@ def seed_data():
         
         # Daftar pengguna pertama aplikasi SAPA IPB
         initial_users = [
-            {"email": "ccmuthia@apps.ipb.ac.id", "role": "admin"},
-            {"email": "indikhairan@apps.ipb.ac.id", "role": "staff"}
+            {"email": "ccmuthia@apps.ipb.ac.id", "nama_lengkap": "Muthia Khansa", "role": "admin"},
+            {"email": "indikhairan@apps.ipb.ac.id", "nama_lengkap": "Indriyani Khairan Nisa", "role": "staff"}
         ]
 
         for user_data in initial_users:
@@ -34,7 +34,9 @@ def seed_data():
             if not existing_user:
                 new_user = models.User(
                     email=user_data["email"],
+                    nama_lengkap=user_data["nama_lengkap"],
                     role=user_data["role"]
+
                 )
                 db.add(new_user)
                 print(f"✅ Akun {user_data['email']} berhasil ditambahkan sebagai {user_data['role']}.")
