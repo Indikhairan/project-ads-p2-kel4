@@ -11,3 +11,7 @@ venv/
 env/
 .venv-1/
 .venv
+# Mengabaikan semua file hasil upload lokal
+frontend/uploads/
+backend/uploads/
+uploads/
