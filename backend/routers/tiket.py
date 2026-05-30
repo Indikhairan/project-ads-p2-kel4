@@ -125,7 +125,10 @@ class TiketService:
         mahasiswa = self._get_mahasiswa(self.user_data["email"])
         self._update_profil_mahasiswa(mahasiswa, payload)
 
-        generated_id = self._generate_tiket_id(payload.id_layanan)
+        total_tiket = self.db.query(models.TiketLayanan).count()
+        nomor_urut_berikutnya = total_tiket + 1
+        generated_id = self._generate_tiket_id(payload.id_layanan, nomor_urut_berikutnya)
+    
         new_tiket = models.TiketLayanan(
             id_tiket=generated_id,
             email_mahasiswa=self.user_data["email"],

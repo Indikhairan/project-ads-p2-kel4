@@ -2,7 +2,7 @@ from sqlalchemy import (
     Column, String, Integer, DateTime, Boolean,
     ForeignKey, Text
 )
-from sqlalchemy.dialects.postgresql import JSONB   # Menggunakan JSONB agar performa query field dinamis cepat
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from backend.database import Base
 from datetime import datetime, timezone
