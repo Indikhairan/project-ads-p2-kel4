@@ -128,6 +128,10 @@ export const NotifikasiPage = () => {
     };
 
     fetchNotifs();
+
+    // ── POLLING: Auto-refresh setiap 5 detik ──
+    const pollingInterval = setInterval(fetchNotifs, 5000);
+    return () => clearInterval(pollingInterval);
   }, []);
 
   const handleTandaiDibaca = async () => {
