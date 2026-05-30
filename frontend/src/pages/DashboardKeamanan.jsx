@@ -64,6 +64,10 @@ export const DashboardKeamanan = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const totalPages = Math.ceil(recentActivity.length / ITEMS_PER_PAGE);
   const paginated = recentActivity.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const [searchLog, setSearchLog] = useState("");
+  const [logsPerPage, setLogsPerPage] = useState(5);
+  const [logPage, setLogPage] = useState(1);
+  const LOG_ITEMS_OPTIONS = [5, 10, 20];
 
   const today = new Date().toLocaleDateString("id-ID", {
     weekday: "long", day: "numeric", month: "long", year: "numeric"
@@ -162,66 +166,130 @@ export const DashboardKeamanan = () => {
             <SectionHeader title="Accounting" color="bg-[#3b4fa8]" />
             <div className="bg-white p-5">
               <p className="text-sm font-semibold text-[#130962] mb-3">Recent Activity</p>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-[#ffe030] text-[#130962]">
-                    <th className="py-2 px-3 text-left font-semibold text-xs">Time</th>
-                    <th className="py-2 px-3 text-left font-semibold text-xs">Email</th>
-                    <th className="py-2 px-3 text-left font-semibold text-xs">Role</th>
-                    <th className="py-2 px-3 text-left font-semibold text-xs">Activity</th>
-                    <th className="py-2 px-3 text-left font-semibold text-xs">Status</th>
-                    <th className="py-2 px-3 text-left font-semibold text-xs">IP Address</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginated.map((row, idx) => (
-                    <tr key={idx} className={idx % 2 === 1 ? "bg-[#f0f0ff]" : "bg-white"}>
-                      <td className="py-2 px-3 text-xs text-[#130962]">{row.time}</td>
-                      <td className="py-2 px-3 text-xs text-[#130962]">{row.email}</td>
-                      <td className="py-2 px-3 text-xs text-[#130962]">{row.role}</td>
-                      <td className="py-2 px-3 text-xs text-[#130962]">{row.activity}</td>
-                      <td className="py-2 px-3">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          row.status === "success" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-500"
-                        }`}>
-                          {row.status === "success" ? "Success" : "Failed"}
-                        </span>
-                      </td>
-                      <td className="py-2 px-3 text-xs text-[#130962]">{row.ip}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
 
-              {/* Pagination */}
-              <div className="flex justify-center items-center gap-2 mt-4">
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="text-gray-400 hover:text-[#130962] disabled:opacity-30 text-sm px-1"
-                >
-                  &lt;
-                </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setCurrentPage(p)}
-                    className={`w-6 h-6 rounded text-xs font-medium transition-colors ${
-                      currentPage === p ? "bg-[#130962] text-white" : "text-gray-500 hover:text-[#130962]"
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
-                {totalPages > 3 && <span className="text-gray-400 text-xs">...</span>}
-                <button
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="text-gray-400 hover:text-[#130962] disabled:opacity-30 text-sm px-1"
-                >
-                  &gt;
-                </button>
+              {/* Search + Tampilkan */}
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div className="flex items-center border border-gray-300 rounded-xl px-4 py-2 gap-2 flex-1">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Cari email, aktivitas, atau IP..."
+                    value={searchLog}
+                    onChange={(e) => { setSearchLog(e.target.value); setLogPage(1); }}
+                    className="flex-1 text-sm focus:outline-none bg-transparent"
+                  />
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-sm text-gray-500">Tampilkan:</span>
+                  <div className="relative">
+                    <select
+                      value={logsPerPage}
+                      onChange={(e) => { setLogsPerPage(Number(e.target.value)); setLogPage(1); }}
+                      className="border border-gray-300 rounded-lg pl-3 pr-7 py-1.5 text-sm focus:outline-none focus:border-[#130962] text-[#130962] appearance-none bg-white cursor-pointer"
+                    >
+                      {LOG_ITEMS_OPTIONS.map((n) => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[#130962]">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    </span>
+                  </div>
+                </div>
               </div>
+
+              {/* Tabel */}
+              {(() => {
+                const filteredLogs = recentActivity.filter((row) =>
+                  row.email.toLowerCase().includes(searchLog.toLowerCase()) ||
+                  row.activity.toLowerCase().includes(searchLog.toLowerCase()) ||
+                  row.ip.toLowerCase().includes(searchLog.toLowerCase()) ||
+                  row.role.toLowerCase().includes(searchLog.toLowerCase())
+                );
+                const totalLogPages = Math.max(1, Math.ceil(filteredLogs.length / logsPerPage));
+                const paginatedLogs = filteredLogs.slice((logPage - 1) * logsPerPage, logPage * logsPerPage);
+
+                return (
+                  <>
+                    <table className="w-full">
+                      <thead>
+                        <tr className="bg-[#ffe030] text-[#130962]">
+                          <th className="py-2 px-3 text-center font-semibold text-xs">Time</th>
+                          <th className="py-2 px-3 text-center font-semibold text-xs">Email</th>
+                          <th className="py-2 px-3 text-center font-semibold text-xs">Role</th>
+                          <th className="py-2 px-3 text-center font-semibold text-xs">Activity</th>
+                          <th className="py-2 px-3 text-center font-semibold text-xs">Status</th>
+                          <th className="py-2 px-3 text-center font-semibold text-xs">IP Address</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedLogs.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="py-10 text-center italic text-gray-400 text-sm">
+                              Data tidak ditemukan.
+                            </td>
+                          </tr>
+                        ) : (
+                          paginatedLogs.map((row, idx) => (
+                            <tr key={idx} className={idx % 2 === 1 ? "bg-[#f0f0ff]" : "bg-white"}>
+                              <td className="py-2 px-3 text-xs text-[#130962] text-center">{row.time}</td>
+                              <td className="py-2 px-3 text-xs text-[#130962] text-center">{row.email}</td>
+                              <td className="py-2 px-3 text-xs text-[#130962] text-center">{row.role}</td>
+                              <td className="py-2 px-3 text-xs text-[#130962] text-center">{row.activity}</td>
+                              <td className="py-2 px-3 text-center">
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                  row.status === "success" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-500"
+                                }`}>
+                                  {row.status === "success" ? "Success" : "Failed"}
+                                </span>
+                              </td>
+                              <td className="py-2 px-3 text-xs text-[#130962] text-center">{row.ip}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+
+                    {/* Info + Pagination */}
+                    <div className="flex items-center justify-between mt-4">
+                      <p className="text-xs text-gray-400">
+                        Menampilkan {filteredLogs.length === 0 ? 0 : (logPage - 1) * logsPerPage + 1}–{Math.min(logPage * logsPerPage, filteredLogs.length)} dari {filteredLogs.length} aktivitas
+                      </p>
+                      {totalLogPages > 1 && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setLogPage((p) => Math.max(1, p - 1))}
+                            disabled={logPage === 1}
+                            className="text-gray-400 hover:text-[#130962] disabled:opacity-30 text-sm px-1"
+                          >
+                            &lt;
+                          </button>
+                          {Array.from({ length: totalLogPages }, (_, i) => i + 1).map((p) => (
+                            <button
+                              key={p}
+                              onClick={() => setLogPage(p)}
+                              className={`w-6 h-6 rounded text-xs font-medium transition-colors ${
+                                logPage === p ? "bg-[#130962] text-white" : "text-gray-500 hover:text-[#130962]"
+                              }`}
+                            >
+                              {p}
+                            </button>
+                          ))}
+                          <button
+                            onClick={() => setLogPage((p) => Math.min(totalLogPages, p + 1))}
+                            disabled={logPage === totalLogPages}
+                            className="text-gray-400 hover:text-[#130962] disabled:opacity-30 text-sm px-1"
+                          >
+                            &gt;
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>

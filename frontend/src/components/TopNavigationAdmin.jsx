@@ -57,14 +57,14 @@ export const TopNavigationAdmin = () => {
             Kelola Pengguna
           </span>
           <span
-            onClick={() => navigate("/admin/persetujuan")}
+            onClick={() => navigate("/admin/knowledge-base")}
             className={`cursor-pointer pb-0.5 transition-colors ${
-              isActive("/admin/persetujuan")
+              isActive("/admin/knowledge-base")
                 ? "font-bold text-[#130962] border-b-2 border-[#ffe030]"
                 : "font-medium text-gray-400 hover:text-[#130962]"
             }`}
           >
-            Pusat Persetujuan AI
+            Knowledge Base
           </span>
         </nav>
       </div>

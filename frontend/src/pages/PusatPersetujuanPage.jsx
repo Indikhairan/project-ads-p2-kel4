@@ -139,7 +139,7 @@ export const PusatPersetujuanPage = () => {
             <p className="font-semibold text-yellow-700 text-sm">Perhatian: Aturan Proses Sinkronisasi AI (Ingest)</p>
             <p className="text-yellow-600 text-xs mt-1">
               Tindakan "Setujui & Ingest" akan membaca dokumen ke dalam database AI (memakan kuota API). Disarankan untuk meninjau dokumen terlebih dahulu dan melakukan Ingest secara sekaligus pada{" "}
-              <span className="font-bold">Pukul 16:00 - 17:00 WIB</span>.
+              <span className="font-bold">Pukul 22:00 - 23:00 WIB</span>.
             </p>
           </div>
         </div>
