@@ -1,28 +1,20 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import infografisPanduan from "../assets/infografis-panduan.png";
 
-const summaryCards = [
-  { count: "12", title: "Tiket Dibuat", description: "Total seluruh tiket", iconBg: "bg-[#fff7cb]", emoji: "📑" },
-  { count: "5", title: "Sedang Diproses", description: "Tiket dalam proses", iconBg: "bg-[#dbeafe]", emoji: "⏳" },
-  { count: "7", title: "Selesai", description: "Tiket selesai", iconBg: "bg-[#dcfce7]", emoji: "✅" },
-  { count: "0", title: "Ditolak", description: "Tiket ditolak", iconBg: "bg-[#fee2e2]", emoji: "🚫" },
-];
+// --- HELPER COMPONENTS & FUNCTIONS ---
 
-const tickets = [
-  { id: "001", title: "Tiket #001 (Surat Aktif)", date: "21 April 2026, 10:30", status: "processing" },
-  { id: "002", title: "Tiket #002 (Surat Aktif)", date: "22 April 2026, 11:00", status: "completed" },
-  { id: "003", title: "Tiket #003 (Surat Aktif)", date: "23 April 2026, 09:15", status: "rejected" },
-];
-
+// 1. Komponen Badge Status Tiket
 const StatusBadge = ({ status }) => {
-  if (status === "processing")
+  const normStatus = (status || "").toLowerCase();
+  
+  if (normStatus === "processing" || normStatus === "diproses" || normStatus === "open")
     return (
       <div className="px-3 py-1 bg-orange-50 border border-orange-400 text-orange-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
         ⏱ DIPROSES
       </div>
     );
-  if (status === "completed")
+  if (normStatus === "completed" || normStatus === "selesai")
     return (
       <div className="px-3 py-1 bg-green-50 border border-green-500 text-green-600 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
         ✓ SELESAI
@@ -35,8 +27,82 @@ const StatusBadge = ({ status }) => {
   );
 };
 
+// 2. Fungsi Format Waktu (Contoh: 2026-05-30 ... menjadi "30 Mei 2026, 14.36 WIB")
+const formatWaktu = (stringWaktu) => {
+  if (!stringWaktu) return "Waktu tidak diketahui";
+  
+  try {
+    const tanggal = new Date(stringWaktu);
+    
+    if (isNaN(tanggal.getTime())) return stringWaktu;
+
+    return tanggal.toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).replace(".", ":") + " WIB";
+  } catch (error) {
+    return stringWaktu;
+  }
+};
+
+// --- MAIN COMPONENT ---
+
 export const AcademicServicesDashboardSection = () => {
   const navigate = useNavigate();
+  const [tickets, setTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Mengambil data tiket saat komponen pertama kali di-render
+  useEffect(() => {
+    const fetchTickets = async () => {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem("sapa_ipb_token");
+        if (!token) return;
+        
+        const res = await fetch("http://127.0.0.1:8000/api/v1/tiket/", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        
+        if (res.ok) setTickets(data || []);
+        else setTickets([]);
+      } catch (e) {
+        console.error("Error fetching tickets for dashboard:", e);
+        setTickets([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTickets();
+  }, []);
+
+  // --- LOGIKA KALKULASI RINGKASAN TIKET ---
+  const total = tickets.length;
+  const diproses = tickets.filter(t => {
+    const s = (t.status || "").toLowerCase();
+    return s === "diproses" || s === "open" || s === "processing";
+  }).length;
+  const selesai = tickets.filter(t => {
+    const s = (t.status || "").toLowerCase();
+    return s === "selesai" || s === "completed";
+  }).length;
+  const ditolak = tickets.filter(t => (t.status || "").toLowerCase() === "ditolak").length;
+
+  const summaryCards = [
+    { count: String(total), title: "Tiket Dibuat", description: "Total seluruh tiket", iconBg: "bg-[#fff7cb]", emoji: "📑" },
+    { count: String(diproses), title: "Sedang Diproses", description: "Tiket dalam proses", iconBg: "bg-[#dbeafe]", emoji: "⏳" },
+    { count: String(selesai), title: "Selesai", description: "Tiket selesai", iconBg: "bg-[#dcfce7]", emoji: "✅" },
+    { count: String(ditolak), title: "Ditolak", description: "Tiket ditolak", iconBg: "bg-[#fee2e2]", emoji: "🚫" },
+  ];
+
+  // --- MENGURUTKAN DAN MENGAMBIL MAXIMAL 3 TIKET TERBARU ---
+  const lastTickets = [...tickets]
+    .sort((a, b) => new Date(b.waktu_submit || b.waktu || 0) - new Date(a.waktu_submit || a.waktu || 0))
+    .slice(0, 3);
 
   return (
     <div className="w-full flex flex-col gap-5">
@@ -80,7 +146,7 @@ export const AcademicServicesDashboardSection = () => {
         </div>
       </section>
 
-      {/* Tiket Terakhir */}
+      {/* Tiket Terakhir Section */}
       <section className="w-full bg-white rounded-xl border border-gray-100 p-5">
         <div className="flex justify-between items-center mb-4">
           <h2 className="font-semibold text-[#130962] text-base">Tiket Terakhir Anda</h2>
@@ -91,26 +157,37 @@ export const AcademicServicesDashboardSection = () => {
             Lihat Semua →
           </button>
         </div>
+        
         <div className="flex flex-col gap-2.5">
-          {tickets.map((ticket) => (
-            <article
-              key={ticket.id}
-              onClick={() => navigate(`/tiket/${ticket.id}`)}
-              className="w-full border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between gap-4 bg-white hover:bg-gray-50 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-base">📝</span>
-                <div>
-                  <div className="font-medium text-[#130962] text-sm">{ticket.title}</div>
-                  <div className="italic text-gray-400 text-[11px]">{ticket.date}</div>
+          {loading ? (
+            <p className="text-gray-400 text-xs text-center py-4">Memuat data tiket...</p>
+          ) : lastTickets.length === 0 ? (
+            <p className="text-gray-400 text-xs text-center py-4">Belum ada tiket yang diajukan.</p>
+          ) : (
+            lastTickets.map((ticket) => (
+              <article
+                key={ticket.id_tiket || ticket.id}
+                onClick={() => navigate(`/tiket/${ticket.id_tiket || ticket.id}`)}
+                className="w-full border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between gap-4 bg-white hover:bg-gray-50 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-base">📝</span>
+                  <div>
+                    <div className="font-medium text-[#130962] text-sm">
+                      {ticket.judul || ticket.title || ticket.id_layanan || "Tiket Layanan"}
+                    </div>
+                    <div className="italic text-gray-400 text-[11px]">
+                      {formatWaktu(ticket.waktu_submit || ticket.waktu || ticket.date)}
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <StatusBadge status={ticket.status} />
-                <span className="text-gray-400 text-sm">›</span>
-              </div>
-            </article>
-          ))}
+                <div className="flex items-center gap-2">
+                  <StatusBadge status={ticket.status} />
+                  <span className="text-gray-400 text-sm">›</span>
+                </div>
+              </article>
+            ))
+          )}
         </div>
       </section>
 
