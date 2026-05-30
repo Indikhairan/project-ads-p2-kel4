@@ -31,8 +31,6 @@ class TokenResponse(BaseModel):
 class GoogleAuthService:
     def __init__(self):
         self.client_id = os.getenv("GOOGLE_CLIENT_ID")
-        self.admin_emails = ["ccmuthia@apps.ipb.ac.id"] 
-        self.staff_emails = ["indikhairan@apps.ipb.ac.id"]
 
     def verifikasi_google(self, token: str):
         try:
