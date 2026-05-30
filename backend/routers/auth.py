@@ -42,12 +42,7 @@ class GoogleAuthService:
     def kelola_user_db(self, db: Session, email: str, nama: str):
         user = db.query(models.User).filter(models.User.email == email).first()
         if not user:
-            if email in self.admin_emails:
-                new_user = models.StaffAkademik(email=email, nama_lengkap=nama, role="admin", nip="00000000")
-            elif email in self.staff_emails:
-                new_user = models.StaffAkademik(email=email, nama_lengkap=nama, role="staff", nip="11111111")
-            else:
-                new_user = models.Mahasiswa(email=email, nama_lengkap=nama, role="mahasiswa")
+            new_user = models.Mahasiswa(email=email, nama_lengkap=nama, role="mahasiswa")
             
             db.add(new_user)
             db.commit()
