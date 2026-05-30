@@ -1,5 +1,11 @@
 import React, { useState, useRef } from "react";
 
+// =====================================================================
+// KONFIGURASI — ubah sesuai environment kamu
+// =====================================================================
+const API_BASE_URL = import.meta.env?.VITE_API_URL || "http://localhost:8000";
+// =====================================================================
+
 const KATEGORI_OPTIONS = ["Persuratan", "Informasi"];
 
 const JENIS_SURAT_OPTIONS = [
@@ -18,6 +24,22 @@ const ChevronDown = () => (
   </svg>
 );
 
+// ─── Helpers ─────────────────────────────────────────────────────────
+function getAuthToken() {
+  try {
+    const t = localStorage.getItem("sapa_ipb_token");
+    if (t) return t;
+  } catch (_) {}
+
+  try {
+    const t = sessionStorage.getItem("sapa_ipb_token");
+    if (t) return t;
+  } catch (_) {}
+
+  return null;
+}
+
+// ─── Modals ──────────────────────────────────────────────────────────
 const SuccessModal = ({ onClose }) => (
   <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center px-4">
     <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full flex flex-col items-center text-center">
@@ -37,25 +59,30 @@ const SuccessModal = ({ onClose }) => (
 
 const ErrorModal = ({ message, onClose }) => (
   <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center px-4">
-    <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full flex flex-col items-center text-center">
-      <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+    <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full flex flex-col items-center text-center">
+      <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4 shrink-0">
         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="10" />
           <line x1="12" y1="8" x2="12" y2="12" />
           <line x1="12" y1="16" x2="12.01" y2="16" />
         </svg>
       </div>
-      <h3 className="font-bold text-[#130962] text-xl mb-2">Data Belum Lengkap</h3>
-      <p className="text-gray-400 text-sm mb-6">{message}</p>
+      <h3 className="font-bold text-[#130962] text-xl mb-2">Data Belum Lengkap / Terjadi Error</h3>
+      <div className="text-gray-500 text-xs text-left bg-gray-50 p-3 rounded-lg border border-gray-200 max-h-48 overflow-y-auto w-full mb-6 font-mono break-all whitespace-pre-wrap">
+        {typeof message === "object" ? JSON.stringify(message, null, 2) : (message || "Terjadi kesalahan pada sistem.")}
+      </div>
       <button onClick={onClose} className="w-full py-2.5 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition-colors text-sm">
-        Isi Data Dulu
+        Tutup
       </button>
     </div>
   </div>
 );
 
-const UploadBox = ({ label, file, onFileChange }) => {
+// ─── UploadBox ────────────────────────────────────────────────────────
+const UploadBox = ({ label, fileObj, onFileChange }) => {
   const inputRef = useRef();
+  const fileName = fileObj?.name || "";
+
   return (
     <div className="flex-1">
       {label && <p className="text-xs font-semibold text-[#130962] mb-1">{label}</p>}
@@ -63,14 +90,23 @@ const UploadBox = ({ label, file, onFileChange }) => {
         onClick={() => inputRef.current.click()}
         className="border border-dashed border-gray-300 rounded-lg p-3 flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-gray-50 hover:border-[#130962] transition-all"
       >
-        <input ref={inputRef} type="file" accept=".pdf,.jpg,.jpeg" className="hidden" onChange={(e) => onFileChange(e.target.files[0])} />
-        {file ? (
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".pdf,.jpg,.jpeg"
+          className="hidden"
+          onChange={(e) => {
+            const selectedFile = e.target.files[0] || null;
+            onFileChange(selectedFile);
+          }}
+        />
+        {fileName ? (
           <>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#130962" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
               <polyline points="14 2 14 8 20 8" />
             </svg>
-            <span className="text-xs text-[#130962] font-medium text-center break-all px-2">{file.name}</span>
+            <span className="text-xs text-[#130962] font-medium text-center break-all px-2">{fileName}</span>
             <span className="text-[10px] text-green-500">File terpilih</span>
           </>
         ) : (
@@ -89,18 +125,13 @@ const UploadBox = ({ label, file, onFileChange }) => {
   );
 };
 
-// Field persyaratan berdasarkan jenis surat
+// ─── PersyaratanDinamis ───────────────────────────────────────────────
 const PersyaratanDinamis = ({ jenisSurat, data, onChange, submitted }) => {
-  const [bahasaSurat, setBahasaSurat] = useState("");
-  const [alasanIzin, setAlasanIzin] = useState("");
-  const [ktmFile, setKtmFile] = useState(null);
-  const [lampiranFile, setLampiranFile] = useState(null);
-  const [uktFile, setUktFile] = useState(null);
+  const isTextError = (key) => submitted && !String(data[key] || "").trim();
 
-  const isError = (key) => submitted && !data[key]?.trim();
   const inputClass = (key) =>
     `flex-1 border rounded-lg px-3 py-1.5 text-sm focus:outline-none transition-colors ${
-      isError(key) ? "border-red-400 focus:border-red-400" : "border-gray-300 focus:border-[#130962]"
+      isTextError(key) ? "border-red-400 focus:border-red-400" : "border-gray-300 focus:border-[#130962]"
     }`;
 
   const fieldRow = (label, key) => (
@@ -108,14 +139,13 @@ const PersyaratanDinamis = ({ jenisSurat, data, onChange, submitted }) => {
       <span className="w-36 font-medium text-[#130962] text-sm shrink-0">{label}</span>
       <input
         type="text"
-        value={data[key] || ""}
+        value={String(data[key] || "")}
         onChange={(e) => onChange(key, e.target.value)}
         className={inputClass(key)}
       />
     </div>
   );
 
-  // Field umum yang ada di semua jenis surat
   const commonFields = () => (
     <>
       {fieldRow("Nama", "nama")}
@@ -126,7 +156,8 @@ const PersyaratanDinamis = ({ jenisSurat, data, onChange, submitted }) => {
   const prodiFields = () => (
     <>
       {fieldRow("Program Studi", "prodi")}
-      {fieldRow("Fakultas/Sekolah", "fakultas")}
+      {fieldRow("Departemen", "departemen")}
+      {fieldRow("Fakultas", "fakultas")}
     </>
   );
 
@@ -136,12 +167,9 @@ const PersyaratanDinamis = ({ jenisSurat, data, onChange, submitted }) => {
         {commonFields()}
         {fieldRow("TTL", "ttl")}
         {fieldRow("Alamat", "alamat")}
-        {fieldRow("Program Studi", "prodi")}
-        {fieldRow("Departemen", "departemen")}
-        {fieldRow("Fakultas/Sekolah", "fakultas")}
+        {prodiFields()}
         {fieldRow("Keperluan Surat", "keperluan")}
 
-        {/* Bahasa surat */}
         <div className="flex items-center gap-4">
           <span className="w-36 font-medium text-[#130962] text-sm shrink-0">Surat dalam</span>
           <div className="flex gap-2">
@@ -149,9 +177,9 @@ const PersyaratanDinamis = ({ jenisSurat, data, onChange, submitted }) => {
               <button
                 key={b}
                 type="button"
-                onClick={() => { setBahasaSurat(b); onChange("bahasaSurat", b); }}
+                onClick={() => onChange("bahasaSurat", b)}
                 className={`px-4 py-1.5 border rounded-lg text-sm transition-colors ${
-                  bahasaSurat === b ? "border-[#130962] bg-[#130962] text-white" : "border-gray-300 text-gray-500 hover:border-[#130962]"
+                  data.bahasaSurat === b ? "border-[#130962] bg-[#130962] text-white" : "border-gray-300 text-gray-500 hover:border-[#130962]"
                 }`}
               >
                 {b}
@@ -160,11 +188,13 @@ const PersyaratanDinamis = ({ jenisSurat, data, onChange, submitted }) => {
           </div>
         </div>
 
-        {/* Upload */}
         <div className="flex gap-4 mt-1">
-          <UploadBox label="KTM" file={ktmFile} onFileChange={(f) => { setKtmFile(f); onChange("ktmFile", f?.name || ""); }} />
-          <UploadBox label="Bukti Pembayaran UKT Semester berjalan" file={uktFile} onFileChange={(f) => { setUktFile(f); onChange("uktFile", f?.name || ""); }} />
+          <UploadBox label="KTM" fileObj={data.ktmFile} onFileChange={(f) => onChange("ktmFile", f)} />
+          <UploadBox label="Bukti Pembayaran UKT" fileObj={data.uktFile} onFileChange={(f) => onChange("uktFile", f)} />
         </div>
+        {submitted && (!data.ktmFile || !data.uktFile) && (
+          <p className="text-red-400 text-xs">KTM dan Bukti UKT wajib diunggah.</p>
+        )}
       </div>
     );
   }
@@ -175,15 +205,14 @@ const PersyaratanDinamis = ({ jenisSurat, data, onChange, submitted }) => {
         {commonFields()}
         {prodiFields()}
 
-        {/* Alasan izin */}
         <div className="flex items-center gap-4">
           <span className="w-36 font-medium text-[#130962] text-sm shrink-0">Alasan Izin</span>
           <div className="relative flex-1">
             <select
-              value={alasanIzin}
-              onChange={(e) => { setAlasanIzin(e.target.value); onChange("alasanIzin", e.target.value); }}
+              value={data.alasanIzin || ""}
+              onChange={(e) => onChange("alasanIzin", e.target.value)}
               className={`w-full border rounded-lg px-3 py-1.5 text-sm appearance-none focus:outline-none bg-white ${
-                submitted && !alasanIzin ? "border-red-400" : "border-gray-300 focus:border-[#130962]"
+                submitted && !data.alasanIzin ? "border-red-400" : "border-gray-300 focus:border-[#130962]"
               }`}
             >
               <option value="">Pilih alasan izin</option>
@@ -193,9 +222,8 @@ const PersyaratanDinamis = ({ jenisSurat, data, onChange, submitted }) => {
           </div>
         </div>
 
-        {/* Upload */}
         <div className="flex gap-4 mt-1">
-          <UploadBox label="KTM" file={ktmFile} onFileChange={(f) => { setKtmFile(f); onChange("ktmFile", f?.name || ""); }} />
+          <UploadBox label="KTM" fileObj={data.ktmFile} onFileChange={(f) => onChange("ktmFile", f)} />
           <div className="flex-1">
             <p className="text-xs font-semibold text-[#130962] mb-1">
               Form Surat Izin Kuliah{" "}
@@ -203,55 +231,41 @@ const PersyaratanDinamis = ({ jenisSurat, data, onChange, submitted }) => {
                 (unduh form di sini)
               </a>
             </p>
-            <UploadBox label="" file={lampiranFile} onFileChange={(f) => { setLampiranFile(f); onChange("lampiranFile", f?.name || ""); }} />
+            <UploadBox label="" fileObj={data.lampiranFile} onFileChange={(f) => onChange("lampiranFile", f)} />
           </div>
         </div>
-
-        <p className="text-xs text-gray-400 italic">
-          Lampiran pendukung: surat sakit dokter / surat kematian / surat keterangan panitia / surat keterangan ibadah (sesuai alasan)
-        </p>
+        {submitted && (!data.ktmFile || !data.lampiranFile) && (
+          <p className="text-red-400 text-xs">KTM dan Form Izin wajib diunggah.</p>
+        )}
       </div>
     );
   }
 
-  if (jenisSurat === "Surat Perubahan KRS") {
+  if (["Surat Perubahan KRS", "Surat Rekomendasi Beasiswa"].includes(jenisSurat)) {
+    const downloadLink =
+      jenisSurat === "Surat Perubahan KRS"
+        ? "https://docs.google.com/document/d/1p6NMlnIoZqMay-KPMiDsAvQ0aV7KtSjh/edit"
+        : "https://ipb.link/rekomendasi-beasiswa";
+
     return (
       <div className="flex flex-col gap-3">
         {commonFields()}
         {prodiFields()}
         <div className="flex gap-4 mt-1">
-          <UploadBox label="KTM" file={ktmFile} onFileChange={(f) => { setKtmFile(f); onChange("ktmFile", f?.name || ""); }} />
+          <UploadBox label="KTM" fileObj={data.ktmFile} onFileChange={(f) => onChange("ktmFile", f)} />
           <div className="flex-1">
             <p className="text-xs font-semibold text-[#130962] mb-1">
-              Form Pembatalan Mata Kuliah{" "}
-              <a href="https://docs.google.com/document/d/1p6NMlnIoZqMay-KPMiDsAvQ0aV7KtSjh/edit" target="_blank" rel="noreferrer" className="text-blue-500 underline font-normal">
+              Form {jenisSurat}{" "}
+              <a href={downloadLink} target="_blank" rel="noreferrer" className="text-blue-500 underline font-normal">
                 (unduh form di sini)
               </a>
             </p>
-            <UploadBox label="" file={lampiranFile} onFileChange={(f) => { setLampiranFile(f); onChange("lampiranFile", f?.name || ""); }} />
+            <UploadBox label="" fileObj={data.lampiranFile} onFileChange={(f) => onChange("lampiranFile", f)} />
           </div>
         </div>
-      </div>
-    );
-  }
-
-  if (jenisSurat === "Surat Rekomendasi Beasiswa") {
-    return (
-      <div className="flex flex-col gap-3">
-        {commonFields()}
-        {prodiFields()}
-        <div className="flex gap-4 mt-1">
-          <UploadBox label="KTM" file={ktmFile} onFileChange={(f) => { setKtmFile(f); onChange("ktmFile", f?.name || ""); }} />
-          <div className="flex-1">
-            <p className="text-xs font-semibold text-[#130962] mb-1">
-              Form Permohonan Rekomendasi Beasiswa{" "}
-              <a href="https://ipb.link/rekomendasi-beasiswa" target="_blank" rel="noreferrer" className="text-blue-500 underline font-normal">
-                (unduh form di sini)
-              </a>
-            </p>
-            <UploadBox label="" file={lampiranFile} onFileChange={(f) => { setLampiranFile(f); onChange("lampiranFile", f?.name || ""); }} />
-          </div>
-        </div>
+        {submitted && (!data.ktmFile || !data.lampiranFile) && (
+          <p className="text-red-400 text-xs">KTM dan Form wajib diunggah.</p>
+        )}
       </div>
     );
   }
@@ -264,7 +278,7 @@ const PersyaratanDinamis = ({ jenisSurat, data, onChange, submitted }) => {
         {fieldRow("Instansi Magang", "instansi")}
         {fieldRow("Tanggal Pelaksanaan", "tanggalMagang")}
         <div className="flex gap-4 mt-1">
-          <UploadBox label="KTM" file={ktmFile} onFileChange={(f) => { setKtmFile(f); onChange("ktmFile", f?.name || ""); }} />
+          <UploadBox label="KTM" fileObj={data.ktmFile} onFileChange={(f) => onChange("ktmFile", f)} />
           <div className="flex-1">
             <p className="text-xs font-semibold text-[#130962] mb-1">
               Form Persetujuan Dosen Pembimbing{" "}
@@ -272,9 +286,12 @@ const PersyaratanDinamis = ({ jenisSurat, data, onChange, submitted }) => {
                 (unduh form di sini)
               </a>
             </p>
-            <UploadBox label="" file={lampiranFile} onFileChange={(f) => { setLampiranFile(f); onChange("lampiranFile", f?.name || ""); }} />
+            <UploadBox label="" fileObj={data.lampiranFile} onFileChange={(f) => onChange("lampiranFile", f)} />
           </div>
         </div>
+        {submitted && (!data.ktmFile || !data.lampiranFile) && (
+          <p className="text-red-400 text-xs">KTM dan Form Persetujuan wajib diunggah.</p>
+        )}
       </div>
     );
   }
@@ -282,7 +299,8 @@ const PersyaratanDinamis = ({ jenisSurat, data, onChange, submitted }) => {
   return null;
 };
 
-export const FormPengajuanTiket = ({ onClose }) => {
+// ─── FormPengajuanTiket ───────────────────────────────────────────────
+export const FormPengajuanTiket = ({ onClose, authToken: propToken }) => {
   const [subjek, setSubjek] = useState("");
   const [kategori, setKategori] = useState("");
   const [jenisSurat, setJenisSurat] = useState("");
@@ -291,56 +309,173 @@ export const FormPengajuanTiket = ({ onClose }) => {
   const [persyaratan, setPersyaratan] = useState({});
   const [showSuccess, setShowSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   const handlePersyaratan = (key, value) => {
     setPersyaratan((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSubmit = () => {
-    setSubmitted(true);
-
-    if (!subjek.trim()) { setErrorMsg("Subjek tiket wajib diisi."); return; }
-    if (!kategori) { setErrorMsg("Kategori Layanan wajib dipilih."); return; }
+  // ─── Validasi Client-side ───────────────────────────────────────────
+  const validate = () => {
+    if (!subjek.trim()) return "Subjek tiket wajib diisi.";
+    if (!kategori) return "Kategori Layanan wajib dipilih.";
 
     if (kategori === "Persuratan") {
-      if (!jenisSurat) { setErrorMsg("Jenis Surat wajib dipilih."); return; }
+      if (!jenisSurat) return "Jenis Surat wajib dipilih.";
 
-      // Validasi field wajib per jenis surat
-      const requiredBase = ["nama", "nim"];
+      const isFieldEmpty = (key) => {
+        const v = persyaratan[key];
+        if (v instanceof File) return false;
+        return !String(v || "").trim();
+      };
+
+      const textRequired = ["nama", "nim", "prodi", "departemen", "fakultas"];
 
       if (jenisSurat === "Surat Keterangan Mahasiswa Aktif") {
-        const required = [...requiredBase, "ttl", "alamat", "prodi", "departemen", "fakultas", "keperluan", "bahasaSurat", "ktmFile", "uktFile"];
-        const empty = required.find((f) => !persyaratan[f]?.trim());
-        if (empty) { setErrorMsg("Semua field persyaratan wajib diisi."); return; }
+        const allText = [...textRequired, "ttl", "alamat", "keperluan", "bahasaSurat"];
+        if (allText.some(isFieldEmpty)) return "Semua field teks wajib diisi.";
+        if (!persyaratan.ktmFile || !persyaratan.uktFile) return "File KTM dan Bukti UKT wajib diunggah.";
       }
 
       if (jenisSurat === "Surat Izin Akademik") {
-        const required = [...requiredBase, "prodi", "fakultas", "alasanIzin", "ktmFile", "lampiranFile"];
-        const empty = required.find((f) => !persyaratan[f]?.trim());
-        if (empty) { setErrorMsg("Semua field persyaratan wajib diisi."); return; }
+        if (textRequired.some(isFieldEmpty)) return "Semua field teks wajib diisi.";
+        if (!persyaratan.alasanIzin) return "Alasan izin wajib dipilih.";
+        if (!persyaratan.ktmFile || !persyaratan.lampiranFile) return "File KTM dan Form Izin wajib diunggah.";
       }
 
-      if (jenisSurat === "Surat Perubahan KRS") {
-        const required = [...requiredBase, "prodi", "fakultas", "ktmFile", "lampiranFile"];
-        const empty = required.find((f) => !persyaratan[f]?.trim());
-        if (empty) { setErrorMsg("Semua field persyaratan wajib diisi."); return; }
-      }
-
-      if (jenisSurat === "Surat Rekomendasi Beasiswa") {
-        const required = [...requiredBase, "prodi", "fakultas", "ktmFile", "lampiranFile"];
-        const empty = required.find((f) => !persyaratan[f]?.trim());
-        if (empty) { setErrorMsg("Semua field persyaratan wajib diisi."); return; }
+      if (["Surat Perubahan KRS", "Surat Rekomendasi Beasiswa"].includes(jenisSurat)) {
+        if (textRequired.some(isFieldEmpty)) return "Semua field teks wajib diisi.";
+        if (!persyaratan.ktmFile || !persyaratan.lampiranFile) return "File KTM dan Form wajib diunggah.";
       }
 
       if (jenisSurat === "Permohonan Surat Magang") {
-        const required = [...requiredBase, "prodi", "fakultas", "instansi", "tanggalMagang", "ktmFile", "lampiranFile"];
-        const empty = required.find((f) => !persyaratan[f]?.trim());
-        if (empty) { setErrorMsg("Semua field persyaratan wajib diisi."); return; }
+        const magang = [...textRequired, "instansi", "tanggalMagang"];
+        if (magang.some(isFieldEmpty)) return "Semua field teks wajib diisi.";
+        if (!persyaratan.ktmFile || !persyaratan.lampiranFile) return "File KTM dan Form Persetujuan wajib diunggah.";
       }
     }
 
-    setShowSuccess(true);
+    return null;
+  };
+
+  // ─── Submit Data ────────────────────────────────────────────────────
+// ─── Submit Data ────────────────────────────────────────────────────
+  const handleSubmit = async () => {
+    setSubmitted(true);
+
+    const validationError = validate();
+    if (validationError) {
+      setErrorMsg(validationError);
+      return;
+    }
+
+    const token = propToken || getAuthToken();
+    if (!token) {
+      setErrorMsg("Silakan login terlebih dahulu sebelum mengajukan tiket.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorMsg("");
+
+    try {
+      const formData = new FormData();
+
+      // 1. Setup data dasar tiket wajib untuk semua kategori
+      formData.append("id_layanan", kategori === "Persuratan" ? "LYN-SURAT" : "LYN-INFO");
+      formData.append("kategori", kategori === "Informasi" ? "Layanan" : kategori);
+      formData.append("subjek", subjek.trim());
+      formData.append("deskripsi", deskripsi.trim());
+      formData.append("semester", ""); // Optional field
+
+      // 2. KONDISIONAL: Menyusun data_request dan data mahasiswa
+      if (kategori === "Persuratan") {
+        const dataRequest = {
+          jenis_surat: jenisSurat,
+          nama: persyaratan.nama || undefined,
+          ttl: persyaratan.ttl || undefined,
+          alamat: persyaratan.alamat || undefined,
+          prodi: persyaratan.prodi || undefined,
+          departemen: persyaratan.departemen || undefined,
+          fakultas: persyaratan.fakultas || undefined,
+          keperluan: persyaratan.keperluan || undefined,
+          bahasa_surat: persyaratan.bahasaSurat || undefined,
+          alasan_izin: persyaratan.alasanIzin || undefined,
+          instansi: persyaratan.instansi || undefined,
+          tanggal_magang: persyaratan.tanggalMagang || undefined,
+        };
+
+        // Kirim objek dinamis sebagai String JSON sesuai kesepakatan Solusi B
+        formData.append("data_request", JSON.stringify(dataRequest));
+        
+        // Kirim data mahasiswa pendukung ke root form data
+        formData.append("nim", persyaratan.nim?.trim() || "");
+        formData.append("program_studi", persyaratan.prodi?.trim() || "");
+        formData.append("departemen", persyaratan.departemen?.trim() || "");
+        formData.append("fakultas", persyaratan.fakultas?.trim() || "");
+
+        // Lampirkan file khusus persuratan
+        if (persyaratan.ktmFile instanceof File) {
+          formData.append("ktm_file", persyaratan.ktmFile, persyaratan.ktmFile.name);
+        }
+        if (persyaratan.uktFile instanceof File) {
+          formData.append("ukt_file", persyaratan.uktFile, persyaratan.uktFile.name);
+        }
+        if (persyaratan.lampiranFile instanceof File) {
+          formData.append("lampiran_file", persyaratan.lampiranFile, persyaratan.lampiranFile.name);
+        }
+      } else {
+        // AMAN: Jika kategorinya "Informasi", isi data_request dengan json kosongan "{}" 
+        // agar FastAPI di backend tidak melempar error "data_request: Field required"
+        formData.append("data_request", JSON.stringify({}));
+        formData.append("nim", "");
+        formData.append("program_studi", "");
+        formData.append("departemen", "");
+        formData.append("fakultas", "");
+      }
+
+      // 3. Lampirkan file umum untuk kategori Informasi
+      if (kategori === "Informasi" && uploadFile instanceof File) {
+        formData.append("file_lampiran", uploadFile, uploadFile.name);
+      }
+
+      // 4. Eksekusi Tembak API
+      const response = await fetch(`${API_BASE_URL}/api/v1/tiket/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          // CATATAN: Jangan tambahkan Content-Type application/json di sini! 
+          // Browser akan otomatis mengaturnya menjadi multipart/form-data karena ada file.
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const contentType = response.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+          const errorData = await response.json();
+          if (Array.isArray(errorData.detail)) {
+            const messages = errorData.detail.map((e) => `${e.loc?.join(" → ")}: ${e.msg}`).join("\n");
+            setErrorMsg(messages);
+          } else {
+            setErrorMsg(errorData.detail || `Error ${response.status}: Gagal mengajukan tiket.`);
+          }
+        } else {
+          const text = await response.text().catch(() => "");
+          setErrorMsg(`Server Error (${response.status}): ${text || "Periksa kesesuaian endpoint."}`);
+        }
+        return;
+      }
+
+      setShowSuccess(true);
+    } catch (err) {
+      console.error("Network error:", err);
+      setErrorMsg(`Error: ${err.message}`);
+    } finally {
+      window.scrollTo(0, 0);
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -368,6 +503,7 @@ export const FormPengajuanTiket = ({ onClose }) => {
                 type="text"
                 value={subjek}
                 onChange={(e) => setSubjek(e.target.value)}
+                placeholder="Contoh: Pertanyaan seputar herregistrasi"
                 className={`w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-colors ${
                   submitted && !subjek.trim() ? "border-red-400" : "border-gray-300 focus:border-[#130962] focus:ring-1 focus:ring-[#130962]"
                 }`}
@@ -382,7 +518,13 @@ export const FormPengajuanTiket = ({ onClose }) => {
               <div className="relative">
                 <select
                   value={kategori}
-                  onChange={(e) => { setKategori(e.target.value); setJenisSurat(""); setPersyaratan({}); setSubmitted(false); }}
+                  onChange={(e) => {
+                    setKategori(e.target.value);
+                    setJenisSurat("");
+                    setPersyaratan({});
+                    setUploadFile(null);
+                    setSubmitted(false);
+                  }}
                   className={`w-full border rounded-xl px-4 py-2.5 text-sm appearance-none focus:outline-none bg-white ${
                     submitted && !kategori ? "border-red-400" : "border-gray-300 focus:border-[#130962] focus:ring-1 focus:ring-[#130962]"
                   } ${kategori ? "text-gray-800" : "text-gray-400"}`}
@@ -403,7 +545,11 @@ export const FormPengajuanTiket = ({ onClose }) => {
                 <div className="relative">
                   <select
                     value={jenisSurat}
-                    onChange={(e) => { setJenisSurat(e.target.value); setPersyaratan({}); setSubmitted(false); }}
+                    onChange={(e) => {
+                      setJenisSurat(e.target.value);
+                      setPersyaratan({});
+                      setSubmitted(false);
+                    }}
                     className={`w-full border rounded-xl px-4 py-2.5 text-sm appearance-none focus:outline-none bg-white ${
                       submitted && !jenisSurat ? "border-red-400" : "border-gray-300 focus:border-[#130962] focus:ring-1 focus:ring-[#130962]"
                     } ${jenisSurat ? "text-gray-800" : "text-gray-400"}`}
@@ -425,6 +571,7 @@ export const FormPengajuanTiket = ({ onClose }) => {
                 value={deskripsi}
                 onChange={(e) => setDeskripsi(e.target.value)}
                 rows={4}
+                placeholder="Tuliskan keperluan atau keterangan tambahan di sini..."
                 className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#130962] focus:ring-1 focus:ring-[#130962] resize-none"
               />
             </div>
@@ -447,12 +594,16 @@ export const FormPengajuanTiket = ({ onClose }) => {
               </div>
             )}
 
-            {/* Upload umum untuk Informasi */}
+            {/* Upload umum untuk Kategori Informasi */}
             {kategori === "Informasi" && (
-              <UploadBox file={uploadFile} onFileChange={setUploadFile} />
+              <UploadBox
+                label="Unggah Berkas Pendukung (Opsional)"
+                fileObj={uploadFile}
+                onFileChange={setUploadFile}
+              />
             )}
 
-            {/* Tombol */}
+            {/* Tombol Aksi */}
             <div className="flex gap-4 mt-2">
               <button
                 type="button"
@@ -464,9 +615,10 @@ export const FormPengajuanTiket = ({ onClose }) => {
               <button
                 type="button"
                 onClick={handleSubmit}
-                className="flex-1 py-3 bg-[#ffe030] text-[#130962] font-bold rounded-xl hover:bg-yellow-400 transition-colors text-sm"
+                disabled={isSubmitting}
+                className="flex-1 py-3 bg-[#ffe030] text-[#130962] font-bold rounded-xl hover:bg-yellow-400 transition-colors text-sm disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Submit Tiket
+                {isSubmitting ? "Mengirim Tiket..." : "Submit Tiket"}
               </button>
             </div>
           </div>

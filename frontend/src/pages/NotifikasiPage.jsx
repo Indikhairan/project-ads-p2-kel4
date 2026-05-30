@@ -1,10 +1,25 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { TopNavigationSection } from "../components/TopNavigationSection";
 import { FormPengajuanTiket } from "../components/FormPengajuanTiket";
 import { ChatbotSAPA } from "../components/ChatbotSAPA";
 import image3 from "../assets/image-3.png";
 
+const mapBackendToNotif = (n) => {
+  const waktu = new Date(n.waktu);
+  const today = new Date();
+  const isToday = waktu.toDateString() === today.toDateString();
+  return {
+    id: n.id_notifikasi,
+    group: isToday ? "Today" : waktu.toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" }),
+    type: n.tipe || "status",
+    title: n.judul || (n.pesan || "Notifikasi"),
+    description: n.pesan || "",
+    time: waktu.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+    read: !!n.is_read,
+    tiketId: n.id_tiket,
+  };
+};
 const initialNotifications = [
   {
     id: 1,
@@ -73,23 +88,96 @@ const NotifItem = ({ notif, onClick }) => (
 
 export const NotifikasiPage = () => {
   const navigate = useNavigate();
-  const [notifications, setNotifications] = useState(initialNotifications);
+  const [notifications, setNotifications] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [showChatbot, setShowChatbot] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const handleTandaiDibaca = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  useEffect(() => {
+    const fetchNotifs = async () => {
+      setIsLoading(true);
+      setError("");
+      try {
+        const token = localStorage.getItem("sapa_ipb_token");
+        if (!token) {
+          setError("Silakan login untuk melihat notifikasi.");
+          setIsLoading(false);
+          return;
+        }
+
+        const res = await fetch("http://127.0.0.1:8000/notifikasi", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.detail || "Gagal memuat notifikasi.");
+          setNotifications([]);
+        } else {
+          setNotifications((data || []).map(mapBackendToNotif));
+        }
+      } catch (e) {
+        console.error("Error fetching notifications:", e);
+        setError("Gagal memuat notifikasi. Periksa koneksi.");
+        setNotifications([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchNotifs();
+
+    // ── POLLING: Auto-refresh setiap 5 detik ──
+    const pollingInterval = setInterval(fetchNotifs, 5000);
+    return () => clearInterval(pollingInterval);
+  }, []);
+
+  const handleTandaiDibaca = async () => {
+    const token = localStorage.getItem("sapa_ipb_token");
+    if (!token) {
+      setError("Silakan login untuk menandai notifikasi.");
+      return;
+    }
+    try {
+      const res = await fetch("http://127.0.0.1:8000/notifikasi/read-all", {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        setError(d.detail || "Gagal menandai notifikasi.");
+        return;
+      }
+      // update local state
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch (e) {
+      console.error("Error mark all read:", e);
+      setError("Gagal menandai notifikasi. Periksa koneksi.");
+    }
   };
 
-  const handleKlikNotif = (notif) => {
-    // Tandai notif ini sebagai sudah dibaca
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n))
-    );
-    // Navigasi ke detail tiket
-    navigate(`/tiket/${notif.tiketId}`);
+  const handleKlikNotif = async (notif) => {
+    const token = localStorage.getItem("sapa_ipb_token");
+    if (!token) {
+      setError("Silakan login untuk membuka notifikasi.");
+      return;
+    }
+
+    try {
+      // Tandai di server dulu
+      await fetch(`http://127.0.0.1:8000/notifikasi/${encodeURIComponent(notif.id)}/read`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch (e) {
+      console.error("Error marking single notif read:", e);
+    }
+
+    // Update local state and navigate
+    setNotifications((prev) => prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n)));
+    if (notif.tiketId) navigate(`/tiket/${notif.tiketId}`);
   };
 
   const grouped = notifications.reduce((acc, notif) => {
@@ -121,7 +209,15 @@ export const NotifikasiPage = () => {
 
         {/* Card konten */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          {notifications.length === 0 ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-32">
+              <p className="text-gray-400 italic text-sm">Memuat notifikasi...</p>
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center py-32">
+              <p className="text-red-500 italic text-sm">{error}</p>
+            </div>
+          ) : notifications.length === 0 ? (
             <div className="flex items-center justify-center py-32">
               <p className="text-gray-400 italic text-sm">
                 Anda belum memiliki riwayat notifikasi.

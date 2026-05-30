@@ -1,8 +1,7 @@
 import React from "react";
 
 export const WelcomeBannerSection = () => {
-  // Nanti diganti dengan data dari backend/auth
-  const namaUser = "Budi";
+  const namaUser = localStorage.getItem("nama_lengkap") || "Pengguna";
 
   return (
     <section className="w-full mt-2">

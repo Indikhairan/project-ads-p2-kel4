@@ -2,31 +2,19 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { TopNavigationStaff } from "../components/TopNavigationStaff";
 
-const allTickets = [
-  { id: "#001", tanggal: "01/04/2026", subjek: "Pembatalan KRS ICE", kategori: "Persuratan", status: "processing", pengirim: "Budi Doremi", nim: "G64012345" },
-  { id: "#002", tanggal: "01/04/2026", subjek: "Pengajuan Beasiswa", kategori: "Persuratan", status: "completed", pengirim: "Budi Doremi", nim: "G64012345" },
-  { id: "#003", tanggal: "01/04/2026", subjek: "Pengajuan Surat Izin Akademik", kategori: "Persuratan", status: "rejected", pengirim: "Budi Doremi", nim: "G64012345" },
-  { id: "#004", tanggal: "02/04/2026", subjek: "Pengajuan Surat Izin Akademik", kategori: "Persuratan", status: "completed", pengirim: "Sir Isaac N", nim: "G740123132" },
-  { id: "#005", tanggal: "10/04/2026", subjek: "Pertanyaan persyaratan beasiswa", kategori: "Informasi", status: "completed", pengirim: "Dewi", nim: "F1401231294" },
-  { id: "#006", tanggal: "11/04/2026", subjek: "Pengajuan Surat Keterangan Aktif", kategori: "Persuratan", status: "rejected", pengirim: "Rina Marlina", nim: "G64012399" },
-  { id: "#007", tanggal: "12/04/2026", subjek: "Permohonan Informasi KRS", kategori: "Informasi", status: "processing", pengirim: "Agus Salim", nim: "H14012345" },
-  { id: "#008", tanggal: "13/04/2026", subjek: "Pengajuan Surat Aktif Kuliah", kategori: "Persuratan", status: "completed", pengirim: "Siti Aminah", nim: "G64012401" },
-  { id: "#009", tanggal: "14/04/2026", subjek: "Permohonan Informasi Beasiswa", kategori: "Informasi", status: "processing", pengirim: "Dian Pratama", nim: "F14013001" },
-  { id: "#010", tanggal: "15/04/2026", subjek: "Pengajuan Surat Izin Penelitian", kategori: "Persuratan", status: "completed", pengirim: "Rizky Fajar", nim: "G64012410" },
-];
-
 const ITEMS_OPTIONS = [5, 10, 20];
 
 const StatusBadge = ({ status }) => {
-  if (status === "processing")
+  if (status === "Open" || status === "Diproses")
     return <span className="px-2.5 py-1 bg-orange-50 border border-orange-400 text-orange-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">⏱ DIPROSES</span>;
-  if (status === "completed")
+  if (status === "Selesai")
     return <span className="px-2.5 py-1 bg-green-50 border border-green-500 text-green-600 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">✓ SELESAI</span>;
   return <span className="px-2.5 py-1 bg-red-50 border border-red-500 text-red-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">⊘ DITOLAK</span>;
 };
 
 export const HomepageStaff = () => {
   const navigate = useNavigate();
+  const [tickets, setTickets] = useState([]);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("Semua Status");
   const [filterKategori, setFilterKategori] = useState("Semua Kategori");
@@ -37,6 +25,8 @@ export const HomepageStaff = () => {
   const [showSort, setShowSort] = useState(false);
   const [sortBy, setSortBy] = useState("ID Tiket");
   const [sortDir, setSortDir] = useState("Ascending");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
   const [showFilter, setShowFilter] = useState(false);
   const sortRef = useRef(null);
 
@@ -48,6 +38,41 @@ export const HomepageStaff = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  useEffect(() => {
+    const token = localStorage.getItem("sapa_ipb_token");
+    if (!token) {
+      setError("Token tidak ditemukan. Silakan login kembali.");
+      setIsLoading(false);
+      return;
+    }
+
+    const fetchTickets = async () => {
+      setIsLoading(true);
+      setError("");
+      try {
+        const response = await fetch("http://127.0.0.1:8000/api/v1/tiket", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText || "Gagal memuat tiket.");
+        }
+
+        const data = await response.json();
+        setTickets(data || []);
+      } catch (err) {
+        setError(err.message || "Gagal memuat tiket.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTickets();
+  }, []);
+
   // Parse tanggal dd/mm/yyyy ke Date
   const parseDate = (str) => {
     if (!str) return null;
@@ -56,24 +81,24 @@ export const HomepageStaff = () => {
   };
 
   // Filter
-  const filtered = allTickets.filter((t) => {
+  const filtered = tickets.filter((t) => {
     const matchSearch =
-      t.subjek.toLowerCase().includes(search.toLowerCase()) ||
-      t.id.toLowerCase().includes(search.toLowerCase()) ||
-      t.pengirim.toLowerCase().includes(search.toLowerCase());
+      (t.subjek || "").toLowerCase().includes(search.toLowerCase()) ||
+      (t.id_tiket || "").toLowerCase().includes(search.toLowerCase()) ||
+      (t.email_mahasiswa || "").toLowerCase().includes(search.toLowerCase());
 
     const matchStatus =
       filterStatus === "Semua Status" ||
-      (filterStatus === "Diproses" && t.status === "processing") ||
-      (filterStatus === "Selesai" && t.status === "completed") ||
-      (filterStatus === "Ditolak" && t.status === "rejected");
+      (filterStatus === "Diproses" && ["Open", "Diproses"].includes(t.status)) ||
+      (filterStatus === "Selesai" && t.status === "Selesai") ||
+      (filterStatus === "Ditolak" && t.status === "Ditolak");
 
     const matchKategori =
-      filterKategori === "Semua Kategori" || t.kategori === filterKategori;
+      filterKategori === "Semua Kategori" || (t.kategori || "").toLowerCase() === filterKategori.toLowerCase();
 
-    const tiketDate = parseDate(t.tanggal);
-    const dari = dariTanggal ? parseDate(dariTanggal.split("-").reverse().join("/")) : null;
-    const sampai = sampaiTanggal ? parseDate(sampaiTanggal.split("-").reverse().join("/")) : null;
+    const tiketDate = t.waktu_submit ? new Date(t.waktu_submit) : null;
+    const dari = dariTanggal ? new Date(dariTanggal) : null;
+    const sampai = sampaiTanggal ? new Date(sampaiTanggal) : null;
     const matchDari = dari ? tiketDate >= dari : true;
     const matchSampai = sampai ? tiketDate <= sampai : true;
 
@@ -83,10 +108,10 @@ export const HomepageStaff = () => {
   // Sort
   const sorted = [...filtered].sort((a, b) => {
     let valA, valB;
-    if (sortBy === "ID Tiket") { valA = a.id; valB = b.id; }
-    else if (sortBy === "Tanggal") { valA = a.tanggal; valB = b.tanggal; }
-    else if (sortBy === "Status") { valA = a.status; valB = b.status; }
-    else { valA = a.kategori; valB = b.kategori; }
+    if (sortBy === "ID Tiket") { valA = a.id_tiket || ""; valB = b.id_tiket || ""; }
+    else if (sortBy === "Tanggal") { valA = a.waktu_submit || ""; valB = b.waktu_submit || ""; }
+    else if (sortBy === "Status") { valA = a.status || ""; valB = b.status || ""; }
+    else { valA = a.kategori || ""; valB = b.kategori || ""; }
     return sortDir === "Ascending" ? valA.localeCompare(valB) : valB.localeCompare(valA);
   });
 
@@ -283,7 +308,19 @@ export const HomepageStaff = () => {
               </tr>
             </thead>
             <tbody>
-              {paginated.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} className="py-24 text-center text-gray-500 text-sm">
+                    Memuat tiket...
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={6} className="py-24 text-center text-red-500 text-sm">
+                    {error}
+                  </td>
+                </tr>
+              ) : paginated.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-24 text-center italic text-gray-400 text-sm">
                     {search || filterStatus !== "Semua Status" || filterKategori !== "Semua Kategori" || dariTanggal || sampaiTanggal
@@ -294,24 +331,24 @@ export const HomepageStaff = () => {
               ) : (
                 paginated.map((ticket, idx) => (
                   <tr
-                    key={ticket.id}
-                    onClick={() => navigate(`/staff/tiket/${ticket.id.replace("#", "")}`)}
+                    key={ticket.id_tiket}
+                    onClick={() => navigate(`/staff/tiket/${encodeURIComponent(ticket.id_tiket)}`)}
                     className={`text-sm text-center cursor-pointer transition-colors ${
                       idx % 2 === 1 ? "bg-[#f0f0ff]" : "bg-white"
                     } hover:bg-blue-50`}
                   >
-                    <td className="py-3 px-4 font-medium text-[#130962]">{ticket.id}</td>
-                    <td className="py-3 px-4 text-[#130962]">{ticket.tanggal}</td>
-                    <td className="py-3 px-4 font-medium text-[#130962] max-w-[200px] truncate">{ticket.subjek}</td>
-                    <td className="py-3 px-4 text-[#130962]">{ticket.kategori}</td>
+                    <td className="py-3 px-4 font-medium text-[#130962]">{ticket.id_tiket}</td>
+                    <td className="py-3 px-4 text-[#130962]">{ticket.waktu_submit ? new Date(ticket.waktu_submit).toLocaleDateString("id-ID") : "-"}</td>
+                    <td className="py-3 px-4 font-medium text-[#130962] max-w-[200px] truncate">{ticket.subjek || "-"}</td>
+                    <td className="py-3 px-4 text-[#130962]">{ticket.kategori || ticket.id_layanan || "-"}</td>
                     <td className="py-3 px-4">
                       <div className="flex justify-center">
                         <StatusBadge status={ticket.status} />
                       </div>
                     </td>
                     <td className="py-3 px-4 text-[#130962]">
-                      <div className="font-medium">{ticket.pengirim}</div>
-                      <div className="text-[11px] text-gray-400">({ticket.nim})</div>
+                      <div className="font-medium">{ticket.email_mahasiswa || "-"}</div>
+                      <div className="text-[11px] text-gray-400">{ticket.nim ? `(${ticket.nim})` : ""}</div>
                     </td>
                   </tr>
                 ))

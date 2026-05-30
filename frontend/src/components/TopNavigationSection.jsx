@@ -5,6 +5,26 @@ export const TopNavigationSection = ({ onBuatTiket, formOpen }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const isActive = (path) => location.pathname === path;
+  const handleLogout = async () => {
+    const token = localStorage.getItem("sapa_ipb_token");
+
+    // Kirim sinyal logout ke backend
+    try {
+      await fetch("http://localhost:8000/auth/logout", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      });
+    } catch (err) {
+      console.error("Gagal logout:", err);
+    }
+
+    // Baru hapus token dan pindah halaman
+    localStorage.removeItem("sapa_ipb_token");
+    navigate("/");
+  };
 
   return (
     <header className="w-full bg-white border-b border-gray-200 flex items-center justify-between px-8 py-3">
@@ -60,7 +80,7 @@ export const TopNavigationSection = ({ onBuatTiket, formOpen }) => {
           </svg>
         </button>
         <button
-          onClick={() => navigate("/")}
+          onClick={handleLogout}
           className="flex items-center gap-1.5 bg-gray-100 text-[#130962] px-3 py-1.5 rounded-full font-semibold text-xs hover:bg-red-200 transition-colors"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
