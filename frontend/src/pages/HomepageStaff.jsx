@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { WelcomeBannerSection } from "../components/WelcomeBannerSection";
 import { TopNavigationStaff } from "../components/TopNavigationStaff";
 
 const ITEMS_OPTIONS = [5, 10, 20];
@@ -126,13 +127,7 @@ export const HomepageStaff = () => {
       <TopNavigationStaff />
 
       <div className="w-full max-w-[1100px] mx-auto px-6 mt-8 pb-20">
-
-        {/* Welcome */}
-        <h1 className="text-[#130962] text-lg mb-5">
-          <span className="font-medium">Selamat datang, </span>
-          <span className="font-bold underline">Andi</span>
-          <span className="font-medium">!</span>
-        </h1>
+      <WelcomeBannerSection />
 
         {/* Search & Filter Card */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-5">
