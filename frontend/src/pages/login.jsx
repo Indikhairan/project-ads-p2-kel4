@@ -44,6 +44,7 @@ export const LoginPage = () => {
       if (response.ok) {
         localStorage.setItem("sapa_ipb_token", data.access_token);
         localStorage.setItem("sapa_ipb_role", data.role);
+        localStorage.setItem("nama_lengkap", data.nama_lengkap);
         
         if (data.role === "admin") {
           navigate("/admin/dashboard");
