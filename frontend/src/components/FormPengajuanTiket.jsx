@@ -360,6 +360,7 @@ export const FormPengajuanTiket = ({ onClose, authToken: propToken }) => {
   };
 
   // ─── Submit Data ────────────────────────────────────────────────────
+// ─── Submit Data ────────────────────────────────────────────────────
   const handleSubmit = async () => {
     setSubmitted(true);
 
@@ -381,14 +382,14 @@ export const FormPengajuanTiket = ({ onClose, authToken: propToken }) => {
     try {
       const formData = new FormData();
 
-      // Setup data dasar tiket
+      // 1. Setup data dasar tiket wajib untuk semua kategori
       formData.append("id_layanan", kategori === "Persuratan" ? "LYN-SURAT" : "LYN-INFO");
       formData.append("kategori", kategori === "Informasi" ? "Layanan" : kategori);
       formData.append("subjek", subjek.trim());
       formData.append("deskripsi", deskripsi.trim());
       formData.append("semester", ""); // Optional field
 
-      // KONDISIONAL: Hanya kirim data mahasiswa jika kategori Persuratan
+      // 2. KONDISIONAL: Menyusun data_request dan data mahasiswa
       if (kategori === "Persuratan") {
         const dataRequest = {
           jenis_surat: jenisSurat,
@@ -405,7 +406,10 @@ export const FormPengajuanTiket = ({ onClose, authToken: propToken }) => {
           tanggal_magang: persyaratan.tanggalMagang || undefined,
         };
 
+        // Kirim objek dinamis sebagai String JSON sesuai kesepakatan Solusi B
         formData.append("data_request", JSON.stringify(dataRequest));
+        
+        // Kirim data mahasiswa pendukung ke root form data
         formData.append("nim", persyaratan.nim?.trim() || "");
         formData.append("program_studi", persyaratan.prodi?.trim() || "");
         formData.append("departemen", persyaratan.departemen?.trim() || "");
@@ -422,20 +426,27 @@ export const FormPengajuanTiket = ({ onClose, authToken: propToken }) => {
           formData.append("lampiran_file", persyaratan.lampiranFile, persyaratan.lampiranFile.name);
         }
       } else {
-        // Jika Kategori "Informasi / Layanan" biasa, kirim string kosong agar tidak memicu error validation 'field required' backend, ATAU tidak dikirim sama sekali (Tergantung skema backend, di sini kita kirim "" jika terpaksa dibaca)
-        // Namun idealnya, jika backend membolehkan null/optional saat LYN-INFO, kita tidak perlu meng-append field ini.
-        // Jika skema FastAPI memisahkannya, biarkan kosong.
+        // AMAN: Jika kategorinya "Informasi", isi data_request dengan json kosongan "{}" 
+        // agar FastAPI di backend tidak melempar error "data_request: Field required"
+        formData.append("data_request", JSON.stringify({}));
+        formData.append("nim", "");
+        formData.append("program_studi", "");
+        formData.append("departemen", "");
+        formData.append("fakultas", "");
       }
 
-      // Lampirkan file umum untuk kategori Informasi
+      // 3. Lampirkan file umum untuk kategori Informasi
       if (kategori === "Informasi" && uploadFile instanceof File) {
         formData.append("file_lampiran", uploadFile, uploadFile.name);
       }
 
+      // 4. Eksekusi Tembak API
       const response = await fetch(`${API_BASE_URL}/api/v1/tiket/`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
+          // CATATAN: Jangan tambahkan Content-Type application/json di sini! 
+          // Browser akan otomatis mengaturnya menjadi multipart/form-data karena ada file.
         },
         body: formData,
       });
@@ -461,8 +472,10 @@ export const FormPengajuanTiket = ({ onClose, authToken: propToken }) => {
     } catch (err) {
       console.error("Network error:", err);
       setErrorMsg(`Error: ${err.message}`);
-    } window.scrollTo(0, 0);
-    setIsSubmitting(false);
+    } finally {
+      window.scrollTo(0, 0);
+      setIsSubmitting(false);
+    }
   };
 
   return (
