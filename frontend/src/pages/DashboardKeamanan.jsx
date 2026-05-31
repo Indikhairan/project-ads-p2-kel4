@@ -29,15 +29,15 @@ export const DashboardKeamanan = () => {
   const navigate = useNavigate();
   const token = localStorage.getItem("sapa_ipb_token");
 
-  // --- STATE UNTUK DATA BACKEND ---
   const [stats, setStats] = useState(null);
-  const [logs, setLogs] = useState([]);
+  const [logs, setLogs] = useState([]); // Data asli disimpan di sini
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Pagination Table
+  // Pagination Table -> SEKARANG MENGGUNAKAN logs BUKAN recentActivity
   const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = Math.ceil(recentActivity.length / ITEMS_PER_PAGE);
-  const paginated = recentActivity.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(logs.length / ITEMS_PER_PAGE);
+  const paginated = logs.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
   const [searchLog, setSearchLog] = useState("");
   const [logsPerPage, setLogsPerPage] = useState(5);
   const [logPage, setLogPage] = useState(1);
@@ -69,8 +69,10 @@ export const DashboardKeamanan = () => {
 
         // CEK JIKA AKSES DITOLAK (401 atau 403)
         if (resStats.status === 401 || resStats.status === 403 || resLogs.status === 401 || resLogs.status === 403) {
-          clearInterval(intervalId); // MATIKAN TIMER! Jangan ngeyel minta data lagi
-          throw new Error("Gagal mengambil data dari server (Akses Ditolak).");
+          clearInterval(intervalId); 
+          localStorage.removeItem("sapa_ipb_token"); // Hapus token busuk
+          navigate("/login"); // Otomatis redirect ke login
+          return;
         }
 
         if (!resStats.ok || !resLogs.ok) {
@@ -279,11 +281,12 @@ export const DashboardKeamanan = () => {
 
               {/* Tabel */}
               {(() => {
-                const filteredLogs = recentActivity.filter((row) =>
-                  row.email.toLowerCase().includes(searchLog.toLowerCase()) ||
-                  row.activity.toLowerCase().includes(searchLog.toLowerCase()) ||
-                  row.ip.toLowerCase().includes(searchLog.toLowerCase()) ||
-                  row.role.toLowerCase().includes(searchLog.toLowerCase())
+                // SEKARANG MENGGUNAKAN logs BUKAN recentActivity
+                const filteredLogs = logs.filter((row) =>
+                  (row.email?.toLowerCase() || "").includes(searchLog.toLowerCase()) ||
+                  (row.activity?.toLowerCase() || "").includes(searchLog.toLowerCase()) ||
+                  (row.ip?.toLowerCase() || "").includes(searchLog.toLowerCase()) ||
+                  (row.role?.toLowerCase() || "").includes(searchLog.toLowerCase())
                 );
                 const totalLogPages = Math.max(1, Math.ceil(filteredLogs.length / logsPerPage));
                 const paginatedLogs = filteredLogs.slice((logPage - 1) * logsPerPage, logPage * logsPerPage);
