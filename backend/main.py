@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import tiket, notifikasi, auth, update, chatbot, knowledge_base, admin_security, admin_sync, kelola_pengguna, staff
+from .routers import tiket, notifikasi, auth, update, chatbot, knowledge_base, admin_security, admin_sync, kelola_pengguna, staff
 from .database import engine
 from . import models
 
