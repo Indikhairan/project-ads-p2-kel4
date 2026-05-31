@@ -1,15 +1,25 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
 import { TopNavigationAdmin } from "../components/TopNavigationAdmin";
 
+const API_BASE_URL = "http://127.0.0.1:8000";
 const SUPERADMIN_EMAIL = "superadmin@apps.ipb.ac.id";
 const ROLE_OPTIONS = ["Mahasiswa", "Staff", "Admin"];
 
-const initialUsers = [
-  { id: 1, email: SUPERADMIN_EMAIL, nama: "Super Admin", nim_nip: "-", unitKerja: "-", role: "Superadmin", createdAt: "01/01/2026" },
-  { id: 2, email: "budisantoso@apps.ipb.ac.id", nama: "Budi Santoso", nim_nip: "G64012345", unitKerja: "-", role: "Mahasiswa", createdAt: "01/04/2026" },
-  { id: 3, email: "agus.staff@apps.ipb.ac.id", nama: "Agus Salim", nim_nip: "NIP198501012010011001", unitKerja: "Direktorat Administrasi Pendidikan", role: "Staff", createdAt: "01/03/2026" },
-];
+const getAuthToken = () => localStorage.getItem("sapa_ipb_token");
+
+const normalizeRole = (role) => {
+  const lower = String(role || "").toLowerCase();
+  if (lower === "admin") return "Admin";
+  if (lower === "staff") return "Staff";
+  if (lower === "mahasiswa") return "Mahasiswa";
+  return role || "Unknown";
+};
+
+const formatDate = (value) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  return isNaN(date.getTime()) ? String(value) : date.toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric" });
+};
 
 const roleColor = (role) => {
   if (role === "Superadmin") return "bg-purple-100 text-purple-600";
@@ -32,21 +42,20 @@ const SuccessToast = ({ message }) => (
 const ModalHapus = ({ user, onConfirm, onCancel }) => (
   <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4">
     <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full flex flex-col items-center text-center">
-      <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mb-4">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="3 6 5 6 21 6" />
-          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-          <path d="M10 11v6M14 11v6" />
-          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+      <div className="w-14 h-14 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ca8a04" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 2a9 9 0 0 0-9 9v4.5a2.5 2.5 0 0 0 2.5 2.5h13a2.5 2.5 0 0 0 2.5-2.5V11a9 9 0 0 0-9-9z" />
+          <path d="M12 11V7" />
+          <path d="M9.5 14.5h5" />
         </svg>
       </div>
-      <h3 className="font-bold text-[#130962] text-base mb-2">Hapus Pengguna?</h3>
+      <h3 className="font-bold text-[#130962] text-base mb-2">Nonaktifkan Pengguna?</h3>
       <p className="text-gray-400 text-sm mb-6">
-        Akun <span className="font-semibold text-[#130962]">{user.nama}</span> akan dihapus permanen.
+        Akun <span className="font-semibold text-[#130962]">{user.nama}</span> akan dinonaktifkan dan tidak dapat masuk lagi.
       </p>
       <div className="flex gap-3 w-full">
         <button onClick={onCancel} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors">Batal</button>
-        <button onClick={onConfirm} className="flex-1 py-2.5 bg-red-500 text-white font-semibold rounded-xl text-sm hover:bg-red-600 transition-colors">Hapus</button>
+        <button onClick={onConfirm} className="flex-1 py-2.5 bg-yellow-500 text-white font-semibold rounded-xl text-sm hover:bg-yellow-600 transition-colors">Nonaktifkan</button>
       </div>
     </div>
   </div>
@@ -55,9 +64,10 @@ const ModalHapus = ({ user, onConfirm, onCancel }) => (
 const ModalResetKey = ({ user, onConfirm, onCancel }) => (
   <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4">
     <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full flex flex-col items-center text-center">
-      <div className="w-14 h-14 bg-orange-100 rounded-full flex items-center justify-center mb-4">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+      <div className="w-14 h-14 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ca8a04" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 5a4 4 0 0 1 4 4v3h1a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h1V9a4 4 0 0 1 4-4z" />
+          <path d="M8 13h8" />
         </svg>
       </div>
       <h3 className="font-bold text-[#130962] text-base mb-2">Reset Key Staff?</h3>
@@ -66,7 +76,7 @@ const ModalResetKey = ({ user, onConfirm, onCancel }) => (
       </p>
       <div className="flex gap-3 w-full">
         <button onClick={onCancel} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors">Batal</button>
-        <button onClick={onConfirm} className="flex-1 py-2.5 bg-orange-500 text-white font-semibold rounded-xl text-sm hover:bg-orange-600 transition-colors">Reset Key</button>
+        <button onClick={onConfirm} className="flex-1 py-2.5 bg-yellow-500 text-white font-semibold rounded-xl text-sm hover:bg-yellow-600 transition-colors">Reset Key</button>
       </div>
     </div>
   </div>
@@ -215,45 +225,193 @@ const FormUser = ({ editTarget, onSimpan, onBatal }) => {
 };
 
 export const TambahUserPage = () => {
-  const [users, setUsers] = useState(initialUsers);
+  const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [hapusTarget, setHapusTarget] = useState(null);
   const [resetTarget, setResetTarget] = useState(null);
   const [toast, setToast] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const showToast = (message) => {
     setToast(message);
     setTimeout(() => setToast(null), 3000);
   };
 
-  const handleTambah = (data) => {
-    if (users.some((u) => u.email === data.email)) {
+  const mapApiUser = (item) => ({
+    id: item.email,
+    email: item.email,
+    nama: item.nama_lengkap,
+    nim_nip: item.nip || item.nim || "-",
+    unitKerja: item.unit_kerja || "-",
+    role: normalizeRole(item.role),
+    createdAt: formatDate(item.tanggal_terdaftar),
+    is_active: item.is_active,
+  });
+
+  const loadUsers = async () => {
+    setLoading(true);
+    setError("");
+    const token = getAuthToken();
+    if (!token) {
+      setError("Token tidak ditemukan. Silakan login ulang.");
+      setLoading(false);
       return;
     }
-    const today = new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric" });
-    setUsers((prev) => [...prev, { id: Date.now(), ...data, createdAt: today }]);
-    setShowForm(false);
-    showToast(`Akun ${data.nama} berhasil ditambahkan!`);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/admin/kelola-pengguna/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || "Gagal mengambil daftar pengguna.");
+      }
+      const result = await response.json();
+      const list = Array.isArray(result.data) ? result.data.map(mapApiUser) : [];
+      setUsers(list);
+    } catch (err) {
+      setError(err.message || "Terjadi kesalahan saat memuat data.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleEdit = (data) => {
-    setUsers((prev) => prev.map((u) => u.id === editTarget.id ? { ...u, ...data } : u));
-    setEditTarget(null);
-    setShowForm(false);
-    showToast(`Akun ${data.nama} berhasil diperbarui!`);
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const handleTambah = async (data) => {
+    const token = getAuthToken();
+    if (!token) {
+      showToast("Token tidak ditemukan. Silakan login ulang.");
+      return;
+    }
+
+    const payload = {
+      email: data.email,
+      nama_lengkap: data.nama,
+      role: data.role.toLowerCase(),
+      nip: data.nim_nip,
+      unit_kerja: data.unitKerja,
+    };
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/admin/kelola-pengguna/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.detail || result.message || "Gagal menambahkan pengguna.");
+      }
+      await loadUsers();
+      setShowForm(false);
+      showToast(`Akun ${data.nama} berhasil ditambahkan!`);
+    } catch (err) {
+      showToast(err.message || "Gagal menambahkan pengguna.");
+    }
   };
 
-  const confirmHapus = () => {
-    setUsers((prev) => prev.filter((u) => u.id !== hapusTarget.id));
-    setHapusTarget(null);
-    showToast("Pengguna berhasil dihapus.");
+  const handleEdit = async (data) => {
+    if (!editTarget) {
+      return;
+    }
+
+    const token = getAuthToken();
+    if (!token) {
+      showToast("Token tidak ditemukan. Silakan login ulang.");
+      return;
+    }
+
+    const payload = { nama_lengkap: data.nama };
+    if (editTarget.role === "Staff") {
+      payload.nip = data.nim_nip;
+      payload.unit_kerja = data.unitKerja;
+    } else if (editTarget.role === "Admin") {
+      payload.nip = data.nim_nip;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/admin/kelola-pengguna/${encodeURIComponent(editTarget.email)}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.detail || result.message || "Gagal memperbarui pengguna.");
+      }
+      await loadUsers();
+      setEditTarget(null);
+      setShowForm(false);
+      showToast(`Akun ${data.nama} berhasil diperbarui!`);
+    } catch (err) {
+      showToast(err.message || "Gagal memperbarui pengguna.");
+    }
   };
 
-  const confirmResetKey = () => {
-    setResetTarget(null);
-    showToast(`Key keamanan ${resetTarget.nama} berhasil direset.`);
+  const confirmHapus = async () => {
+    if (!hapusTarget) {
+      return;
+    }
+
+    const token = getAuthToken();
+    if (!token) {
+      showToast("Token tidak ditemukan. Silakan login ulang.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/admin/kelola-pengguna/${encodeURIComponent(hapusTarget.email)}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.detail || result.message || "Gagal menonaktifkan pengguna.");
+      }
+      await loadUsers();
+      setHapusTarget(null);
+      showToast(result.message || "Pengguna berhasil dinonaktifkan.");
+    } catch (err) {
+      showToast(err.message || "Gagal menonaktifkan pengguna.");
+    }
+  };
+
+  const confirmResetKey = async () => {
+    if (!resetTarget) {
+      return;
+    }
+    const token = getAuthToken();
+    if (!token) {
+      showToast("Token tidak ditemukan. Silakan login ulang.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/admin/kelola-pengguna/${encodeURIComponent(resetTarget.email)}/reset-kunci`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.detail || result.message || "Gagal mereset key staf.");
+      }
+      setResetTarget(null);
+      showToast(result.message || `Key keamanan ${resetTarget.nama} berhasil direset.`);
+    } catch (err) {
+      showToast(err.message || "Gagal mereset key staf.");
+    }
   };
 
   const handleClickEdit = (user) => {
@@ -305,6 +463,13 @@ export const TambahUserPage = () => {
           </p>
         </div>
 
+        {loading && (
+          <p className="text-sm text-gray-500 mb-4">Memuat daftar pengguna...</p>
+        )}
+        {error && (
+          <p className="text-sm text-red-500 mb-4">{error}</p>
+        )}
+
         {/* Form tambah/edit */}
         {showForm && (
           <FormUser
@@ -336,17 +501,16 @@ export const TambahUserPage = () => {
               <tr className="bg-[#130962] text-white text-xs">
                 <th className="py-3 px-4 text-left font-semibold rounded-tl-lg">Nama</th>
                 <th className="py-3 px-4 text-left font-semibold">Email</th>
-                <th className="py-3 px-4 text-left font-semibold">NIM/NIP</th>
-                <th className="py-3 px-4 text-left font-semibold">Unit Kerja</th>
                 <th className="py-3 px-4 text-center font-semibold">Role</th>
                 <th className="py-3 px-4 text-center font-semibold">Terdaftar</th>
+                <th className="py-3 px-4 text-center font-semibold">Status</th>
                 <th className="py-3 px-4 text-center font-semibold rounded-tr-lg">Aksi</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-16 text-center italic text-gray-400 text-sm">
+                  <td colSpan={6} className="py-16 text-center italic text-gray-400 text-sm">
                     Pengguna tidak ditemukan.
                   </td>
                 </tr>
@@ -355,14 +519,17 @@ export const TambahUserPage = () => {
                   <tr key={user.id} className={idx % 2 === 1 ? "bg-[#f0f0ff]" : "bg-white"}>
                     <td className="py-3 px-4 text-sm font-medium text-[#130962]">{user.nama}</td>
                     <td className="py-3 px-4 text-xs text-gray-500">{user.email}</td>
-                    <td className="py-3 px-4 text-xs text-gray-500">{user.nim_nip}</td>
-                    <td className="py-3 px-4 text-xs text-gray-500 max-w-[150px] truncate">{user.unitKerja}</td>
                     <td className="py-3 px-4 text-center">
                       <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${roleColor(user.role)}`}>
                         {user.role}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-center text-xs text-gray-400">{user.createdAt}</td>
+                    <td className="py-3 px-4 text-center">
+                      <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${user.is_active ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"}`}>
+                        {user.is_active ? "Aktif" : "Tidak aktif"}
+                      </span>
+                    </td>
                     <td className="py-3 px-4">
                       {user.role === "Superadmin" ? (
                         <span className="text-gray-300 text-xs italic flex justify-center">—</span>
