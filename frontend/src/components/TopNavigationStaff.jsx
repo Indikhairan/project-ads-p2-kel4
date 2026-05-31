@@ -1,12 +1,42 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
+const API_BASE_URL = "http://127.0.0.1:8000";
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("sapa_ipb_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
 export const TopNavigationStaff = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isActive = (path) => location.pathname === path;
   const [showProfile, setShowProfile] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
   const profileRef = useRef(null);
+
+  const fetchPendingCount = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/staff/knowledge-base/`, {
+        headers: getAuthHeaders(),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const count = (data || []).filter((kb) => kb.status === "Pending").length;
+        setPendingCount(count);
+      }
+    } catch (err) {
+      console.error("Gagal fetch pending count:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchPendingCount();
+    const interval = setInterval(fetchPendingCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleLogout = async () => {
     const token = localStorage.getItem("sapa_ipb_token");
 
@@ -68,13 +98,18 @@ export const TopNavigationStaff = () => {
           </span>
           <span
             onClick={() => navigate("/staff/knowledge-base")}
-            className={`cursor-pointer pb-0.5 transition-colors ${
+            className={`cursor-pointer pb-0.5 transition-colors flex items-center gap-1.5 ${
               isActive("/staff/knowledge-base")
                 ? "font-bold text-[#130962] border-b-2 border-[#ffe030]"
                 : "font-medium text-gray-400 hover:text-[#130962]"
             }`}
           >
             Knowledge Base
+            {pendingCount > 0 && (
+              <span className="bg-yellow-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                {pendingCount}
+              </span>
+            )}
           </span>
         </nav>
       </div>

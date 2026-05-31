@@ -1,6 +1,7 @@
 import os
 import shutil
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -122,3 +123,33 @@ def hapus_dokumen(id: int, request: Request, db: Session = Depends(get_db)):
     )
     
     return {"status": "success", "message": "Ajuan dokumen berhasil dibatalkan dan dihapus."}
+
+# 4. DOWNLOAD DOKUMEN PDF
+@router.get("/{id}/download")
+def download_dokumen(id: int, request: Request, db: Session = Depends(get_db)):
+    # 1. SATPAM PINTAR: Validasi Token & Role
+    user_info = sec_helper.ekstrak_token(request)
+    sec_helper.cek_role(user_info, db, request, "staff", "admin")
+    
+    # 2. Cari dokumen di database
+    doc = db.query(models.KnowledgeBase).filter(models.KnowledgeBase.id_kb == id).first()
+    
+    if not doc:
+        raise HTTPException(status_code=404, detail="Dokumen tidak ditemukan")
+    
+    # 3. Validasi file fisik ada
+    if not os.path.exists(doc.path):
+        raise HTTPException(status_code=404, detail="File PDF tidak ditemukan di server")
+    
+    # 4. TANAM LOG & Return file
+    sec_helper.log_aktivitas(
+        db=db,
+        aksi=f"Download dokumen KB: {doc.filename}",
+        request=request
+    )
+    
+    return FileResponse(
+        path=doc.path,
+        filename=doc.filename,
+        media_type="application/pdf"
+    )

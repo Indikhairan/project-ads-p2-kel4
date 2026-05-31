@@ -1,13 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { TopNavigationStaff } from "../components/TopNavigationStaff";
 
-const initialArticles = [
-  { id: 1, judul: "Cara Mengajukan Surat Keterangan Aktif", kategori: "Persuratan", postedAt: "15 April 2026", konten: null, fileName: "panduan_surat_aktif.pdf", status: "approved" },
-  { id: 2, judul: "Syarat dan Prosedur Transkip Nilai", kategori: "Akademik", postedAt: "12 April 2026", konten: null, fileName: "prosedur_transkip.pdf", status: "approved" },
-  { id: 3, judul: "Panduan Surat Izin Penelitian", kategori: "Persuratan", postedAt: "10 April 2026", konten: null, fileName: "panduan_izin_penelitian.pdf", status: "pending" },
-  { id: 4, judul: "FAQ Layanan Akademik Mahasiswa", kategori: "Umum", postedAt: "8 April 2026", konten: null, fileName: "faq_layanan.pdf", status: "pending" },
-];
+const API_BASE_URL = "http://127.0.0.1:8000";
 
 const KATEGORI_OPTIONS = ["Persuratan", "Akademik", "Umum", "Informasi"];
 
@@ -26,6 +21,28 @@ const statusBadge = (status) => {
     return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-600">Menunggu Persetujuan</span>;
   return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-500">Ditolak</span>;
 };
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("sapa_ipb_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+const mapBackendKB = (data) =>
+  data.map((item) => ({
+    id: item.id_kb,
+    judul: item.judul,
+    kategori: item.kategori,
+    postedAt: item.waktu_upload
+      ? new Date(item.waktu_upload).toLocaleDateString("id-ID", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })
+      : "",
+    konten: null,
+    fileName: item.filename,
+    status: item.status ? item.status.toLowerCase() : "pending",
+  }));
 
 const SuccessToast = ({ message }) => (
   <div className="fixed top-6 right-6 z-50 bg-white border border-green-200 shadow-lg rounded-xl px-5 py-3 flex items-center gap-3">
@@ -204,6 +221,29 @@ const FormAjukanKB = ({ onAjukan, onBatal }) => {
 const KBCard = ({ artikel, onHapus }) => {
   const [expanded, setExpanded] = useState(false);
 
+  const handleDownload = () => {
+    const downloadUrl = `${API_BASE_URL}/api/v1/staff/knowledge-base/${artikel.id}/download`;
+    const token = localStorage.getItem("sapa_ipb_token");
+    
+    fetch(downloadUrl, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((res) => res.blob())
+      .then((blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = artikel.fileName;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      })
+      .catch((err) => console.error("Gagal download:", err));
+  };
+
   return (
     <div className={`border rounded-xl transition-all ${
       expanded ? "border-[#130962] bg-blue-50/40" : "border-gray-200 bg-white hover:bg-gray-50"
@@ -244,13 +284,27 @@ const KBCard = ({ artikel, onHapus }) => {
       {/* Expanded - tampilkan nama file PDF */}
       {expanded && (
         <div className="px-4 pb-4">
-          <div className="border-t border-gray-200 mt-1 pt-3 flex items-center gap-3">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#130962" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-            </svg>
-            <span className="text-sm text-[#130962] font-medium">{artikel.fileName}</span>
-            <span className="text-[10px] bg-red-100 text-red-500 font-bold px-2 py-0.5 rounded">PDF</span>
+          <div className="border-t border-gray-200 mt-1 pt-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#130962" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
+              <span className="text-sm text-[#130962] font-medium">{artikel.fileName}</span>
+              <span className="text-[10px] bg-red-100 text-red-500 font-bold px-2 py-0.5 rounded">PDF</span>
+            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleDownload(); }}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 border border-blue-300 text-blue-600 font-semibold text-xs rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap"
+              title="Download PDF"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Download
+            </button>
           </div>
         </div>
       )}
@@ -260,31 +314,98 @@ const KBCard = ({ artikel, onHapus }) => {
 
 export const KnowledgeBasePage = () => {
   const navigate = useNavigate();
-  const [articles, setArticles] = useState(initialArticles);
+  const [articles, setArticles] = useState([]);
   const [search, setSearch] = useState("");
   const [showTambahForm, setShowTambahForm] = useState(false);
   const [hapusTarget, setHapusTarget] = useState(null);
   const [toast, setToast] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const showToast = (message) => {
     setToast(message);
     setTimeout(() => setToast(null), 3000);
   };
 
-  const handleAjukan = ({ judul, kategori, file }) => {
-    const today = new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
-    setArticles((prev) => [
-      { id: Date.now(), judul, kategori, postedAt: today, konten: null, fileName: file.name, status: "pending" },
-      ...prev,
-    ]);
-    setShowTambahForm(false);
-    showToast("KB berhasil diajukan! Menunggu persetujuan Admin.");
+  const loadArticles = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/staff/knowledge-base/`, {
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error("Gagal memuat data Knowledge Base");
+      }
+
+      const data = await response.json();
+      setArticles(mapBackendKB(data));
+    } catch (err) {
+      console.error(err);
+      setError("Gagal memuat Knowledge Base. Periksa koneksi atau login ulang.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const confirmHapus = () => {
-    setArticles((prev) => prev.filter((a) => a.id !== hapusTarget.id));
-    setHapusTarget(null);
-    showToast("Knowledge Base berhasil dihapus.");
+  useEffect(() => {
+    loadArticles();
+  }, []);
+
+  const handleAjukan = async ({ judul, kategori, file }) => {
+    const formData = new FormData();
+    formData.append("judul", judul);
+    formData.append("kategori", kategori);
+    formData.append("file_dokumen", file);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/staff/knowledge-base/`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        console.error("Gagal ajukan KB:", data);
+        showToast(data.detail ?? "Gagal ajukan KB. Coba lagi.");
+        return;
+      }
+
+      showToast(data.message ?? "KB berhasil diajukan! Menunggu persetujuan Admin.");
+      setShowTambahForm(false);
+      await loadArticles();
+    } catch (err) {
+      console.error("Error ajukan KB:", err);
+      showToast("Gagal ajukan KB. Periksa koneksi.");
+    }
+  };
+
+  const confirmHapus = async () => {
+    if (!hapusTarget) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/staff/knowledge-base/${hapusTarget.id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        console.error("Gagal hapus KB:", data);
+        showToast(data.detail ?? "Gagal hapus KB.");
+        return;
+      }
+
+      setArticles((prev) => prev.filter((a) => a.id !== hapusTarget.id));
+      setHapusTarget(null);
+      showToast("Knowledge Base berhasil dihapus.");
+    } catch (err) {
+      console.error("Error hapus KB:", err);
+      showToast("Gagal hapus KB. Periksa koneksi.");
+    }
   };
 
   const filtered = articles.filter((a) =>
@@ -347,6 +468,17 @@ export const KnowledgeBasePage = () => {
               className="flex-1 text-sm focus:outline-none bg-transparent"
             />
           </div>
+
+          {error && (
+            <div className="mb-3 rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
+              {error}
+            </div>
+          )}
+          {isLoading && (
+            <div className="mb-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 text-sm">
+              Memuat daftar Knowledge Base...
+            </div>
+          )}
 
           <p className="text-[#130962] font-semibold text-sm mb-3">
             Daftar Knowledge Base ({filtered.length})
