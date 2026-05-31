@@ -29,7 +29,7 @@ function App() {
         <Route path="/staff/knowledge-base" element={<KnowledgeBasePage />} />
         <Route path="/admin/dashboard" element={<DashboardKeamanan />} />
         <Route path="/admin/users" element={<TambahUserPage />} />
-        <Route path="/admin/persetujuan" element={<PusatPersetujuanPage />} />
+        <Route path="/admin/knowledge-base" element={<PusatPersetujuanPage />} />
       </Routes>
     </BrowserRouter>
   );

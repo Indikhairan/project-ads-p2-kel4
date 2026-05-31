@@ -5,36 +5,31 @@ import { FormPengajuanTiket } from "../components/FormPengajuanTiket";
 import { ChatbotSAPA } from "../components/ChatbotSAPA";
 import image3 from "../assets/image-3.png";
 
-const allTickets = [
-  { id: "#001", tanggal: "01/04/2026", subjek: "Pembatalan KRS ICE", status: "processing", unitKerja: "DITAP" },
-  { id: "#002", tanggal: "01/04/2026", subjek: "Permohonan Pengajuan Beasiswa", status: "completed", unitKerja: "DITMAWA" },
-  { id: "#003", tanggal: "01/04/2026", subjek: "Pengajuan Surat Izin Akademik", status: "rejected", unitKerja: "TU Departemen" },
-];
-
 const ITEMS_PER_PAGE = 10;
 
 const StatusBadge = ({ status }) => {
-  if (status === "processing")
+  if (status === "Open" || status === "Diproses")
     return (
-      <span className="px-3 py-1 bg-orange-50 border border-orange-400 text-orange-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
+      <div className="px-3 py-1 bg-orange-50 border border-orange-400 text-orange-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
         ⏱ DIPROSES
-      </span>
+      </div>
     );
-  if (status === "completed")
+  if (status === "Selesai")
     return (
-      <span className="px-3 py-1 bg-green-50 border border-green-500 text-green-600 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
+      <div className="px-3 py-1 bg-green-50 border border-green-500 text-green-600 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
         ✓ SELESAI
-      </span>
+      </div>
     );
   return (
-    <span className="px-3 py-1 bg-red-50 border border-red-500 text-red-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
+    <div className="px-3 py-1 bg-red-50 border border-red-500 text-red-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
       ⊘ DITOLAK
-    </span>
+    </div>
   );
 };
 
 export const RiwayatTiketPage = () => {
   const navigate = useNavigate();
+  const [tickets, setTickets] = useState([]);
   const [search, setSearch] = useState("");
   const [showSort, setShowSort] = useState(false);
   const [sortBy, setSortBy] = useState("ID Tiket");
@@ -42,6 +37,8 @@ export const RiwayatTiketPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [showChatbot, setShowChatbot] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
   const sortRef = useRef(null);
 
   // Tutup dropdown sort kalau klik di luar
@@ -55,21 +52,73 @@ export const RiwayatTiketPage = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  useEffect(() => {
+    const fetchTickets = async () => {
+      setIsLoading(true);
+      setError("");
+
+      const token = localStorage.getItem("sapa_ipb_token");
+      if (!token) {
+        setError("Silakan login terlebih dahulu untuk melihat riwayat tiket.");
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch("http://127.0.0.1:8000/api/v1/tiket", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          setError(data.detail || "Gagal memuat riwayat tiket.");
+          setTickets([]);
+        } else {
+          setTickets(data);
+        }
+      } catch (err) {
+        console.error("Error fetch tickets:", err);
+        setError("Gagal memuat riwayat tiket. Periksa koneksi backend.");
+        setTickets([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTickets();
+
+    // ── POLLING: Auto-refresh setiap 5 detik ──
+    const pollingInterval = setInterval(fetchTickets, 5000);
+    return () => clearInterval(pollingInterval);
+  }, []);
+
   // Filter berdasarkan search
-  const filtered = allTickets.filter((t) =>
-    t.subjek.toLowerCase().includes(search.toLowerCase()) ||
-    t.id.toLowerCase().includes(search.toLowerCase())
+  const filtered = tickets.filter((t) =>
+    t.subjek?.toLowerCase().includes(search.toLowerCase()) ||
+    t.id_tiket?.toLowerCase().includes(search.toLowerCase())
   );
 
   // Sort
   const sorted = [...filtered].sort((a, b) => {
-    let valA, valB;
-    if (sortBy === "ID Tiket") { valA = a.id; valB = b.id; }
-    else if (sortBy === "Tanggal") { valA = a.tanggal; valB = b.tanggal; }
-    else { valA = a.status; valB = b.status; }
+    let valA = "";
+    let valB = "";
+
+    if (sortBy === "ID Tiket") {
+      valA = a.id_tiket || "";
+      valB = b.id_tiket || "";
+    } else if (sortBy === "Tanggal") {
+      valA = a.waktu_submit || "";
+      valB = b.waktu_submit || "";
+    } else {
+      valA = a.status || "";
+      valB = b.status || "";
+    }
+
     return sortDir === "Ascending"
-      ? valA.localeCompare(valB)
-      : valB.localeCompare(valA);
+      ? String(valA).localeCompare(String(valB))
+      : String(valB).localeCompare(String(valA));
   });
 
   // Pagination
@@ -80,7 +129,7 @@ export const RiwayatTiketPage = () => {
     <main className="bg-[#f8f9fa] w-full min-h-screen flex flex-col">
       <TopNavigationSection onBuatTiket={() => setShowForm(true)} />
 
-      <div className="w-full max-w-[1000px] mx-auto px-6 mt-8 pb-20">
+      <div className="w-full max-w-[1000px] mx-auto px-6 mt-4 gap-4 pb-20">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
 
           {/* Header */}
@@ -116,8 +165,10 @@ export const RiwayatTiketPage = () => {
               <div className="relative" ref={sortRef}>
                 <button
                   onClick={() => setShowSort((prev) => !prev)}
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-                    showSort ? "bg-[#130962] text-white" : "bg-[#130962] text-white hover:bg-[#1a237e]"
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors border ${
+                    showSort
+                      ? "bg-[#130962] text-white border-[#130962]"
+                      : "bg-white text-[#130962] border-[#130962] hover:bg-gray-50"
                   }`}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -170,11 +221,23 @@ export const RiwayatTiketPage = () => {
                 <th className="py-3 px-4 text-center font-semibold">Tanggal</th>
                 <th className="py-3 px-4 text-center font-semibold">Subjek</th>
                 <th className="py-3 px-4 text-center font-semibold">Status</th>
-                <th className="py-3 px-4 text-center font-semibold rounded-tr-lg">Unit Kerja</th>
+                <th className="py-3 px-4 text-center font-semibold rounded-tr-lg">Kategori</th>
               </tr>
             </thead>
             <tbody>
-              {paginated.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={5} className="py-32 text-center italic text-gray-400 text-sm">
+                    Memuat riwayat tiket...
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={5} className="py-32 text-center text-red-500 text-sm">
+                    {error}
+                  </td>
+                </tr>
+              ) : paginated.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-32 text-center italic text-gray-400 text-sm">
                     {search
@@ -185,19 +248,25 @@ export const RiwayatTiketPage = () => {
               ) : (
                 paginated.map((ticket, idx) => (
                   <tr
-                    key={ticket.id}
-                    onClick={() => navigate(`/tiket/${ticket.id.replace("#", "")}`)}
+                    key={ticket.id_tiket}
+                    onClick={() => navigate(`/tiket/${encodeURIComponent(ticket.id_tiket)}`)}
                     className={`text-sm text-center ${idx % 2 === 1 ? "bg-[#f0f0ff]" : "bg-white"} hover:bg-blue-50 transition-colors cursor-pointer`}
                   >
-                    <td className="py-3 px-4 font-medium text-[#130962]">{ticket.id}</td>
-                    <td className="py-3 px-4 text-[#130962]">{ticket.tanggal}</td>
+                    <td className="py-3 px-4 font-medium text-[#130962]">{ticket.id_tiket}</td>
+                    <td className="py-3 px-4 text-[#130962]">
+                      {new Date(ticket.waktu_submit).toLocaleDateString("id-ID", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      })}
+                    </td>
                     <td className="py-3 px-4 font-medium text-[#130962]">{ticket.subjek}</td>
                     <td className="py-3 px-4">
                       <div className="flex justify-center">
                         <StatusBadge status={ticket.status} />
                       </div>
                     </td>
-                    <td className="py-3 px-4 font-medium text-[#130962]">{ticket.unitKerja}</td>
+                    <td className="py-3 px-4 font-medium text-[#130962]">{ticket.kategori || ticket.id_layanan}</td>
                   </tr>
                 ))
               )}

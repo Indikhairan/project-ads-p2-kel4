@@ -1,20 +1,23 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { TopNavigationAdmin } from "../components/TopNavigationAdmin";
 
-// Data dummy antrian persetujuan dari staff
-const initialPending = [
-  { id: 1, nama: "Panduan_Magang_2026.pdf", kategori: "Akademik", pengaju: "Staf Kira", waktu: "10 menit lalu" },
-  { id: 2, nama: "Prosedur_Cuti_Akademik.pdf", kategori: "Persuratan", pengaju: "Staf Agus", waktu: "1 jam lalu" },
-];
+const API_BASE_URL = "http://127.0.0.1:8000";
 
-const initialApproved = [
-  { id: 10, nama: "Tata_Tertib_Asrama_2025.pdf", kategori: "Umum", pengaju: "Staf Budi", ingestTime: "Kemarin, 16:30 WIB" },
-];
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("sapa_ipb_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
-const initialRejected = [
-  { id: 20, nama: "Jadwal_Kuliah_Lama.pdf", kategori: "Akademik", pengaju: "Staf Fadia", rejectTime: "2 hari lalu" },
-];
+const mapBackendToUI = (data) => ({
+  id: data.id_kb,
+  nama: data.filename,
+  kategori: data.kategori,
+  pengaju: data.diupload_oleh || "Unknown",
+  waktu: data.waktu_upload ? new Date(data.waktu_upload).toLocaleString("id-ID") : "Baru saja",
+  ingestTime: data.waktu_setujui ? new Date(data.waktu_setujui).toLocaleString("id-ID") : "",
+  rejectTime: data.waktu_tolak ? new Date(data.waktu_tolak).toLocaleString("id-ID") : "",
+});
 
 const kategoriColor = (k) => {
   if (k === "Persuratan") return "bg-orange-100 text-orange-600";
@@ -23,8 +26,32 @@ const kategoriColor = (k) => {
   return "bg-gray-100 text-gray-500";
 };
 
-// Modal preview dokumen (simulasi)
-const ModalPreview = ({ item, onClose }) => (
+// Modal preview dokumen
+const ModalPreview = ({ item, onClose }) => {
+  const handleDownload = () => {
+    const downloadUrl = `${API_BASE_URL}/api/v1/staff/knowledge-base/${item.id}/download`;
+    const token = localStorage.getItem("sapa_ipb_token");
+    
+    fetch(downloadUrl, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((res) => res.blob())
+      .then((blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = item.nama;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      })
+      .catch((err) => console.error("Gagal download:", err));
+  };
+
+  return (
   <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4">
     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
       <div className="bg-[#130962] text-white px-6 py-4 rounded-t-2xl flex items-center justify-between">
@@ -50,18 +77,32 @@ const ModalPreview = ({ item, onClose }) => (
           <p className="text-gray-400 text-sm mt-2">Diajukan oleh {item.pengaju} · {item.waktu}</p>
         </div>
         <div className="w-full bg-gray-50 rounded-xl p-4 text-sm text-gray-500 italic text-center">
-          Preview konten dokumen akan ditampilkan di sini setelah terhubung dengan backend.
+          File PDF disimpan di server. Gunakan tombol Download untuk melihat atau mengunduh dokumen.
         </div>
-        <button
-          onClick={onClose}
-          className="w-full py-2.5 bg-[#130962] text-white font-semibold rounded-xl text-sm hover:bg-[#1a237e] transition-colors"
-        >
-          Tutup
-        </button>
+        <div className="flex gap-3 w-full">
+          <button
+            onClick={handleDownload}
+            className="flex-1 py-2.5 bg-blue-500 text-white font-semibold rounded-xl text-sm hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Download PDF
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 bg-[#130962] text-white font-semibold rounded-xl text-sm hover:bg-[#1a237e] transition-colors"
+          >
+            Tutup
+          </button>
+        </div>
       </div>
     </div>
   </div>
-);
+  );
+};
 
 // Toast notifikasi
 const Toast = ({ message, type }) => (
@@ -86,33 +127,94 @@ const Toast = ({ message, type }) => (
 );
 
 export const PusatPersetujuanPage = () => {
-  const [pending, setPending] = useState(initialPending);
-  const [approved, setApproved] = useState(initialApproved);
-  const [rejected, setRejected] = useState(initialRejected);
+  const [pending, setPending] = useState([]);
+  const [approved, setApproved] = useState([]);
+  const [rejected, setRejected] = useState([]);
   const [previewItem, setPreviewItem] = useState(null);
   const [toast, setToast] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const showToast = (message, type) => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
 
-  const handleSetujui = (item) => {
-    setPending((prev) => prev.filter((p) => p.id !== item.id));
-    setApproved((prev) => [
-      { ...item, ingestTime: "Baru saja" },
-      ...prev,
-    ]);
-    showToast(`"${item.nama}" disetujui dan masuk ke database AI!`, "success");
+  const loadData = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/admin/sync/`, {
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error("Gagal memuat data sinkronisasi");
+      }
+
+      const data = await response.json();
+      setPending((data.antrean_pending || []).map(mapBackendToUI));
+      setApproved((data.riwayat_sukses || []).map(mapBackendToUI));
+      setRejected((data.riwayat_ditolak || []).map(mapBackendToUI));
+    } catch (err) {
+      console.error(err);
+      setError("Gagal memuat data. Periksa koneksi atau login ulang.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleTolak = (item) => {
-    setPending((prev) => prev.filter((p) => p.id !== item.id));
-    setRejected((prev) => [
-      { ...item, rejectTime: "Baru saja" },
-      ...prev,
-    ]);
-    showToast(`"${item.nama}" ditolak.`, "error");
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const handleSetujui = async (item) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/admin/sync/approve/${item.id}`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.detail || "Gagal setujui dokumen");
+      }
+
+      setPending((prev) => prev.filter((p) => p.id !== item.id));
+      setApproved((prev) => [
+        { ...item, ingestTime: "Baru saja" },
+        ...prev,
+      ]);
+      showToast(`"${item.nama}" disetujui dan masuk ke database AI!`, "success");
+    } catch (err) {
+      console.error(err);
+      showToast(err.message || "Gagal setujui dokumen", "error");
+    }
+  };
+
+  const handleTolak = async (item) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/admin/sync/reject/${item.id}`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.detail || "Gagal tolak dokumen");
+      }
+
+      setPending((prev) => prev.filter((p) => p.id !== item.id));
+      setRejected((prev) => [
+        { ...item, rejectTime: "Baru saja" },
+        ...prev,
+      ]);
+      showToast(`"${item.nama}" ditolak.`, "error");
+    } catch (err) {
+      console.error(err);
+      showToast(err.message || "Gagal tolak dokumen", "error");
+    }
   };
 
   return (
@@ -129,6 +231,17 @@ export const PusatPersetujuanPage = () => {
           Pusat Persetujuan & Sinkronisasi AI
         </h1>
 
+        {error && (
+          <div className="mb-6 rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
+            {error}
+          </div>
+        )}
+        {isLoading && (
+          <div className="mb-6 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 text-sm">
+            Memuat data dari backend...
+          </div>
+        )}
+
         {/* Info banner */}
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-5 py-4 flex items-start gap-3 mb-6">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5">
@@ -139,7 +252,7 @@ export const PusatPersetujuanPage = () => {
             <p className="font-semibold text-yellow-700 text-sm">Perhatian: Aturan Proses Sinkronisasi AI (Ingest)</p>
             <p className="text-yellow-600 text-xs mt-1">
               Tindakan "Setujui & Ingest" akan membaca dokumen ke dalam database AI (memakan kuota API). Disarankan untuk meninjau dokumen terlebih dahulu dan melakukan Ingest secara sekaligus pada{" "}
-              <span className="font-bold">Pukul 16:00 - 17:00 WIB</span>.
+              <span className="font-bold">Pukul 22:00 - 23:00 WIB</span>.
             </p>
           </div>
         </div>

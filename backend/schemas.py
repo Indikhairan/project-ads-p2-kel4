@@ -1,69 +1,76 @@
-from pydantic import BaseModel, EmailStr, model_validator
-from typing import Optional, Dict, Any, List, Literal
 from datetime import datetime
 
+from pydantic import BaseModel, Field, model_validator
+from typing import Optional, Any
+from enum import Enum
 
-# ─── TIKET SCHEMAS ────────────────────────────────────────────────────────────
-
-TIKET_KATEGORI = Literal["Layanan", "Persuratan"]
-
+class KategoriEnum(str, Enum):
+    layanan = "Layanan"
+    persuratan = "Persuratan"
 
 class TiketBase(BaseModel):
     id_layanan: str
-    kategori: TIKET_KATEGORI = "Layanan"
-    subjek: Optional[str] = None
+    kategori: KategoriEnum
+    subjek: str
+    deskripsi: Optional[str] = None
+    data_request: Optional[dict] = None
+    file_lampiran: Optional[str] = None
+    email_mahasiswa: Optional[str] = None
+    nim: Optional[str] = None
+    program_studi: Optional[str] = None
+
+from pydantic import BaseModel, Field
+from typing import Optional, Dict, Any
+
+class TiketCreate(BaseModel):
+    id_layanan: str
+    kategori: str
+    subjek: str
     data_request: Dict[str, Any]
     file_lampiran: Optional[str] = None
-
-
-class TiketCreate(TiketBase):
-    # Tambahan Progressive Profiling (Data Akademik)
-    nim: str
-    program_studi: str
+    nim: Optional[str] = None
+    program_studi: Optional[str] = None
+    
+    # TAMBAHKAN FIELD INI AGAR TIDAK ATTRIBUTE ERROR
     departemen: Optional[str] = None
     fakultas: Optional[str] = None
+    semester: Optional[str] = None
+    deskripsi: Optional[str] = None
 
-    @model_validator(mode="after")
-    def validate_persuratan_data(cls, values):
-        kategori = values.get("kategori")
-        data_request = values.get("data_request") or {}
+    @model_validator(mode='after')
+    def validate_persuratan_data(self) -> 'TiketCreate':
+        # PERBAIKAN: Menggunakan dot notation karena 'self'/'values' adalah object, bukan dict
+        kategori = self.kategori
+        data_request = self.data_request
 
         if kategori == "Persuratan":
-            missing = []
+            if not data_request:
+                raise ValueError("data_request wajib diisi untuk kategori Persuratan")
+            
+            # Validasi field dasar di dalam data_request JSONB
             if not data_request.get("jenis_surat"):
-                missing.append("jenis_surat")
-            if not data_request.get("tujuan"):
-                missing.append("tujuan")
-            if not data_request.get("alamat"):
-                missing.append("alamat")
-
-            if missing:
-                raise ValueError(
-                    f"Untuk kategori 'Persuratan', data_request harus menyertakan: {', '.join(missing)}."
-                )
-
-            alamat = data_request.get("alamat")
-            if not isinstance(alamat, (str, dict)):
-                raise ValueError("Field 'alamat' harus berupa string atau objek alamat yang berisi detail alamat.")
-
-        return values
-
-
-class TiketUpdate(BaseModel):
-    """Schema untuk staff update status tiket (PUT /tiket/{id_tiket})."""
-    status: str  # Contoh: "In Progress", "Selesai", "Ditolak"
+                raise ValueError("jenis_surat wajib diisi di dalam data_request")
+            if not data_request.get("nama"):
+                raise ValueError("nama wajib diisi di dalam data_request")
+            if not data_request.get("nim"):
+                raise ValueError("nim wajib diisi di dalam data_request")
+                
+        return self
 
 class TiketResponse(TiketBase):
-    """Schema response tiket — dikembalikan ke client."""
     id_tiket: str
-    waktu_submit: datetime
     status: str
-    email_mahasiswa: str
-    email_staff: Optional[str] = None  # Diisi saat staff mulai memproses
+    waktu_submit: datetime
+    email_staff: Optional[str] = None
+    nim_pengaju: Optional[str] = None
+    program_studi_pengaju: Optional[str] = None
 
     class Config:
         from_attributes = True
 
+class TiketUpdate(BaseModel):
+    """Schema untuk staff update status tiket (PUT /tiket/{id_tiket})."""
+    status: str  # Contoh: "In Progress", "Selesai", "Ditolak"
 
 # ─── NOTIFIKASI SCHEMAS ───────────────────────────────────────────────────────
 

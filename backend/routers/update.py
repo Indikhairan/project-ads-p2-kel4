@@ -12,7 +12,6 @@ router = APIRouter(
     tags=["Files"]
 )
 
-
 class FileStorageService:
     """Mengelola upload dan download file lampiran tiket."""
 

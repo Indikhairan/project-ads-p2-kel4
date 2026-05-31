@@ -1,10 +1,78 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+
+const API_BASE_URL = "http://127.0.0.1:8000";
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("sapa_ipb_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 export const TopNavigationAdmin = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isActive = (path) => location.pathname === path;
+  const [showProfile, setShowProfile] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+  const profileRef = useRef(null);
+
+  const fetchPendingCount = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/admin/sync/`, {
+        headers: getAuthHeaders(),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setPendingCount((data.antrean_pending || []).length);
+      }
+    } catch (err) {
+      console.error("Gagal fetch pending count:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchPendingCount();
+    const interval = setInterval(fetchPendingCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleLogout = async () => {
+    const token = localStorage.getItem("sapa_ipb_token");
+
+    // Kirim sinyal logout ke backend
+    try {
+      await fetch("http://localhost:8000/auth/logout", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      });
+    } catch (err) {
+      console.error("Gagal logout:", err);
+    }
+
+    // Baru hapus token dan pindah halaman
+    localStorage.removeItem("sapa_ipb_token");
+    navigate("/");
+  };
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target)) {
+        setShowProfile(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // Nanti diganti data dari backend
+  const user = {
+    nama: "Admin SAPA",
+    email: "admin@apps.ipb.ac.id",
+    initial: "A",
+  };
 
   return (
     <header className="w-full bg-white border-b border-gray-200 flex items-center justify-between px-8 py-3">
@@ -38,24 +106,32 @@ export const TopNavigationAdmin = () => {
             Kelola Pengguna
           </span>
           <span
-            onClick={() => navigate("/admin/persetujuan")}
-            className={`cursor-pointer pb-0.5 transition-colors ${
-              isActive("/admin/persetujuan")
+            onClick={() => navigate("/admin/knowledge-base")}
+            className={`cursor-pointer pb-0.5 transition-colors flex items-center gap-1.5 ${
+              isActive("/admin/knowledge-base")
                 ? "font-bold text-[#130962] border-b-2 border-[#ffe030]"
                 : "font-medium text-gray-400 hover:text-[#130962]"
             }`}
           >
-            Pusat Persetujuan AI
+            Knowledge Base
+            {pendingCount > 0 && (
+              <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                {pendingCount}
+              </span>
+            )}
           </span>
         </nav>
       </div>
+
       <div className="flex items-center gap-3">
-        <span className="bg-purple-100 text-purple-600 font-bold text-xs px-3 py-1 rounded-full">
-          Superadmin
+        {/* Badge Admin */}
+        <span className="bg-[#ffe030] text-[#130962] font-bold text-xs px-3 py-1 rounded-full">
+          Admin
         </span>
+
         <button
-          onClick={() => navigate("/")}
-          className="flex items-center gap-1.5 bg-red-600 text-white px-3 py-1.5 rounded-full font-semibold text-xs hover:bg-red-700 transition-colors"
+          onClick={handleLogout}
+          className="flex items-center gap-1.5 bg-gray-100 text-[#130962] px-3 py-1.5 rounded-full font-semibold text-xs hover:bg-red-200 transition-colors"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />

@@ -2,7 +2,7 @@ from sqlalchemy import (
     Column, String, Integer, DateTime, Boolean,
     ForeignKey, Text
 )
-from sqlalchemy.dialects.postgresql import JSONB   # ← ganti JSON → JSONB (lebih efisien di PostgreSQL)
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from backend.database import Base
 from datetime import datetime, timezone
@@ -28,9 +28,6 @@ class User(Base):
         "polymorphic_on": role,
     }
 
-    activities = relationship("AuditLog", back_populates="aktor")
-
-
 class Mahasiswa(User):
     __tablename__ = "mahasiswa"
     email = Column(String, ForeignKey("users.email"), primary_key=True)
@@ -38,6 +35,7 @@ class Mahasiswa(User):
     program_studi = Column(String, nullable=True)
     departemen = Column(String, nullable=True)
     fakultas = Column(String, nullable=True)
+    semester = Column(String, nullable=True)
 
     __mapper_args__ = {"polymorphic_identity": "mahasiswa"}
 
@@ -49,6 +47,8 @@ class StaffAkademik(User):
     email = Column(String, ForeignKey("users.email"), primary_key=True)
     nip = Column(String, unique=True, nullable=True)
     unit_kerja = Column(String, nullable=True)
+    public_key = Column(Text, nullable=True)
+    encrypted_private_key = Column(Text, nullable=True)
 
     __mapper_args__ = {"polymorphic_identity": "staff"}
 
@@ -81,17 +81,22 @@ class Layanan(Base):
 class TiketLayanan(Base):
     __tablename__ = "tiket_layanan"
     id_tiket = Column(String, primary_key=True)
-    waktu_submit = Column(DateTime(timezone=True), default=_now)
+    waktu_submit = Column(DateTime(timezone=True), default=_now) # Menggunakan fungsi _now agar timezone konsisten
     status = Column(String, default="Open")
-    subjek = Column(String, nullable=True)
-    kategori = Column(String, nullable=True)   # "Persuratan" | "Informasi" | "Lainnya"
+    subjek = Column(String, nullable=False)
+    kategori = Column(String, nullable=False)   # "Persuratan" | "Informasi"
     deskripsi = Column(Text, nullable=True)
 
-    data_request = Column(JSONB, nullable=True)   # JSONB lebih cepat & bisa diindex di PostgreSQL
+    # Wadah utama data dinamis (Nama, NIM, Prodi, dll) yang dikirim oleh form React
+    data_request = Column(JSONB, nullable=True) 
     file_lampiran = Column(String, nullable=True)
 
-    # Foreign Keys
-    email_mahasiswa = Column(String, ForeignKey("mahasiswa.email"), index=True)
+    # Kolom Tambahan agar sinkron dengan metadata kiriman frontend (opsional namun mempermudah query)
+    nim_pengaju = Column(String, nullable=True, index=True)
+    program_studi_pengaju = Column(String, nullable=True)
+
+    # Foreign Keys (Dibuat nullable=True agar jika backend mencari via token JWT/NIM, data relasi tidak patah)
+    email_mahasiswa = Column(String, ForeignKey("mahasiswa.email"), nullable=True, index=True)
     email_staff = Column(String, ForeignKey("staff_akademik.email"), nullable=True)
     id_layanan = Column(String, ForeignKey("layanan.id_layanan"), nullable=True)
 
@@ -118,6 +123,7 @@ class TanggapanStaff(Base):
     pesan = Column(Text, nullable=False)
     file_output = Column(String, nullable=True)
     waktu = Column(DateTime(timezone=True), default=_now)
+    digital_signature = Column(Text, nullable=True)
 
     tiket = relationship("TiketLayanan", back_populates="tanggapan")
 
@@ -163,7 +169,7 @@ class ChatbotSession(Base):
     email_mahasiswa = Column(String, ForeignKey("mahasiswa.email"), index=True)
     pesan_user = Column(String)
     jawaban_bot = Column(Text, nullable=True)
-    waktu_kirim = Column(DateTime(timezone=True), default=datetime.now)
+    waktu_kirim = Column(DateTime(timezone=True), default=_now)
 
     mahasiswa = relationship("Mahasiswa", back_populates="chatbot_sessions")
 
@@ -172,10 +178,8 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
     id_log = Column(Integer, primary_key=True, autoincrement=True)
     waktu = Column(DateTime(timezone=True), default=_now)
-    email_aktor = Column(String, ForeignKey("users.email"), index=True)
+    email_aktor = Column(String, index=True)
     role_aktor = Column(String)
     aksi = Column(String)
     status = Column(String)
     ip_address = Column(String)
-
-    aktor = relationship("User", back_populates="activities")

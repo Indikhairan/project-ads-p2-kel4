@@ -39,19 +39,6 @@ const SuccessToast = ({ message }) => (
   </div>
 );
 
-const ErrorToast = ({ message }) => (
-  <div className="fixed top-6 right-6 z-50 bg-white border border-red-200 shadow-lg rounded-xl px-5 py-3 flex items-center gap-3">
-    <div className="w-7 h-7 bg-red-100 rounded-full flex items-center justify-center shrink-0">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <line x1="12" y1="8" x2="12" y2="12" />
-        <line x1="12" y1="16" x2="12.01" y2="16" />
-      </svg>
-    </div>
-    <span className="text-sm font-medium text-[#130962]">{message}</span>
-  </div>
-);
-
 const ModalHapus = ({ user, onConfirm, onCancel }) => (
   <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4">
     <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full flex flex-col items-center text-center">
@@ -241,19 +228,15 @@ export const TambahUserPage = () => {
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
   const [hapusTarget, setHapusTarget] = useState(null);
+  const [resetTarget, setResetTarget] = useState(null);
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Form state
-  const [formEmail, setFormEmail] = useState("");
-  const [formNama, setFormNama] = useState("");
-  const [formRole, setFormRole] = useState("");
-  const [formError, setFormError] = useState("");
-
-  const showToast = (type, message) => {
-    setToast({ type, message });
+  const showToast = (message) => {
+    setToast(message);
     setTimeout(() => setToast(null), 3000);
   };
 
@@ -447,14 +430,9 @@ export const TambahUserPage = () => {
     <main className="bg-[#f8f9fa] w-full min-h-screen flex flex-col">
       <TopNavigationAdmin />
 
-      {toast && (
-        toast.type === "success"
-          ? <SuccessToast message={toast.message} />
-          : <ErrorToast message={toast.message} />
-      )}
-      {hapusTarget && hapusTarget.role !== "Superadmin" && (
-        <ModalHapus user={hapusTarget} onConfirm={confirmHapus} onCancel={() => setHapusTarget(null)} />
-      )}
+      {toast && <SuccessToast message={toast} />}
+      {hapusTarget && <ModalHapus user={hapusTarget} onConfirm={confirmHapus} onCancel={() => setHapusTarget(null)} />}
+      {resetTarget && <ModalResetKey user={resetTarget} onConfirm={confirmResetKey} onCancel={() => setResetTarget(null)} />}
 
       <div className="w-full max-w-[1000px] mx-auto px-6 mt-8 pb-20">
 
@@ -462,9 +440,9 @@ export const TambahUserPage = () => {
         <div className="flex items-center justify-between mb-6">
           <h1 className="font-bold text-[#130962] text-xl">Kelola Pengguna</h1>
           <button
-            onClick={() => setShowForm((p) => !p)}
+            onClick={() => { setEditTarget(null); setShowForm((p) => !p); }}
             className={`flex items-center gap-1.5 font-bold text-sm px-4 py-2 rounded-lg transition-colors ${
-              showForm
+              showForm && !editTarget
                 ? "bg-gray-200 text-gray-500 cursor-default"
                 : "bg-[#ffe030] text-[#130962] hover:bg-yellow-400"
             }`}
@@ -473,7 +451,7 @@ export const TambahUserPage = () => {
           </button>
         </div>
 
-        {/* Info superadmin */}
+        {/* Info */}
         <div className="bg-purple-50 border border-purple-200 rounded-xl px-5 py-3 mb-5 flex items-center gap-3">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10" />
@@ -494,96 +472,15 @@ export const TambahUserPage = () => {
 
         {/* Form tambah/edit */}
         {showForm && (
-          <div className="bg-white rounded-xl shadow-sm border border-[#130962] p-6 mb-5">
-            <p className="font-bold text-[#130962] text-base mb-4">Tambah Pengguna Baru</p>
-            <div className="flex flex-col gap-4">
-
-              <div>
-                <label className="block text-sm font-semibold text-[#130962] mb-1.5">
-                  Email: <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  value={formEmail}
-                  onChange={(e) => { setFormEmail(e.target.value); setFormError(""); }}
-                  placeholder="nama@apps.ipb.ac.id"
-                  className={`w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-colors ${
-                    formError && !formEmail ? "border-red-400" : "border-gray-300 focus:border-[#130962]"
-                  }`}
-                />
-                <p className="text-gray-400 text-xs mt-1">Hanya email dengan domain @apps.ipb.ac.id</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-[#130962] mb-1.5">
-                  Nama Lengkap: <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formNama}
-                  onChange={(e) => { setFormNama(e.target.value); setFormError(""); }}
-                  placeholder="Masukkan nama lengkap"
-                  className={`w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-colors ${
-                    formError && !formNama ? "border-red-400" : "border-gray-300 focus:border-[#130962]"
-                  }`}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-[#130962] mb-1.5">
-                  Role: <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <select
-                    value={formRole}
-                    onChange={(e) => { setFormRole(e.target.value); setFormError(""); }}
-                    className={`w-full border rounded-xl px-4 py-2.5 text-sm appearance-none focus:outline-none transition-colors bg-white ${
-                      formError && !formRole ? "border-red-400" : "border-gray-300 focus:border-[#130962]"
-                    } ${formRole ? "text-[#130962]" : "text-gray-400"}`}
-                  >
-                    <option value="">Pilih Role</option>
-                    {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
-                  </span>
-                </div>
-                <p className="text-gray-400 text-xs mt-1">Mahasiswa akan terdaftar otomatis saat login, namun bisa didaftarkan manual di sini.</p>
-              </div>
-
-              {formError && (
-                <p className="text-red-500 text-xs flex items-center gap-1">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
-                  {formError}
-                </p>
-              )}
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => { setShowForm(false); setFormError(""); setFormEmail(""); setFormNama(""); setFormRole(""); }}
-                  className="flex-1 py-2.5 bg-gray-200 text-[#130962] font-semibold rounded-xl text-sm hover:bg-gray-300 transition-colors"
-                >
-                  Batal
-                </button>
-                <button
-                  onClick={handleTambah}
-                  className="flex-1 py-2.5 bg-[#ffe030] text-[#130962] font-bold rounded-xl text-sm hover:bg-yellow-400 transition-colors"
-                >
-                  Tambahkan Pengguna
-                </button>
-              </div>
-            </div>
-          </div>
+          <FormUser
+            editTarget={editTarget}
+            onSimpan={editTarget ? handleEdit : handleTambah}
+            onBatal={() => { setShowForm(false); setEditTarget(null); }}
+          />
         )}
 
-        {/* Daftar User */}
+        {/* Tabel */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-
-          {/* Search */}
           <div className="flex items-center border border-gray-300 rounded-xl px-4 py-2.5 gap-2 mb-4">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -597,11 +494,8 @@ export const TambahUserPage = () => {
             />
           </div>
 
-          <p className="text-[#130962] font-semibold text-sm mb-3">
-            Daftar Pengguna ({filtered.length})
-          </p>
+          <p className="text-[#130962] font-semibold text-sm mb-3">Daftar Pengguna ({filtered.length})</p>
 
-          {/* Tabel */}
           <table className="w-full">
             <thead>
               <tr className="bg-[#130962] text-white text-xs">
@@ -638,20 +532,48 @@ export const TambahUserPage = () => {
                     </td>
                     <td className="py-3 px-4">
                       {user.role === "Superadmin" ? (
-                        <span className="text-gray-300 text-xs italic">—</span>
+                        <span className="text-gray-300 text-xs italic flex justify-center">—</span>
                       ) : (
-                        <button
-                          onClick={() => setHapusTarget(user)}
-                          className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center hover:bg-red-200 transition-colors mx-auto"
-                          title="Hapus pengguna"
-                        >
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="3 6 5 6 21 6" />
-                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                            <path d="M10 11v6M14 11v6" />
-                            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                          </svg>
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          {/* Edit */}
+                          <button
+                            onClick={() => handleClickEdit(user)}
+                            className="w-7 h-7 bg-[#ffe030] rounded-lg flex items-center justify-center hover:bg-yellow-400 transition-colors"
+                            title="Edit"
+                          >
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#130962" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                          </button>
+
+                          {/* Reset Key - khusus Staff */}
+                          {user.role === "Staff" && (
+                            <button
+                              onClick={() => setResetTarget(user)}
+                              className="w-7 h-7 bg-orange-100 rounded-lg flex items-center justify-center hover:bg-orange-200 transition-colors"
+                              title="Reset Key"
+                            >
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+                              </svg>
+                            </button>
+                          )}
+
+                          {/* Hapus */}
+                          <button
+                            onClick={() => setHapusTarget(user)}
+                            className="w-7 h-7 bg-red-100 rounded-lg flex items-center justify-center hover:bg-red-200 transition-colors"
+                            title="Hapus"
+                          >
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                              <path d="M10 11v6M14 11v6" />
+                              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                            </svg>
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
