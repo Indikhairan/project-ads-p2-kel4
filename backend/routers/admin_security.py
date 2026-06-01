@@ -22,6 +22,7 @@ class AuditLogResponse(BaseModel):
     role: str
     activity: str
     status: str
+    raw_status: str
     ip_address: str
 
 # Schema tambah user
@@ -165,12 +166,18 @@ class AdminSecurityService:
         formatted_logs = []
         for log in logs_db:
             waktu_wib = log.waktu.astimezone(tz_jkt)
+            # Normalisasi status agar frontend dapat memeriksa 'success'/'failed'
+            status_normalized = "success" if "Success" in (log.status or "") else "failed"
             formatted_logs.append({
                 "time": waktu_wib.strftime("%H:%M"), 
                 "email": log.email_aktor,
                 "role": log.role_aktor,
                 "activity": log.aksi,
-                "status": log.status,
+                # Berikan kedua nama field untuk kompatibilitas: 'status' (normalized) dan 'raw_status'
+                "status": status_normalized,
+                "raw_status": log.status,
+                # Frontend sekarang juga mencari 'ip', jadi sediakan 'ip' plus legacy 'ip_address'
+                "ip": log.ip_address or "Unknown",
                 "ip_address": log.ip_address or "Unknown"
             })
 
