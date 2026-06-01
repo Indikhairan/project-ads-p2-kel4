@@ -447,6 +447,20 @@ export const DetailTiketStaff = () => {
         throw new Error(errorDetail || "Gagal mengirim tanggapan"); 
       }
 
+      // Refresh tiket dari server untuk menampilkan tanggapan yang baru saja dibuat
+      try {
+        const cleanId = ticket.id ? ticket.id.replace('#', '') : id;
+        const res2 = await fetch(`http://127.0.0.1:8000/api/v1/tiket/${encodeURIComponent(cleanId)}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res2.ok) {
+          const updated = await res2.json();
+          setTicket(updated);
+        }
+      } catch (e) {
+        console.error("Gagal refresh tiket:", e);
+      }
+
       setSubmitted(true);
       setStatus("Selesai"); 
     } catch (error) {
@@ -457,6 +471,30 @@ export const DetailTiketStaff = () => {
   };
 
   const errorPassphraseRealtime = (!hasKey && passphrase) ? cekKekuatan(passphrase) : "";
+
+  const [verifyStatus, setVerifyStatus] = useState("idle");
+
+  const handleVerifikasi = async () => {
+    if (!ticket) return;
+    setVerifyStatus("loading");
+    try {
+      const cleanId = String(ticket.id || id).replace('#', '');
+      const res = await fetch(`http://localhost:8000/api/v1/tiket/${cleanId}/verifikasi`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setVerifyStatus(data.is_valid ? "valid" : "invalid");
+      } else {
+        throw new Error(data.detail || "Gagal verifikasi ke server.");
+      }
+    } catch (error) {
+      console.error("Error verifikasi:", error);
+      alert(error.message);
+      setVerifyStatus("idle");
+    }
+  };
 
   if (isLoading) {
     return (
@@ -723,15 +761,44 @@ export const DetailTiketStaff = () => {
                 </>
               )}
 
-              {/* Skenario 3: Sudah Berhasil Submit */}
-              {submitted && (
+              {/* Jika tiket sudah memiliki tanggapan, tampilkan detail & checksum */}
+              {ticket && ticket.tanggapan ? (
+                <div className="p-4 border rounded-lg bg-gray-50">
+                  <p className="text-sm font-semibold text-[#130962]">Tanggapan Tersimpan</p>
+                  <p className="text-xs text-gray-600 mt-1">Direspon oleh: <span className="font-medium text-[#130962]">{ticket.tanggapan.email_staff}</span></p>
+                  <div className="mt-3">
+                    <p className="text-sm font-semibold text-[#130962]">Pesan:</p>
+                    <p className="text-sm text-gray-700 mt-1">{ticket.tanggapan.pesan}</p>
+                  </div>
+                  {ticket.tanggapan.file_output && (
+                    <div className="mt-3">
+                      <p className="text-sm font-semibold text-[#130962]">File Balasan:</p>
+                      <p className="text-sm text-gray-700 break-all">{ticket.tanggapan.file_output}</p>
+                    </div>
+                  )}
+
+                  {ticket.tanggapan.hash_lampiran && (
+                    <div className="mt-4 border-t pt-3">
+                      <p className="text-xs text-gray-500">SHA-256 Checksum</p>
+                      <code className="text-[11px] bg-gray-100 text-gray-600 px-2 py-1 rounded-lg font-mono break-all">sha256:{ticket.tanggapan.hash_lampiran}</code>
+                      <div className="flex items-center gap-2 mt-2">
+                        <button onClick={handleVerifikasi} disabled={verifyStatus === "loading"} className="px-3 py-1 bg-[#130962] text-white text-xs font-semibold rounded hover:opacity-90 disabled:bg-gray-400">
+                          {verifyStatus === "loading" ? "Memverifikasi..." : "Verifikasi TTD Digital"}
+                        </button>
+                        {verifyStatus === "valid" && <span className="text-xs text-green-600 font-bold">✓ DOKUMEN ASLI</span>}
+                        {verifyStatus === "invalid" && <span className="text-xs text-red-600 font-bold">❌ TERINDIKASI PALSU</span>}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : submitted ? (
                 <div className="flex flex-col items-center py-6 gap-2">
                   <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                   </div>
                   <p className="font-semibold text-[#16a34a] text-sm">Tanggapan & Digital Signature berhasil dikirim!</p>
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
 
