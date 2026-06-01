@@ -285,8 +285,9 @@ export const DashboardKeamanan = () => {
                 const filteredLogs = logs.filter((row) =>
                   (row.email?.toLowerCase() || "").includes(searchLog.toLowerCase()) ||
                   (row.activity?.toLowerCase() || "").includes(searchLog.toLowerCase()) ||
-                  (row.ip?.toLowerCase() || "").includes(searchLog.toLowerCase()) ||
-                  (row.role?.toLowerCase() || "").includes(searchLog.toLowerCase())
+                  (row.ip_address?.toLowerCase() || "").includes(searchLog.toLowerCase()) ||
+                  (row.role?.toLowerCase() || "").includes(searchLog.toLowerCase()) ||
+                  (row.raw_status?.toLowerCase() || "").includes(searchLog.toLowerCase())
                 );
                 const totalLogPages = Math.max(1, Math.ceil(filteredLogs.length / logsPerPage));
                 const paginatedLogs = filteredLogs.slice((logPage - 1) * logsPerPage, logPage * logsPerPage);
@@ -319,13 +320,19 @@ export const DashboardKeamanan = () => {
                               <td className="py-2 px-3 text-xs text-[#130962] text-center">{row.role}</td>
                               <td className="py-2 px-3 text-xs text-[#130962] text-center">{row.activity}</td>
                               <td className="py-2 px-3 text-center">
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                  row.status === "success" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-500"
-                                }`}>
+                                <span
+                                  title={row.raw_status || row.status}
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                    row.status === "success" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-500"
+                                  }`}
+                                >
                                   {row.status === "success" ? "Success" : "Failed"}
                                 </span>
+                                {row.raw_status && row.raw_status !== row.status ? (
+                                  <div className="text-[10px] text-gray-500 mt-1">{row.raw_status}</div>
+                                ) : null}
                               </td>
-                              <td className="py-2 px-3 text-xs text-[#130962] text-center">{row.ip}</td>
+                              <td className="py-2 px-3 text-xs text-[#130962] text-center">{row.ip_address || row.ip || "Unknown"}</td>
                             </tr>
                           ))
                         )}
