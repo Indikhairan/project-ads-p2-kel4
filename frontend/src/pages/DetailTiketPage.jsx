@@ -24,15 +24,30 @@ const SectionHeader = ({ icon, title }) => (
   </div>
 );
 
-const InfoRow = ({ label, value, isFile }) => (
+const InfoRow = ({ label, value, isFile, onPreview, onDownload }) => (
   <div className="flex gap-4 py-2 border-b border-gray-100 last:border-0 items-center">
     <span className="w-28 text-[#130962] font-semibold text-sm shrink-0">{label}</span>
     <span className="text-gray-500 text-sm shrink-0">:</span>
     {isFile ? (
-      <button className="text-sm text-blue-600 underline flex items-center gap-1 hover:opacity-70">
-        📄 {value}
-        <span className="bg-gray-200 text-gray-600 text-[10px] px-1.5 py-0.5 rounded ml-1">Unduh</span>
-      </button>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[#130962] text-sm break-all">📄 {value}</span>
+        {onPreview && (
+          <button
+            onClick={onPreview}
+            className="text-[11px] bg-white border border-blue-500 text-blue-600 font-semibold px-3 py-1 rounded-lg hover:bg-blue-50 transition"
+          >
+            Preview
+          </button>
+        )}
+        {onDownload && (
+          <button
+            onClick={onDownload}
+            className="text-[11px] bg-[#130962] text-white font-semibold px-3 py-1 rounded-lg hover:bg-[#0f185f] transition"
+          >
+            Unduh
+          </button>
+        )}
+      </div>
     ) : (
       <span className="text-[#130962] text-sm break-all">{value}</span>
     )}
@@ -92,6 +107,52 @@ export const DetailTiketPage = () => {
 
     fetchTicketFromDB();
   }, [id]);
+
+  const getFileName = (path) => path?.split(/[/\\]/).pop() || "file";
+  const isPreviewable = (path) => {
+    const ext = (path?.split(".").pop() || "").toLowerCase();
+    return ["pdf", "png", "jpg", "jpeg"].includes(ext);
+  };
+
+  const handleFileAction = async (kind, action, filePath) => {
+    try {
+      const token = localStorage.getItem("sapa_ipb_token");
+      if (!token) throw new Error("Token tidak ditemukan.");
+
+      const url = `http://127.0.0.1:8000/api/v1/tiket/${encodeURIComponent(id)}/download-${kind}`;
+      const res = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.detail || "Gagal mengunduh file.");
+      }
+
+      const blob = await res.blob();
+      const filename = getFileName(filePath);
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      if (action === "preview" && isPreviewable(filename)) {
+        window.open(blobUrl, "_blank");
+        return;
+      }
+
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 5000);
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "Gagal mengunduh file.");
+    }
+  };
 
   // Fungsi Verifikasi TTD Digital langsung ke Backend
   const handleVerifikasi = async () => {
@@ -176,7 +237,13 @@ export const DetailTiketPage = () => {
                   <InfoRow label="Tanggal" value={ticket.waktu_submit ? new Date(ticket.waktu_submit).toLocaleString("id-ID") : "-"} />
                   <InfoRow label="Keterangan" value={ticket.subjek || ticket.deskripsi || "-"} />
                   {ticket.file_lampiran && (
-                    <InfoRow label="Lampiran" value={ticket.file_lampiran} isFile />
+                    <InfoRow
+                      label="Lampiran"
+                      value={getFileName(ticket.file_lampiran)}
+                      isFile
+                      onPreview={() => handleFileAction("request", "preview", ticket.file_lampiran)}
+                      onDownload={() => handleFileAction("request", "download", ticket.file_lampiran)}
+                    />
                   )}
                 </div>
               </div>
@@ -190,7 +257,13 @@ export const DetailTiketPage = () => {
                       <InfoRow label="Direspon" value={ticket.tanggapan.email_staff || ticket.tanggapan.direspon || "Staff Akademik"} />
                       <InfoRow label="Pesan" value={ticket.tanggapan.pesan || "-"} />
                       {ticket.tanggapan.file_output && (
-                        <InfoRow label="Berkas" value={ticket.tanggapan.file_output} isFile />
+                        <InfoRow
+                          label="Berkas"
+                          value={getFileName(ticket.tanggapan.file_output)}
+                          isFile
+                          onPreview={() => handleFileAction("response", "preview", ticket.tanggapan.file_output)}
+                          onDownload={() => handleFileAction("response", "download", ticket.tanggapan.file_output)}
+                        />
                       )}
 
                       {/* Integrasi Keamanan TTD Digital */}

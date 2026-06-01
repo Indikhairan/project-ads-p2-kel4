@@ -28,24 +28,29 @@ const SectionHeader = ({ icon, title }) => (
   </div>
 );
 
-const InfoRow = ({ label, value, isFile }) => (
+const InfoRow = ({ label, value, isFile, onPreview, onDownload }) => (
   <div className="flex gap-4 py-2 border-b border-gray-100 last:border-0 items-start">
     <span className="w-28 text-[#130962] font-semibold text-sm shrink-0">{label}</span>
     <span className="text-gray-500 text-sm shrink-0">:</span>
     {isFile ? (
-      <div className="flex items-center gap-2">
-        <span className="text-[#130962] text-sm">{value}</span>
-        <button
-          onClick={() => alert("Mengunduh " + value)}
-          className="flex items-center gap-1.5 bg-[#130962] text-white text-[11px] font-semibold px-3 py-1 rounded-lg hover:bg-[#1a237e] transition-colors"
-        >
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
-          Unduh
-        </button>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[#130962] text-sm break-all">📄 {value}</span>
+        {onPreview && (
+          <button
+            onClick={onPreview}
+            className="text-[11px] bg-white border border-blue-500 text-blue-600 font-semibold px-3 py-1 rounded-lg hover:bg-blue-50 transition"
+          >
+            Preview
+          </button>
+        )}
+        {onDownload && (
+          <button
+            onClick={onDownload}
+            className="text-[11px] bg-[#130962] text-white font-semibold px-3 py-1 rounded-lg hover:bg-[#0f185f] transition"
+          >
+            Unduh
+          </button>
+        )}
       </div>
     ) : (
       <span className="text-[#130962] text-sm">{value}</span>
@@ -248,6 +253,50 @@ export const DetailTiketStaff = () => {
   const [hasKey, setHasKey] = useState(null); 
 
   const token = localStorage.getItem("sapa_ipb_token");
+
+  const getFileName = (path) => path?.split(/[/\\]/).pop() || "file";
+  const isPreviewable = (path) => {
+    const ext = (path?.split(".").pop() || "").toLowerCase();
+    return ["pdf", "png", "jpg", "jpeg"].includes(ext);
+  };
+
+  const handleFileAction = async (kind, action, filePath) => {
+    try {
+      if (!token) throw new Error("Token tidak ditemukan.");
+      const url = `http://127.0.0.1:8000/api/v1/tiket/${encodeURIComponent(id)}/download-${kind}`;
+      const res = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.detail || "Gagal mengunduh file.");
+      }
+
+      const blob = await res.blob();
+      const filename = getFileName(filePath);
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      if (action === "preview" && isPreviewable(filename)) {
+        window.open(blobUrl, "_blank");
+        return;
+      }
+
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 5000);
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "Gagal mengunduh file.");
+    }
+  };
 
   // 1. Fetch data tiket utama saat halaman dibuka
   useEffect(() => {
@@ -598,7 +647,15 @@ export const DetailTiketStaff = () => {
               <InfoRow label="Tanggal" value={formatDate(ticket.waktu_submit)} />
               <InfoRow label="Subjek" value={ticket.subjek || "-"} />
               <InfoRow label="Data Request" value={formatDataRequest(ticket.data_request)} />
-              {ticket.file_lampiran && <InfoRow label="Lampiran" value={ticket.file_lampiran} isFile />}
+              {ticket.file_lampiran && (
+                <InfoRow
+                  label="Lampiran"
+                  value={getFileName(ticket.file_lampiran)}
+                  isFile
+                  onPreview={() => handleFileAction("request", "preview", ticket.file_lampiran)}
+                  onDownload={() => handleFileAction("request", "download", ticket.file_lampiran)}
+                />
+              )}
 
               <div className="flex flex-col gap-3 mt-5 sm:flex-row">
                 <button
@@ -773,7 +830,21 @@ export const DetailTiketStaff = () => {
                   {ticket.tanggapan.file_output && (
                     <div className="mt-3">
                       <p className="text-sm font-semibold text-[#130962]">File Balasan:</p>
-                      <p className="text-sm text-gray-700 break-all">{ticket.tanggapan.file_output}</p>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        <span className="text-sm text-gray-700 break-all">{getFileName(ticket.tanggapan.file_output)}</span>
+                        <button
+                          onClick={() => handleFileAction("response", "preview", ticket.tanggapan.file_output)}
+                          className="text-[11px] bg-white border border-blue-500 text-blue-600 font-semibold px-3 py-1 rounded-lg hover:bg-blue-50 transition"
+                        >
+                          Preview
+                        </button>
+                        <button
+                          onClick={() => handleFileAction("response", "download", ticket.tanggapan.file_output)}
+                          className="text-[11px] bg-[#130962] text-white font-semibold px-3 py-1 rounded-lg hover:bg-[#0f185f] transition"
+                        >
+                          Unduh
+                        </button>
+                      </div>
                     </div>
                   )}
 
