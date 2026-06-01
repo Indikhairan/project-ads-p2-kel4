@@ -122,6 +122,7 @@ class TanggapanStaff(Base):
     email_staff = Column(String, ForeignKey("staff_akademik.email"))
     pesan = Column(Text, nullable=False)
     file_output = Column(String, nullable=True)
+    hash_lampiran = Column(String, nullable=True)
     waktu = Column(DateTime(timezone=True), default=_now)
     digital_signature = Column(Text, nullable=True)
 

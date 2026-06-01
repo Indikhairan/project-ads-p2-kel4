@@ -11,6 +11,10 @@ from pydantic import ValidationError
 from backend.database import get_db
 from backend import models, schemas
 from backend.security import sec_helper
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/api/v1/tiket",
@@ -181,7 +185,40 @@ class TiketService:
             ticket_owner_email=tiket.email_mahasiswa,
             user_role=self.user_data["role"]
         )
-        return tiket
+            # Bangun response serializable secara eksplisit sebelum DB session ditutup
+        tanggapan_obj = None
+        if getattr(tiket, 'tanggapan', None):
+            t = tiket.tanggapan
+            tanggapan_obj = {
+                "id_tanggapan": t.id_tanggapan,
+                "id_tiket": t.id_tiket,
+                "email_staff": t.email_staff,
+                "pesan": t.pesan,
+                "file_output": t.file_output,
+                "hash_lampiran": getattr(t, 'hash_lampiran', None),
+                "digital_signature": t.digital_signature,
+                "waktu": t.waktu,
+            }
+
+            hasil = {
+                "id_tiket": tiket.id_tiket,
+                "id": tiket.id_tiket,
+                "id_layanan": tiket.id_layanan,
+                "kategori": tiket.kategori,
+                "subjek": tiket.subjek,
+                "deskripsi": tiket.deskripsi,
+                "data_request": tiket.data_request,
+                "file_lampiran": tiket.file_lampiran,
+                "email_mahasiswa": tiket.email_mahasiswa,
+                "nim_pengaju": tiket.nim_pengaju,
+                "program_studi_pengaju": tiket.program_studi_pengaju,
+                "status": tiket.status,
+                "waktu_submit": tiket.waktu_submit,
+                "email_staff": tiket.email_staff,
+                "tanggapan": tanggapan_obj,
+            }
+
+            return hasil
 
     def update_status_tiket(self, id_tiket: str, payload: schemas.TiketUpdate) -> models.TiketLayanan:
         if payload.status not in self.VALID_STATUSES:
@@ -222,6 +259,8 @@ class TiketService:
         return tiket
 
     def tanggapi_tiket(self, id_tiket: str, pesan: str, isi_lampiran: bytes | None, nama_lampiran: str | None, passphrase: str) -> dict:
+        logger = logging.getLogger(__name__)
+        logger.info(f"Mulai proses tanggapan untuk tiket={id_tiket} oleh {self.user_data.get('email')}")
         tiket = self.db.query(models.TiketLayanan).filter(models.TiketLayanan.id_tiket == id_tiket).first()
         if not tiket:
             raise HTTPException(status_code=404, detail="Tiket tidak ditemukan.")
@@ -230,11 +269,30 @@ class TiketService:
 
         staff = self.db.query(models.StaffAkademik).filter(models.StaffAkademik.email == self.user_data["email"]).first()
         if not getattr(staff, 'encrypted_private_key', None):
+            # Catat usaha menanggapi tanpa kunci
+            sec_helper.log_aktivitas(
+                db=self.db,
+                aksi=f"Percobaan menanggapi tiket {id_tiket} tanpa kunci publik/private",
+                email=self.user_data.get("email"),
+                role=self.user_data.get("role"),
+                status_log="Failed (No Key)",
+                ip_address=self.ip_address
+            )
             raise HTTPException(status_code=403, detail="Anda belum mengaktifkan Kunci Keamanan. Harap buat Profil Keamanan terlebih dahulu.")
 
         try:
+            logger.info("Mencoba membuka private key terenkripsi menggunakan passphrase")
             isi_pem_terbuka = sec_helper.buka_bungkus_kunci_privat(staff.encrypted_private_key, passphrase)
+            logger.info("Berhasil membuka private key")
         except ValueError:
+            sec_helper.log_aktivitas(
+                db=self.db,
+                aksi=f"Gagal membuka private key saat menanggapi tiket {id_tiket}",
+                email=self.user_data.get("email"),
+                role=self.user_data.get("role"),
+                status_log="Failed (Bad Passphrase)",
+                ip_address=self.ip_address
+            )
             raise HTTPException(status_code=401, detail="Passphrase Anda salah! Tanda tangan gagal.")
 
         hash_lampiran = None
@@ -245,9 +303,17 @@ class TiketService:
             os.makedirs(upload_dir, exist_ok=True)
             hash_lampiran = hashlib.sha256(isi_lampiran).hexdigest()
             nama_file_tersimpan = f"{upload_dir}/{uuid.uuid4()}_{nama_lampiran}"
-            
+            logger.info(f"Menyimpan lampiran ke {nama_file_tersimpan} dengan hash {hash_lampiran}")
             with open(nama_file_tersimpan, "wb") as f:
                 f.write(isi_lampiran)
+            sec_helper.log_aktivitas(
+                db=self.db,
+                aksi=f"Simpan lampiran tanggapan untuk tiket {id_tiket} -> {nama_file_tersimpan}",
+                email=self.user_data.get("email"),
+                role=self.user_data.get("role"),
+                status_log="Success (File Saved)",
+                ip_address=self.ip_address
+            )
 
         paket_data = {
             "pesan": pesan,
@@ -256,8 +322,19 @@ class TiketService:
         string_paket = json.dumps(paket_data, sort_keys=True)
 
         try:
+            logger.info("Membuat digital signature untuk paket tanggapan")
             signature = sec_helper.buat_digital_signature(string_paket, isi_pem_terbuka)
+            logger.info("Digital signature berhasil dibuat")
         except Exception as e:
+            logger.exception("Gagal membuat digital signature: %s", e)
+            sec_helper.log_aktivitas(
+                db=self.db,
+                aksi=f"Gagal membuat digital signature untuk tiket {id_tiket}",
+                email=self.user_data.get("email"),
+                role=self.user_data.get("role"),
+                status_log="Failed (Signature Error)",
+                ip_address=self.ip_address
+            )
             raise HTTPException(status_code=500, detail="Terjadi kesalahan internal saat membuat tanda tangan digital.")
 
         tanggapan_baru = models.TanggapanStaff(
@@ -266,6 +343,7 @@ class TiketService:
             email_staff=self.user_data["email"],
             pesan=pesan,
             file_output=nama_file_tersimpan,
+            hash_lampiran=hash_lampiran,
             waktu=datetime.now(timezone.utc),
             digital_signature=signature
         )
@@ -275,6 +353,15 @@ class TiketService:
 
         self.db.add(tanggapan_baru)
         self.db.commit()
+        logger.info(f"Tanggapan untuk tiket {id_tiket} berhasil disimpan ke DB (id_tanggapan={tanggapan_baru.id_tanggapan})")
+        sec_helper.log_aktivitas(
+            db=self.db,
+            aksi=f"Membalas tiket {id_tiket} dengan Digital Signature",
+            email=self.user_data.get("email"),
+            role=self.user_data.get("role"),
+            status_log="Success (Tanggapan Stored)",
+            ip_address=self.ip_address
+        )
 
         return {
             "status": "success",
@@ -400,21 +487,22 @@ def detail_tiket(id_tiket: str, request: Request, db: Session = Depends(get_db))
     # Semua role bisa akses endpoint ini, tapi akan dihadang oleh OBAC di dalam service
     sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
     
-    service = TiketService(db=db, user_data=user_data, ip_address=request.client.host)
+    tiket = db.query(models.TiketLayanan).filter(
+        models.TiketLayanan.id_tiket == id_tiket
+    ).first()
+
+    if not tiket:
+        raise HTTPException(status_code=404, detail="Tiket tidak ditemukan.")
+
+    # Pengecekan OBAC
+    sec_helper.cek_kepemilikan_tiket(
+        user_email=user_data["email"],
+        ticket_owner_email=tiket.email_mahasiswa,
+        user_role=user_data["role"]
+    )
     
-    try:
-        hasil = service.detail_tiket(id_tiket)
-        return hasil
-    except HTTPException as e:
-        # LOG: Jika OBAC Failed (Mahasiswa mencoba lihat tiket orang lain)
-        if e.status_code == 403:
-            sec_helper.log_aktivitas(
-                db=db, 
-                aksi=f"Akses ilegal detail tiket {id_tiket}", 
-                request=request, 
-                status_log="Failed (OBAC - Unauthorized)"
-            )
-        raise e
+    # Return raw tiket object — Pydantic akan serialize via from_attributes=True
+    return tiket
 
 @router.put("/{id_tiket}", response_model=schemas.TiketResponse)
 def update_status_tiket(

@@ -187,12 +187,12 @@ export const DetailTiketPage = () => {
                 <div className="p-5">
                   {ticket.tanggapan ? (
                     <>
-                      <InfoRow label="Direspon" value={ticket.tanggapan.direspon || "Staff Akademik"} />
+                      <InfoRow label="Direspon" value={ticket.tanggapan.email_staff || ticket.tanggapan.direspon || "Staff Akademik"} />
                       <InfoRow label="Pesan" value={ticket.tanggapan.pesan || "-"} />
-                      {ticket.tanggapan.berkas && (
-                        <InfoRow label="Berkas" value={ticket.tanggapan.berkas} isFile />
+                      {ticket.tanggapan.file_output && (
+                        <InfoRow label="Berkas" value={ticket.tanggapan.file_output} isFile />
                       )}
-                      
+
                       {/* Integrasi Keamanan TTD Digital */}
                       {ticket.tanggapan.hash_lampiran && (
                         <div className="flex gap-4 py-2 items-start border-t border-gray-100 mt-2 pt-4">

@@ -57,6 +57,21 @@ class TiketCreate(BaseModel):
                 
         return self
 
+class TanggapanResponse(BaseModel):
+    """Schema response tanggapan staff."""
+    id_tanggapan: str
+    id_tiket: str
+    email_staff: str
+    pesan: str
+    file_output: Optional[str] = None
+    hash_lampiran: Optional[str] = None
+    digital_signature: Optional[str] = None
+    waktu: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class TiketResponse(TiketBase):
     id_tiket: str
     status: str
@@ -64,6 +79,8 @@ class TiketResponse(TiketBase):
     email_staff: Optional[str] = None
     nim_pengaju: Optional[str] = None
     program_studi_pengaju: Optional[str] = None
+    # Tanggapan staff yang terkait (jika ada)
+    tanggapan: Optional[TanggapanResponse] = None
 
     class Config:
         from_attributes = True
