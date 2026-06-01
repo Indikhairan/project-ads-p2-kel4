@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status, UploadFile, File, Form
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timezone
@@ -6,6 +7,7 @@ import json
 import hashlib
 import uuid
 import os
+import mimetypes
 from pydantic import ValidationError
 
 from backend.database import get_db
@@ -603,3 +605,68 @@ def verifikasi_dokumen(id_tiket: str, request: Request, db: Session = Depends(ge
         "is_valid": is_valid,
         "penandatangan": staff.email
     }
+
+
+def _resolve_ticket_file_path(path: str) -> str:
+    if not path:
+        raise HTTPException(status_code=404, detail="File tidak ditemukan.")
+
+    abs_path = os.path.abspath(path)
+    base_upload = os.path.abspath("uploads")
+
+    if not abs_path.startswith(base_upload + os.sep) and abs_path != base_upload:
+        raise HTTPException(status_code=400, detail="File path tidak valid.")
+
+    if not os.path.isfile(abs_path):
+        raise HTTPException(status_code=404, detail="File tidak ditemukan.")
+
+    return abs_path
+
+
+def _build_file_response(filepath: str):
+    media_type = mimetypes.guess_type(filepath)[0] or "application/octet-stream"
+    filename = os.path.basename(filepath)
+    return FileResponse(
+        path=filepath,
+        filename=filename,
+        media_type=media_type,
+        headers={"Content-Disposition": f"inline; filename=\"{filename}\""}
+    )
+
+
+@router.get("/{id_tiket}/download-request")
+def download_request_file(id_tiket: str, request: Request, db: Session = Depends(get_db)):
+    user_data = sec_helper.ekstrak_token(request)
+    sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
+
+    tiket = db.query(models.TiketLayanan).filter(models.TiketLayanan.id_tiket == id_tiket).first()
+    if not tiket or not tiket.file_lampiran:
+        raise HTTPException(status_code=404, detail="Lampiran tiket tidak ditemukan.")
+
+    sec_helper.cek_kepemilikan_tiket(
+        user_email=user_data["email"],
+        ticket_owner_email=tiket.email_mahasiswa,
+        user_role=user_data["role"]
+    )
+
+    filepath = _resolve_ticket_file_path(tiket.file_lampiran)
+    return _build_file_response(filepath)
+
+
+@router.get("/{id_tiket}/download-response")
+def download_response_file(id_tiket: str, request: Request, db: Session = Depends(get_db)):
+    user_data = sec_helper.ekstrak_token(request)
+    sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
+
+    tiket = db.query(models.TiketLayanan).filter(models.TiketLayanan.id_tiket == id_tiket).first()
+    if not tiket or not getattr(tiket, 'tanggapan', None) or not tiket.tanggapan.file_output:
+        raise HTTPException(status_code=404, detail="Berkas tanggapan tidak ditemukan.")
+
+    sec_helper.cek_kepemilikan_tiket(
+        user_email=user_data["email"],
+        ticket_owner_email=tiket.email_mahasiswa,
+        user_role=user_data["role"]
+    )
+
+    filepath = _resolve_ticket_file_path(tiket.tanggapan.file_output)
+    return _build_file_response(filepath)
