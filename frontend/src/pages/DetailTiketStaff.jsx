@@ -756,7 +756,7 @@ export const DetailTiketStaff = () => {
               )}
 
               {/* Skenario 2: Sudah Punya Kunci, Belum Berhasil Kirim */}
-              {hasKey === true && !submitted && (
+              {hasKey === true && !submitted && !ticket?.tanggapan && (
                 <>
                   <div>
                     <p className="text-sm font-semibold text-[#130962] mb-1">Pesan Balasan Resmi</p>
