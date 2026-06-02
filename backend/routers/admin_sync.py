@@ -49,7 +49,7 @@ def setujui_ingest(
     sec_helper.cek_role(user_info, db, request, "admin")
     email_admin = user_info["email"]
 
-    doc = db.query(models.KnowledgeBase).filter(models.KnowledgeBase.id == doc_id).first()
+    doc = db.query(models.KnowledgeBase).filter(models.KnowledgeBase.id_kb == doc_id).first()
     
     if not doc or doc.status != "Pending":
         raise HTTPException(status_code=404, detail="Dokumen tidak ditemukan atau sudah diproses")
@@ -96,7 +96,7 @@ def tolak_dokumen(
     email_admin = user_info["email"]
 
     # Cari dokumen di database
-    doc = db.query(models.KnowledgeBase).filter(models.KnowledgeBase.id == doc_id).first()
+    doc = db.query(models.KnowledgeBase).filter(models.KnowledgeBase.id_kb == doc_id).first()
     
     if not doc or doc.status != "Pending":
         raise HTTPException(status_code=404, detail="Dokumen tidak ditemukan atau sudah diproses")
