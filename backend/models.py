@@ -35,7 +35,6 @@ class Mahasiswa(User):
     program_studi = Column(String, nullable=True)
     departemen = Column(String, nullable=True)
     fakultas = Column(String, nullable=True)
-    semester = Column(String, nullable=True)
 
     __mapper_args__ = {"polymorphic_identity": "mahasiswa"}
 
