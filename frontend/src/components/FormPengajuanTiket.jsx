@@ -409,6 +409,7 @@ export const FormPengajuanTiket = ({ onClose, authToken: propToken }) => {
         formData.append("program_studi", persyaratan.prodi?.trim() || "");
         formData.append("departemen", persyaratan.departemen?.trim() || "");
         formData.append("fakultas", persyaratan.fakultas?.trim() || "");
+        formData.append("alamat", persyaratan.alamat?.trim() || ""); 
 
         // Lampirkan file khusus persuratan
         if (persyaratan.ktmFile instanceof File) {
@@ -428,6 +429,7 @@ export const FormPengajuanTiket = ({ onClose, authToken: propToken }) => {
         formData.append("program_studi", "");
         formData.append("departemen", "");
         formData.append("fakultas", "");
+        formData.append("alamat", "");  // 🔐 Empty for Informasi kategori
       }
 
       // 3. Lampirkan file umum untuk kategori Informasi

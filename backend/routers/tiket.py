@@ -109,6 +109,8 @@ class TiketService:
             mahasiswa.fakultas = payload.fakultas
         if not mahasiswa.semester and payload.semester:
             mahasiswa.semester = payload.semester
+        if not mahasiswa.alamat and payload.alamat:
+            mahasiswa.alamat = payload.alamat  # 🔐 Auto-encrypted by EncryptedString
 
     def _log_aktivitas(self, aksi: str):
         sec_helper.log_aktivitas(
@@ -159,19 +161,32 @@ class TiketService:
 
     def lihat_daftar_tiket(self) -> List[models.TiketLayanan]:
         role = self.user_data["role"]
-        if role == "mahasiswa":
-            return self.db.query(models.TiketLayanan).filter(
-                models.TiketLayanan.email_mahasiswa == self.user_data["email"]
-            ).order_by(models.TiketLayanan.waktu_submit.desc()).all()
-        if role in ["staff", "admin"]:
-            return self.db.query(models.TiketLayanan).order_by(
-                models.TiketLayanan.waktu_submit.desc()
-            ).all()
+        try:
+            if role == "mahasiswa":
+                return self.db.query(models.TiketLayanan).filter(
+                    models.TiketLayanan.email_mahasiswa == self.user_data["email"]
+                ).order_by(models.TiketLayanan.waktu_submit.desc()).all()
+            if role in ["staff", "admin"]:
+                return self.db.query(models.TiketLayanan).order_by(
+                    models.TiketLayanan.waktu_submit.desc()
+                ).all()
 
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Role tidak dikenali."
-        )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Role tidak dikenali."
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            # Log error dan rollback untuk menghindari transaction aborted state
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error fetching tiket list: {str(e)}", exc_info=True)
+            self.db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error fetching tiket: {str(e)}"
+            )
 
     def detail_tiket(self, id_tiket: str) -> models.TiketLayanan:
         tiket = self.db.query(models.TiketLayanan).filter(
@@ -390,6 +405,7 @@ async def buat_tiket(
     departemen: Optional[str] = Form(None, description="Departemen"),
     fakultas: Optional[str] = Form(None, description="Fakultas/Sekolah"),
     semester: Optional[str] = Form(None, description="Semester aktif."),
+    alamat: Optional[str] = Form(None, description="Alamat lengkap mahasiswa (🔐 encrypted)"),
     ktm_file: Optional[UploadFile] = File(None, description="File KTM"),
     ukt_file: Optional[UploadFile] = File(None, description="Bukti Pembayaran UKT"),
     lampiran_file: Optional[UploadFile] = File(None, description="File lampiran tambahan untuk persuratan"),
@@ -456,6 +472,7 @@ async def buat_tiket(
             departemen=departemen,
             fakultas=fakultas,
             semester=semester,
+            alamat=alamat,  # 🔐 Encrypted address from form
         )
     except ValidationError as exc:
         raise HTTPException(
@@ -474,37 +491,52 @@ async def buat_tiket(
 
 @router.get("/", response_model=List[schemas.TiketResponse])
 def lihat_daftar_tiket(request: Request, db: Session = Depends(get_db)):
-    user_data = sec_helper.ekstrak_token(request)
-    
-    # Mengizinkan semua role untuk melihat daftar, filter data di-handle oleh Service
-    sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
-    
-    service = TiketService(db=db, user_data=user_data, ip_address=request.client.host)
-    return service.lihat_daftar_tiket()
+    try:
+        user_data = sec_helper.ekstrak_token(request)
+        
+        # Mengizinkan semua role untuk melihat daftar, filter data di-handle oleh Service
+        sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
+        
+        service = TiketService(db=db, user_data=user_data, ip_address=request.client.host)
+        return service.lihat_daftar_tiket()
+    except Exception as e:
+        # Rollback transaction jika ada error untuk menghindari "transaction aborted" state
+        db.rollback()
+        raise
 
 @router.get("/{id_tiket}", response_model=schemas.TiketResponse)
 def detail_tiket(id_tiket: str, request: Request, db: Session = Depends(get_db)):
-    user_data = sec_helper.ekstrak_token(request)
-    
-    # Semua role bisa akses endpoint ini, tapi akan dihadang oleh OBAC di dalam service
-    sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
-    
-    tiket = db.query(models.TiketLayanan).filter(
-        models.TiketLayanan.id_tiket == id_tiket
-    ).first()
+    try:
+        user_data = sec_helper.ekstrak_token(request)
+        
+        # Semua role bisa akses endpoint ini, tapi akan dihadang oleh OBAC di dalam service
+        sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
+        
+        tiket = db.query(models.TiketLayanan).filter(
+            models.TiketLayanan.id_tiket == id_tiket
+        ).first()
 
-    if not tiket:
-        raise HTTPException(status_code=404, detail="Tiket tidak ditemukan.")
+        if not tiket:
+            raise HTTPException(status_code=404, detail="Tiket tidak ditemukan.")
 
-    # Pengecekan OBAC
-    sec_helper.cek_kepemilikan_tiket(
-        user_email=user_data["email"],
-        ticket_owner_email=tiket.email_mahasiswa,
-        user_role=user_data["role"]
-    )
-    
-    # Return raw tiket object — Pydantic akan serialize via from_attributes=True
-    return tiket
+        # Pengecekan OBAC
+        sec_helper.cek_kepemilikan_tiket(
+            user_email=user_data["email"],
+            ticket_owner_email=tiket.email_mahasiswa,
+            user_role=user_data["role"]
+        )
+        
+        # Return raw tiket object — Pydantic akan serialize via from_attributes=True
+        return tiket
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Rollback transaction jika ada error
+        db.rollback()
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error fetching tiket detail: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error fetching tiket: {str(e)}")
 
 @router.put("/{id_tiket}", response_model=schemas.TiketResponse)
 def update_status_tiket(
