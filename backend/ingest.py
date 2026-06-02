@@ -13,26 +13,36 @@ folder_pdf = "./data"
 db_folder = "./faiss_db"
 progress_file = "./processed_files.txt"
 
-def knowledge_base():
+def knowledge_base(file_path=None):
     print("1. Mengecek daftar dokumen PDF...")
-    
-    # Ambil semua nama file PDF di folder data
-    all_files = [f for f in os.listdir(folder_pdf) if f.endswith('.pdf')]
-    
+
     # Baca buku catatan untuk melihat PDF mana yang sudah selesai diproses
     processed_files = []
     if os.path.exists(progress_file):
         with open(progress_file, "r") as f:
             processed_files = f.read().splitlines()
-            
-    # Saring hanya file yang BELUM diproses
-    files_to_process = [f for f in all_files if f not in processed_files]
-    
-    if not files_to_process:
-        print("✅ Semua PDF sudah tersimpan di otak bot! Tidak ada tugas baru.")
-        return
 
-    print(f"   -> Ditemukan {len(files_to_process)} PDF baru yang belum dipelajari.")
+    if file_path:
+        file_path = os.path.abspath(file_path)
+        if not os.path.exists(file_path):
+            print(f"❌ File tidak ditemukan: {file_path}")
+            return
+        filename = os.path.basename(file_path)
+        if filename in processed_files:
+            print(f"✅ File {filename} sudah pernah diproses. Tidak ada tugas baru.")
+            return
+        files_to_process = [file_path]
+    else:
+        # Ambil semua nama file PDF di folder data
+        all_files = [f for f in os.listdir(folder_pdf) if f.endswith('.pdf')]
+        # Saring hanya file yang BELUM diproses
+        files_to_process = [os.path.join(folder_pdf, f) for f in all_files if f not in processed_files]
+
+        if not files_to_process:
+            print("✅ Semua PDF sudah tersimpan di otak bot! Tidak ada tugas baru.")
+            return
+
+        print(f"   -> Ditemukan {len(files_to_process)} PDF baru yang belum dipelajari.")
 
     embedding_model = GoogleGenerativeAIEmbeddings(
         model="models/gemini-embedding-001", 
@@ -50,11 +60,11 @@ def knowledge_base():
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 
     # Proses satu per satu file yang belum dipelajari
-    for filename in files_to_process:
+    for path in files_to_process:
+        filename = os.path.basename(path)
         print(f"\n📄 Membaca dan mempelajari file: {filename}")
-        file_path = os.path.join(folder_pdf, filename)
         
-        loader = PyPDFLoader(file_path)
+        loader = PyPDFLoader(path)
         dokumen = loader.load()
         chunks = text_splitter.split_documents(dokumen)
         
