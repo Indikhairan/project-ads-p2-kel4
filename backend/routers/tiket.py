@@ -71,7 +71,7 @@ async def _simpan_file(upload_file: UploadFile, subfolder: str = "") -> str:
 
 class TiketService:
     VALID_STATUSES = {"Open", "Diproses", "Selesai", "Ditolak"}
-    VALID_KATEGORIS = {"Layanan", "Persuratan"}
+    VALID_KATEGORIS = {"Informasi", "Persuratan"}
 
     def __init__(self, db: Session, user_data: dict, ip_address: str):
         self.db = db

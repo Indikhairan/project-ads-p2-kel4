@@ -379,7 +379,7 @@ export const FormPengajuanTiket = ({ onClose, authToken: propToken }) => {
 
       // 1. Setup data dasar tiket wajib untuk semua kategori
       formData.append("id_layanan", kategori === "Persuratan" ? "LYN-SURAT" : "LYN-INFO");
-      formData.append("kategori", kategori === "Informasi" ? "Layanan" : kategori);
+      formData.append("kategori", kategori);
       formData.append("subjek", subjek.trim());
       formData.append("deskripsi", deskripsi.trim());
 

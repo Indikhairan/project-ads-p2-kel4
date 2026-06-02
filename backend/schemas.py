@@ -5,7 +5,7 @@ from typing import Optional, Any
 from enum import Enum
 
 class KategoriEnum(str, Enum):
-    layanan = "Layanan"
+    informasi = "Informasi"
     persuratan = "Persuratan"
 
 class TiketBase(BaseModel):
