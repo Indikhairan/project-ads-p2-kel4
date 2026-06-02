@@ -51,11 +51,16 @@ def knowledge_base(file_path=None):
 
     # Load laci FAISS yang sudah ada (jika ada), supaya tidak menimpa ingatan lama
     db = None
-    if os.path.exists(db_folder):
+    index_path = os.path.join(db_folder, "index.faiss")
+    if os.path.exists(db_folder) and os.path.exists(index_path):
         print("2. Membuka laci FAISS lama untuk ditambahkan ingatan baru...")
         db = FAISS.load_local(db_folder, embedding_model, allow_dangerous_deserialization=True)
     else:
-        print("2. Membuat laci FAISS baru dari nol...")
+        if os.path.exists(db_folder):
+            print("2. Folder FAISS ada, tapi indeks tidak ditemukan. Membuat laci FAISS baru...")
+        else:
+            print("2. Membuat laci FAISS baru dari nol...")
+        os.makedirs(db_folder, exist_ok=True)
 
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 
