@@ -97,7 +97,6 @@ const ModalProfilMahasiswa = ({ mahasiswa, onClose }) => {
               { label: "Program Studi", value: mahasiswa.prodi },
               { label: "Fakultas", value: mahasiswa.fakultas },
               { label: "Angkatan", value: mahasiswa.angkatan },
-              { label: "Semester", value: mahasiswa.semester },
               { label: "Status Akademik", value: mahasiswa.statusAkademik, green: true },
               { label: "IPK", value: mahasiswa.ipk },
             ].map(({ label, value, green }) => (
@@ -167,7 +166,7 @@ const ModalPreviewSurat = ({ mahasiswa, onClose }) => {
             ))}
           </div>
           <p className="mb-4 text-justify">
-            Terdaftar sebagai mahasiswa aktif Program Pendidikan Sarjana (S-1) pada Program Studi {mahasiswa.prodi}, {mahasiswa.fakultas}, Institut Pertanian Bogor semester gasal tahun akademik {today.getFullYear()}/{today.getFullYear() + 1}.
+            Terdaftar sebagai mahasiswa aktif Program Pendidikan Sarjana (S-1) pada Program Studi {mahasiswa.prodi}, {mahasiswa.fakultas}, Institut Pertanian Bogor tahun akademik {today.getFullYear()}/{today.getFullYear() + 1}.
           </p>
           <p className="mb-10 text-justify">
             Demikian Surat Keterangan ini dibuat untuk digunakan sebagaimana mestinya.

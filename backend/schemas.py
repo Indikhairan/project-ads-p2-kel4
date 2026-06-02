@@ -35,7 +35,6 @@ class TiketCreate(BaseModel):
     
     departemen: Optional[str] = None
     fakultas: Optional[str] = None
-    semester: Optional[str] = None
     deskripsi: Optional[str] = None
 
     @model_validator(mode='after')
@@ -136,7 +135,7 @@ class UserProfile(BaseModel):
     program_studi: Optional[str] = None
     departemen: Optional[str] = None
     fakultas: Optional[str] = None
-    semester: Optional[int] = None
+    # semester removed
     alamat: Optional[str] = None  # 🔐 Encrypted address
     # Staff
     nip: Optional[str] = None

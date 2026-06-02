@@ -107,8 +107,6 @@ class TiketService:
             mahasiswa.departemen = payload.departemen
         if not mahasiswa.fakultas and payload.fakultas:
             mahasiswa.fakultas = payload.fakultas
-        if not mahasiswa.semester and payload.semester:
-            mahasiswa.semester = payload.semester
         if not mahasiswa.alamat and payload.alamat:
             mahasiswa.alamat = payload.alamat  # 🔐 Auto-encrypted by EncryptedString
 
@@ -404,7 +402,6 @@ async def buat_tiket(
     program_studi: Optional[str] = Form(None, description="Program studi mahasiswa"),
     departemen: Optional[str] = Form(None, description="Departemen"),
     fakultas: Optional[str] = Form(None, description="Fakultas/Sekolah"),
-    semester: Optional[str] = Form(None, description="Semester aktif."),
     alamat: Optional[str] = Form(None, description="Alamat lengkap mahasiswa (🔐 encrypted)"),
     ktm_file: Optional[UploadFile] = File(None, description="File KTM"),
     ukt_file: Optional[UploadFile] = File(None, description="Bukti Pembayaran UKT"),
@@ -471,7 +468,7 @@ async def buat_tiket(
             program_studi=program_studi,
             departemen=departemen,
             fakultas=fakultas,
-            semester=semester,
+            # semester removed
             alamat=alamat,  # 🔐 Encrypted address from form
         )
     except ValidationError as exc:

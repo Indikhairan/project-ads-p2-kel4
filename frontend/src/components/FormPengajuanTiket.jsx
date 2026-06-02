@@ -382,7 +382,6 @@ export const FormPengajuanTiket = ({ onClose, authToken: propToken }) => {
       formData.append("kategori", kategori === "Informasi" ? "Layanan" : kategori);
       formData.append("subjek", subjek.trim());
       formData.append("deskripsi", deskripsi.trim());
-      formData.append("semester", ""); // Optional field
 
       // 2. KONDISIONAL: Menyusun data_request dan data mahasiswa
       if (kategori === "Persuratan") {
