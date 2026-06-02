@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { TopNavigationAdmin } from "../components/TopNavigationAdmin";
-
-const API_BASE_URL = "http://127.0.0.1:8000";
+import { API_BASE_URL } from "../api";
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem("sapa_ipb_token");

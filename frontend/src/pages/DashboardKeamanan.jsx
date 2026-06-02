@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { TopNavigationAdmin } from "../components/TopNavigationAdmin";
 import { useNavigate } from "react-router-dom";
+import { API_BASE_URL } from "../api";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -59,10 +60,10 @@ export const DashboardKeamanan = () => {
 
       try {
         const [resStats, resLogs] = await Promise.all([
-          fetch("http://localhost:8000/api/v1/admin/security/stats", {
+          fetch(`${API_BASE_URL}/api/v1/admin/security/stats`, {
             headers: { "Authorization": `Bearer ${token}` }
           }),
-          fetch("http://localhost:8000/api/v1/admin/security/logs?page=1&limit=50", {
+          fetch(`${API_BASE_URL}/api/v1/admin/security/logs?page=1&limit=50`, {
             headers: { "Authorization": `Bearer ${token}` }
           })
         ]);

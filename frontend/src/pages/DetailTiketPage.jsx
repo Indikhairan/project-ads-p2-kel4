@@ -4,6 +4,7 @@ import { TopNavigationSection } from "../components/TopNavigationSection";
 import { FormPengajuanTiket } from "../components/FormPengajuanTiket";
 import { ChatbotSAPA } from "../components/ChatbotSAPA";
 import image3 from "../assets/image-3.png";
+import { API_BASE_URL } from "../api";
 
 // Komponen Badge Status Dinamis sesuai respons Database
 const StatusBadge = ({ status }) => {
@@ -81,7 +82,7 @@ export const DetailTiketPage = () => {
         }
 
         // Request langsung ke endpoint API Backend 
-        const res = await fetch(`http://127.0.0.1:8000/api/v1/tiket/${encodeURIComponent(id)}`, {
+        const res = await fetch(`${API_BASE_URL}/api/v1/tiket/${encodeURIComponent(id)}`, {
           method: "GET",
           headers: { 
             "Authorization": `Bearer ${token}`,
@@ -119,7 +120,7 @@ export const DetailTiketPage = () => {
       const token = localStorage.getItem("sapa_ipb_token");
       if (!token) throw new Error("Token tidak ditemukan.");
 
-      const url = `http://127.0.0.1:8000/api/v1/tiket/${encodeURIComponent(id)}/download-${kind}`;
+      const url = `${API_BASE_URL}/api/v1/tiket/${encodeURIComponent(id)}/download-${kind}`;
       const res = await fetch(url, {
         method: "GET",
         headers: {
@@ -163,7 +164,7 @@ export const DetailTiketPage = () => {
       const token = localStorage.getItem("sapa_ipb_token");
       const cleanId = String(id).replace('#', ''); 
       
-      const res = await fetch(`http://localhost:8000/api/v1/tiket/${cleanId}/verifikasi`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/tiket/${cleanId}/verifikasi`, {
         method: "GET",
         headers: { 
           "Authorization": `Bearer ${token}` 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { API_BASE_URL } from "../api";
 import infografisPanduan from "../assets/infografis-panduan.png";
 
 // --- HELPER COMPONENTS & FUNCTIONS ---
@@ -63,7 +64,7 @@ export const AcademicServicesDashboardSection = () => {
         const token = localStorage.getItem("sapa_ipb_token");
         if (!token) return;
         
-        const res = await fetch("http://127.0.0.1:8000/api/v1/tiket/", {
+        const res = await fetch(`${API_BASE_URL}/api/v1/tiket/`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();

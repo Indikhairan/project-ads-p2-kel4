@@ -4,6 +4,7 @@ import { TopNavigationSection } from "../components/TopNavigationSection";
 import { FormPengajuanTiket } from "../components/FormPengajuanTiket";
 import { ChatbotSAPA } from "../components/ChatbotSAPA";
 import image3 from "../assets/image-3.png";
+import { API_BASE_URL } from "../api";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -65,7 +66,7 @@ export const RiwayatTiketPage = () => {
       }
 
       try {
-        const response = await fetch("http://127.0.0.1:8000/api/v1/tiket", {
+        const response = await fetch(`${API_BASE_URL}/api/v1/tiket`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },

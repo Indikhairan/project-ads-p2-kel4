@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { WelcomeBannerSection } from "../components/WelcomeBannerSection";
 import { TopNavigationStaff } from "../components/TopNavigationStaff";
+import { API_BASE_URL } from "../api";
 
 const ITEMS_OPTIONS = [5, 10, 20];
 
@@ -51,7 +52,7 @@ export const HomepageStaff = () => {
       setIsLoading(true);
       setError("");
       try {
-        const response = await fetch("http://127.0.0.1:8000/api/v1/tiket", {
+        const response = await fetch(`${API_BASE_URL}/api/v1/tiket`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },

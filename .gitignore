@@ -14,4 +14,9 @@ env/
 # Mengabaikan semua file hasil upload lokal
 frontend/uploads/
 backend/uploads/
+
 uploads/
+data_pending/
+data/
+faiss_db/
+processed_files.txt

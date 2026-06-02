@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import image3 from "../assets/image-3.png";
+import { API_BASE_URL } from "../api";
 
 const ChatBubble = ({ message }) => {
   const isBot = message.sender === "bot";
@@ -47,7 +48,7 @@ export const ChatbotSAPA = ({ onClose }) => {
       const token = localStorage.getItem("sapa_ipb_token");
       if (!token) return;
 
-      const response = await fetch("http://127.0.0.1:8000/chatbot/riwayat", {
+      const response = await fetch(`${API_BASE_URL}/chatbot/riwayat`, {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${token}`
@@ -94,7 +95,7 @@ export const ChatbotSAPA = ({ onClose }) => {
       const token = localStorage.getItem("sapa_ipb_token"); 
 
       // 3. Tembak API FastAPI (Tetap Konsisten Menggunakan Fetch)
-      const response = await fetch("http://127.0.0.1:8000/chatbot/tanya", {
+      const response = await fetch(`${API_BASE_URL}/chatbot/tanya`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
