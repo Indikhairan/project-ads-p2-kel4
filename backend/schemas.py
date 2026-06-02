@@ -18,6 +18,7 @@ class TiketBase(BaseModel):
     email_mahasiswa: Optional[str] = None
     nim: Optional[str] = None
     program_studi: Optional[str] = None
+    alamat: Optional[str] = None  # 🔐 Encrypted address
 
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
@@ -30,8 +31,8 @@ class TiketCreate(BaseModel):
     file_lampiran: Optional[str] = None
     nim: Optional[str] = None
     program_studi: Optional[str] = None
+    alamat: Optional[str] = None 
     
-    # TAMBAHKAN FIELD INI AGAR TIDAK ATTRIBUTE ERROR
     departemen: Optional[str] = None
     fakultas: Optional[str] = None
     semester: Optional[str] = None
@@ -136,6 +137,7 @@ class UserProfile(BaseModel):
     departemen: Optional[str] = None
     fakultas: Optional[str] = None
     semester: Optional[int] = None
+    alamat: Optional[str] = None  # 🔐 Encrypted address
     # Staff
     nip: Optional[str] = None
     unit_kerja: Optional[str] = None
