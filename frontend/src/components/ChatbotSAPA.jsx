@@ -33,35 +33,8 @@ export const ChatbotSAPA = ({ onClose }) => {
   // State baru untuk mengontrol tombol Muat Riwayat
   const [isHistoryLoaded, setIsHistoryLoaded] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  const [hasHistory, setHasHistory] = useState(false);
   
   const bottomRef = useRef(null);
-
-  // Cek apakah ada riwayat saat komponen dimuat
-  useEffect(() => {
-    const checkHistory = async () => {
-      try {
-        const token = localStorage.getItem("sapa_ipb_token");
-        if (!token) return;
-
-        const response = await fetch(`${API_BASE_URL}/chatbot/riwayat`, {
-          method: "GET",
-          headers: {
-            "Authorization": `Bearer ${token}`
-          }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setHasHistory(data && data.length > 0);
-        }
-      } catch (error) {
-        console.error("Error checking history:", error);
-      }
-    };
-
-    checkHistory();
-  }, []);
 
   // Efek untuk auto-scroll ke bawah setiap ada pesan baru
   useEffect(() => {
@@ -182,8 +155,8 @@ export const ChatbotSAPA = ({ onClose }) => {
       {/* Area pesan */}
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3 bg-[#f4f6fb]">
         
-        {/* TOMBOL MUAT RIWAYAT (Hanya muncul jika ada riwayat dan belum diload) */}
-        {!isHistoryLoaded && hasHistory && (
+        {/* TOMBOL MUAT RIWAYAT (Hanya muncul jika belum diload) */}
+        {!isHistoryLoaded && (
           <button 
             onClick={handleLoadHistory}
             disabled={isLoadingHistory}
