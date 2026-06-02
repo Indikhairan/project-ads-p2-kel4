@@ -1,9 +1,9 @@
 from backend.database import db_manager
 from backend import models
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
-# Gunakan ini untuk memaksa waktu di seed menjadi WIB
-waktu_sekarang_wib = datetime.utcnow() + timedelta(hours=7)
+# Ganti utcnow() menjadi now(timezone.utc)
+waktu_sekarang_wib = datetime.now(timezone.utc) + timedelta(hours=7)
 
 def seed_data():
     db = db_manager.SessionLocal()
