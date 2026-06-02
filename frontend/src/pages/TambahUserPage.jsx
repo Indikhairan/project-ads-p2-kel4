@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { TopNavigationAdmin } from "../components/TopNavigationAdmin";
-
-const API_BASE_URL = "http://127.0.0.1:8000";
+import { API_BASE_URL } from "../api";
 const SUPERADMIN_EMAIL = "superadmin@apps.ipb.ac.id";
 const ROLE_OPTIONS = ["Mahasiswa", "Staff", "Admin"];
 

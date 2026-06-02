@@ -1,4 +1,5 @@
 import React from "react";
+import { API_BASE_URL } from "../api";
 import { useNavigate, useLocation } from "react-router-dom";
 
 export const TopNavigationSection = ({ onBuatTiket, formOpen }) => {
@@ -10,7 +11,7 @@ export const TopNavigationSection = ({ onBuatTiket, formOpen }) => {
 
     // Kirim sinyal logout ke backend
     try {
-      await fetch("http://localhost:8000/auth/logout", {
+    await fetch(`${API_BASE_URL}/auth/logout`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`,

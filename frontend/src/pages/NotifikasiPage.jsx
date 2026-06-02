@@ -4,6 +4,7 @@ import { TopNavigationSection } from "../components/TopNavigationSection";
 import { FormPengajuanTiket } from "../components/FormPengajuanTiket";
 import { ChatbotSAPA } from "../components/ChatbotSAPA";
 import image3 from "../assets/image-3.png";
+import { API_BASE_URL } from "../api";
 
 const mapBackendToNotif = (n) => {
   const waktu = new Date(n.waktu);
@@ -108,7 +109,7 @@ export const NotifikasiPage = () => {
           return;
         }
 
-        const res = await fetch("http://127.0.0.1:8000/notifikasi", {
+        const res = await fetch(`${API_BASE_URL}/notifikasi`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
@@ -141,7 +142,7 @@ export const NotifikasiPage = () => {
       return;
     }
     try {
-      const res = await fetch("http://127.0.0.1:8000/notifikasi/read-all", {
+      const res = await fetch(`${API_BASE_URL}/notifikasi/read-all`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -167,7 +168,7 @@ export const NotifikasiPage = () => {
 
     try {
       // Tandai di server dulu
-      await fetch(`http://127.0.0.1:8000/notifikasi/${encodeURIComponent(notif.id)}/read`, {
+      await fetch(`${API_BASE_URL}/notifikasi/${encodeURIComponent(notif.id)}/read`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}` },
       });

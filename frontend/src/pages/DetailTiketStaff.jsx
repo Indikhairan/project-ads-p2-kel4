@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { TopNavigationStaff } from "../components/TopNavigationStaff";
+import { API_BASE_URL } from "../api";
 
 const STATUS_OPTIONS = [
   { value: "Open", label: "OPEN" },
@@ -263,7 +264,7 @@ export const DetailTiketStaff = () => {
   const handleFileAction = async (kind, action, filePath) => {
     try {
       if (!token) throw new Error("Token tidak ditemukan.");
-      const url = `http://127.0.0.1:8000/api/v1/tiket/${encodeURIComponent(id)}/download-${kind}`;
+      const url = `${API_BASE_URL}/api/v1/tiket/${encodeURIComponent(id)}/download-${kind}`;
       const res = await fetch(url, {
         method: "GET",
         headers: {
@@ -310,7 +311,7 @@ export const DetailTiketStaff = () => {
       setIsLoading(true);
       setError("");
       try {
-        const response = await fetch(`http://127.0.0.1:8000/api/v1/tiket/${encodeURIComponent(id)}`, {
+        const response = await fetch(`${API_BASE_URL}/api/v1/tiket/${encodeURIComponent(id)}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -343,7 +344,7 @@ export const DetailTiketStaff = () => {
         return;
       }
       try {
-        const res = await fetch("http://localhost:8000/api/v1/staff/status-kunci", {
+        const res = await fetch(`${API_BASE_URL}/api/v1/staff/status-kunci`, {
           headers: { "Authorization": `Bearer ${token}` }
         });
 
@@ -401,7 +402,7 @@ export const DetailTiketStaff = () => {
     }
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/v1/tiket/${encodeURIComponent(id)}`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/tiket/${encodeURIComponent(id)}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -443,7 +444,7 @@ export const DetailTiketStaff = () => {
       const formData = new FormData();
       formData.append("passphrase", passphrase);
 
-      const res = await fetch("http://localhost:8000/api/v1/staff/generate-key", {
+      const res = await fetch(`${API_BASE_URL}/api/v1/staff/generate-key`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${currentToken}` },
         body: formData
@@ -484,7 +485,7 @@ export const DetailTiketStaff = () => {
       if (uploadedFile) formData.append("file_lampiran", uploadedFile);
 
       const cleanId = ticket.id ? ticket.id.replace('#', '') : id;
-      const res = await fetch(`http://localhost:8000/api/v1/tiket/${cleanId}/tanggapan`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/tiket/${cleanId}/tanggapan`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}` },
         body: formData
@@ -499,7 +500,7 @@ export const DetailTiketStaff = () => {
       // Refresh tiket dari server untuk menampilkan tanggapan yang baru saja dibuat
       try {
         const cleanId = ticket.id ? ticket.id.replace('#', '') : id;
-        const res2 = await fetch(`http://127.0.0.1:8000/api/v1/tiket/${encodeURIComponent(cleanId)}`, {
+        const res2 = await fetch(`${API_BASE_URL}/api/v1/tiket/${encodeURIComponent(cleanId)}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (res2.ok) {
@@ -528,7 +529,7 @@ export const DetailTiketStaff = () => {
     setVerifyStatus("loading");
     try {
       const cleanId = String(ticket.id || id).replace('#', '');
-      const res = await fetch(`http://localhost:8000/api/v1/tiket/${cleanId}/verifikasi`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/tiket/${cleanId}/verifikasi`, {
         method: "GET",
         headers: { "Authorization": `Bearer ${token}` }
       });
