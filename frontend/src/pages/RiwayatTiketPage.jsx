@@ -9,7 +9,13 @@ import { API_BASE_URL } from "../api";
 const ITEMS_PER_PAGE = 10;
 
 const StatusBadge = ({ status }) => {
-  if (status === "Open" || status === "Diproses")
+  if (status === "Open")
+    return (
+      <div className="px-3 py-1 bg-blue-50 border border-blue-400 text-blue-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
+        📋 OPEN
+      </div>
+    );
+  if (status === "Diproses")
     return (
       <div className="px-3 py-1 bg-orange-50 border border-orange-400 text-orange-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
         ⏱ DIPROSES

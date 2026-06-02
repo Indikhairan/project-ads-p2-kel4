@@ -3,6 +3,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import json
 import hashlib
 import uuid
@@ -71,7 +72,7 @@ async def _simpan_file(upload_file: UploadFile, subfolder: str = "") -> str:
 
 class TiketService:
     VALID_STATUSES = {"Open", "Diproses", "Selesai", "Ditolak"}
-    VALID_KATEGORIS = {"Layanan", "Persuratan"}
+    VALID_KATEGORIS = {"Informasi", "Persuratan"}
 
     def __init__(self, db: Session, user_data: dict, ip_address: str):
         self.db = db
@@ -234,6 +235,39 @@ class TiketService:
             }
 
             return hasil
+
+    def get_ticket_logs(self, id_tiket: str) -> list[dict]:
+        tiket = self.db.query(models.TiketLayanan).filter(
+            models.TiketLayanan.id_tiket == id_tiket
+        ).first()
+
+        if not tiket:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tiket tidak ditemukan.")
+
+        sec_helper.cek_kepemilikan_tiket(
+            user_email=self.user_data["email"],
+            ticket_owner_email=tiket.email_mahasiswa,
+            user_role=self.user_data["role"]
+        )
+
+        logs_db = self.db.query(models.AuditLog).filter(
+            models.AuditLog.aksi.ilike(f"%{id_tiket}%")
+        ).order_by(models.AuditLog.waktu.desc()).all()
+
+        tz_jkt = ZoneInfo("Asia/Jakarta")
+        formatted_logs = []
+        for log in logs_db:
+            waktu_wib = log.waktu.astimezone(tz_jkt)
+            formatted_logs.append({
+                "time": waktu_wib.strftime("%Y-%m-%d %H:%M"),
+                "email": log.email_aktor,
+                "role": log.role_aktor,
+                "activity": log.aksi,
+                "status": log.status,
+                "ip_address": log.ip_address or "Unknown"
+            })
+
+        return formatted_logs
 
     def update_status_tiket(self, id_tiket: str, payload: schemas.TiketUpdate) -> models.TiketLayanan:
         if payload.status not in self.VALID_STATUSES:
@@ -500,6 +534,15 @@ def lihat_daftar_tiket(request: Request, db: Session = Depends(get_db)):
         # Rollback transaction jika ada error untuk menghindari "transaction aborted" state
         db.rollback()
         raise
+
+@router.get("/{id_tiket}/logs", response_model=List[schemas.AuditLogResponse])
+def get_ticket_logs(id_tiket: str, request: Request, db: Session = Depends(get_db)):
+    user_data = sec_helper.ekstrak_token(request)
+    sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
+
+    service = TiketService(db=db, user_data=user_data, ip_address=request.client.host)
+    return service.get_ticket_logs(id_tiket)
+
 
 @router.get("/{id_tiket}", response_model=schemas.TiketResponse)
 def detail_tiket(id_tiket: str, request: Request, db: Session = Depends(get_db)):

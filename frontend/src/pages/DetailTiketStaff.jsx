@@ -242,6 +242,9 @@ export const DetailTiketStaff = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState("");
+  const [ticketLogs, setTicketLogs] = useState([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [logError, setLogError] = useState("");
 
   // State Keamanan & Form
   const [errorSubmit, setErrorSubmit] = useState("");
@@ -362,6 +365,33 @@ export const DetailTiketStaff = () => {
     };
     fetchKeyStatus();
   }, [token]);
+
+  useEffect(() => {
+    const fetchTicketLogs = async () => {
+      if (!token || !id) return;
+      setIsLoadingLogs(true);
+      setLogError("");
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/v1/tiket/${encodeURIComponent(id)}/logs`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || "Gagal memuat log aktivitas.");
+        }
+
+        setTicketLogs(data);
+      } catch (error) {
+        console.error("Gagal memuat log tiket:", error);
+        setLogError(error.message || "Gagal memuat log aktivitas.");
+      } finally {
+        setIsLoadingLogs(false);
+      }
+    };
+    fetchTicketLogs();
+  }, [id, token]);
 
   const formatDate = (value) => {
     if (!value) return "-";
@@ -574,7 +604,11 @@ export const DetailTiketStaff = () => {
   }
 
   const mahasiswa = ticket.data_request || {};
-  const logItems = [
+  const logItems = ticketLogs.length > 0 ? ticketLogs.map((log) => ({
+    time: log.time,
+    text: log.activity,
+    color: log.status?.toLowerCase().includes("success") ? "bg-green-500" : log.status?.toLowerCase().includes("failed") ? "bg-red-500" : "bg-blue-500",
+  })) : [
     {
       time: ticket.waktu_submit ? formatDate(ticket.waktu_submit) : "-",
       text: `Tiket dibuat oleh ${ticket.email_mahasiswa}`,
@@ -877,12 +911,23 @@ export const DetailTiketStaff = () => {
           <div className="rounded-lg overflow-hidden border border-gray-200">
             <SectionHeader icon="🕐" title="LOG AKTIVITAS" />
             <div className="p-5 flex flex-col gap-3">
-              {logItems.map((item, idx) => (
+              {isLoadingLogs && (
+                <p className="text-gray-500 italic text-sm text-center py-6">Memuat log aktivitas...</p>
+              )}
+              {logError && !isLoadingLogs && (
+                <p className="text-red-500 italic text-sm text-center py-6">{logError}</p>
+              )}
+              {!isLoadingLogs && logItems.map((item, idx) => (
                 <div key={idx} className="flex items-start gap-3">
                   <div className={`w-2.5 h-2.5 rounded-full ${item.color} shrink-0 mt-1`} />
-                  <div>
-                    <span className="text-xs text-gray-400 mr-2">{item.time}</span>
-                    <span className="text-xs text-[#130962]">{item.text}</span>
+                  <div className="flex flex-col flex-1">
+                    <div className="flex flex-col gap-1 sm:gap-0 sm:flex-row sm:items-center sm:justify-between w-full">
+                      <div className="flex gap-2 items-center flex-1 min-w-0">
+                        <span className="text-xs text-gray-400 mr-2">{item.time}</span>
+                        <span className="text-xs text-[#130962] truncate">{item.text}</span>
+                      </div>
+                      <span className="text-[11px] text-gray-500 whitespace-nowrap">{item.email} · {item.role} · {item.status}</span>
+                    </div>
                   </div>
                 </div>
               ))}
