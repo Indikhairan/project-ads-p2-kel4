@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from pydantic import BaseModel, Field, model_validator
-from typing import Optional, Any
+from typing import Optional, Any, Dict, List
 from enum import Enum
 
 class KategoriEnum(str, Enum):
@@ -81,6 +81,17 @@ class TiketResponse(TiketBase):
     program_studi_pengaju: Optional[str] = None
     # Tanggapan staff yang terkait (jika ada)
     tanggapan: Optional[TanggapanResponse] = None
+
+    class Config:
+        from_attributes = True
+
+class AuditLogResponse(BaseModel):
+    time: str
+    email: str
+    role: str
+    activity: str
+    status: str
+    ip_address: str
 
     class Config:
         from_attributes = True
