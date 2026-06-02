@@ -1,3 +1,4 @@
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
@@ -9,6 +10,15 @@ from alembic import context
 # access to the values within the .ini file in use.
 config = context.config
 
+# --- TAMBAHAN UNTUK RAILWAY ---
+db_url = os.environ.get("DATABASE_URL")
+if db_url:
+    # Terkadang URL dari provider cloud pakai 'postgres://', SQLAlchemy butuh 'postgresql://'
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+    config.set_main_option("sqlalchemy.url", db_url)
+# ------------------------------
+
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 if config.config_file_name is not None:
@@ -16,8 +26,6 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
 from backend.database import Base
 from backend import models
 target_metadata = Base.metadata
