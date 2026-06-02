@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-
-const API_BASE_URL = "http://127.0.0.1:8000";
+import { API_BASE_URL } from "../api";
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem("sapa_ipb_token");
@@ -41,7 +40,7 @@ export const TopNavigationAdmin = () => {
 
     // Kirim sinyal logout ke backend
     try {
-      await fetch("http://localhost:8000/auth/logout", {
+      await fetch(`${API_BASE_URL}/auth/logout`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`,
