@@ -10,16 +10,16 @@ export const apiFetch = async (path, opts = {}) => {
     const response = await fetch(url, opts);
 
     // SATPAM GLOBAL: Cek apakah responsnya 401 (Unauthorized)
-    if (response.status === 401) {
+    // ATAU responsnya 403 (Forbidden) seperti yang terlihat di console-mu
+    if (response.status === 401 || response.status === 403) {
         // Hapus token yang basi
         localStorage.removeItem("sapa_ipb_token");
         
-        // Lempar paksa ke login. 
-        // Catatan: Kita pakai window.location.href karena file ini bukan 
-        // komponen React, jadi kita tidak bisa pakai useNavigate().
-        window.location.href = "/login"; 
+        // Cek posisi URL sekarang. Ubah '/login' menjadi '/' jika login page-mu ada di root.
+        if (window.location.pathname !== "/") {
+            window.location.href = "/"; // Arahkan kembali ke beranda/halaman login utama
+        }
         
-        // Hentikan proses fetch agar tidak memicu error lanjutan di halaman
         return Promise.reject(new Error("Session expired")); 
     }
 

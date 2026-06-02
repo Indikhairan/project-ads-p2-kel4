@@ -216,25 +216,25 @@ class TiketService:
                 "waktu": t.waktu,
             }
 
-            hasil = {
-                "id_tiket": tiket.id_tiket,
-                "id": tiket.id_tiket,
-                "id_layanan": tiket.id_layanan,
-                "kategori": tiket.kategori,
-                "subjek": tiket.subjek,
-                "deskripsi": tiket.deskripsi,
-                "data_request": tiket.data_request,
-                "file_lampiran": tiket.file_lampiran,
-                "email_mahasiswa": tiket.email_mahasiswa,
-                "nim_pengaju": tiket.nim_pengaju,
-                "program_studi_pengaju": tiket.program_studi_pengaju,
-                "status": tiket.status,
-                "waktu_submit": tiket.waktu_submit,
-                "email_staff": tiket.email_staff,
-                "tanggapan": tanggapan_obj,
-            }
+        hasil = {
+            "id_tiket": tiket.id_tiket,
+            "id": tiket.id_tiket,
+            "id_layanan": tiket.id_layanan,
+            "kategori": tiket.kategori,
+            "subjek": tiket.subjek,
+            "deskripsi": tiket.deskripsi,
+            "data_request": tiket.data_request,
+            "file_lampiran": tiket.file_lampiran,
+            "email_mahasiswa": tiket.email_mahasiswa,
+            "nim_pengaju": tiket.nim_pengaju,
+            "program_studi_pengaju": tiket.program_studi_pengaju,
+            "status": tiket.status,
+            "waktu_submit": tiket.waktu_submit,
+            "email_staff": tiket.email_staff,
+            "tanggapan": tanggapan_obj,
+        }
 
-            return hasil
+        return hasil
 
     def get_ticket_logs(self, id_tiket: str) -> list[dict]:
         tiket = self.db.query(models.TiketLayanan).filter(
