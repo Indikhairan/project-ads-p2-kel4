@@ -97,9 +97,10 @@ export const HomepageStaff = () => {
 
     const matchStatus =
       filterStatus === "Semua Status" ||
-      (filterStatus === "Diproses" && ["Open", "Diproses"].includes(t.status)) ||
-      (filterStatus === "Selesai" && t.status === "Selesai") ||
-      (filterStatus === "Ditolak" && t.status === "Ditolak");
+      (filterStatus === "Open" && t.status === "open") ||
+      (filterStatus === "Diproses" && t.status === "processing") ||
+      (filterStatus === "Selesai" && t.status === "completed") ||
+      (filterStatus === "Ditolak" && t.status === "rejected");
 
     const matchKategori =
       filterKategori === "Semua Kategori" || (t.kategori || "").toLowerCase() === filterKategori.toLowerCase();
@@ -218,7 +219,7 @@ export const HomepageStaff = () => {
                     onChange={(e) => { setFilterStatus(e.target.value); resetPage(); }}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm appearance-none focus:outline-none focus:border-[#130962] bg-white text-[#130962]"
                   >
-                    {["Semua Status", "Diproses", "Selesai", "Ditolak"].map((s) => (
+                    {["Semua Status", "Open", "Diproses", "Selesai", "Ditolak"].map((s) => (
                       <option key={s}>{s}</option>
                     ))}
                   </select>
