@@ -9,7 +9,10 @@ import { API_BASE_URL } from "../api";
 // Komponen Badge Status Dinamis sesuai respons Database
 const StatusBadge = ({ status }) => {
   const currentStatus = status?.toLowerCase();
-  if (currentStatus === "open" || currentStatus === "diproses" || currentStatus === "processing") {
+  if (currentStatus === "open") {
+    return <span className="px-3 py-1 bg-blue-50 border border-blue-400 text-blue-500 font-semibold text-xs rounded flex items-center gap-1">📬 OPEN</span>;
+  }
+  if (currentStatus === "diproses" || currentStatus === "processing") {
     return <span className="px-3 py-1 bg-orange-50 border border-orange-400 text-orange-500 font-semibold text-xs rounded flex items-center gap-1">⏱ DIPROSES</span>;
   }
   if (currentStatus === "selesai" || currentStatus === "completed") {

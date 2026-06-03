@@ -4,10 +4,10 @@ import { TopNavigationStaff } from "../components/TopNavigationStaff";
 import { API_BASE_URL } from "../api";
 
 const STATUS_OPTIONS = [
-  { value: "Open", label: "OPEN" },
-  { value: "Diproses", label: "DIPROSES" },
-  { value: "Selesai", label: "SELESAI" },
-  { value: "Ditolak", label: "DITOLAK" },
+  { value: "open", label: "OPEN" },
+  { value: "processing", label: "DIPROSES" },
+  { value: "completed", label: "SELESAI" },
+  { value: "rejected", label: "DITOLAK" },
 ];
 
 // Lock scroll background saat modal terbuka

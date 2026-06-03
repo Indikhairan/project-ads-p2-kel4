@@ -7,11 +7,29 @@ import { API_BASE_URL } from "../api";
 const ITEMS_OPTIONS = [5, 10, 20];
 
 const StatusBadge = ({ status }) => {
-  if (status === "Open" || status === "Diproses")
-    return <span className="px-2.5 py-1 bg-orange-50 border border-orange-400 text-orange-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">⏱ DIPROSES</span>;
-  if (status === "Selesai")
-    return <span className="px-2.5 py-1 bg-green-50 border border-green-500 text-green-600 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">✓ SELESAI</span>;
-  return <span className="px-2.5 py-1 bg-red-50 border border-red-500 text-red-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">⊘ DITOLAK</span>;
+  if (status === "open")
+    return (
+      <div className="px-3 py-1 bg-blue-50 border border-blue-400 text-blue-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
+        📬 OPEN
+      </div>
+    );
+  if (status === "processing")
+    return (
+      <div className="px-3 py-1 bg-orange-50 border border-orange-400 text-orange-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
+        ⏱ SEDANG DIPROSES
+      </div>
+    );
+  if (status === "completed")
+    return (
+      <div className="px-3 py-1 bg-green-50 border border-green-500 text-green-600 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
+        ✓ SELESAI
+      </div>
+    );
+  return (
+    <div className="px-3 py-1 bg-red-50 border border-red-500 text-red-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
+      ⊘ DITOLAK
+    </div>
+  );
 };
 
 export const HomepageStaff = () => {
@@ -91,9 +109,10 @@ export const HomepageStaff = () => {
 
     const matchStatus =
       filterStatus === "Semua Status" ||
-      (filterStatus === "Diproses" && ["Open", "Diproses"].includes(t.status)) ||
-      (filterStatus === "Selesai" && t.status === "Selesai") ||
-      (filterStatus === "Ditolak" && t.status === "Ditolak");
+      (filterStatus === "Open" && t.status === "open") ||
+      (filterStatus === "Diproses" && t.status === "processing") ||
+      (filterStatus === "Selesai" && t.status === "completed") ||
+      (filterStatus === "Ditolak" && t.status === "rejected");
 
     const matchKategori =
       filterKategori === "Semua Kategori" || (t.kategori || "").toLowerCase() === filterKategori.toLowerCase();
@@ -212,7 +231,7 @@ export const HomepageStaff = () => {
                     onChange={(e) => { setFilterStatus(e.target.value); resetPage(); }}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm appearance-none focus:outline-none focus:border-[#130962] bg-white text-[#130962]"
                   >
-                    {["Semua Status", "Diproses", "Selesai", "Ditolak"].map((s) => (
+                    {["Semua Status", "Open", "Diproses", "Selesai", "Ditolak"].map((s) => (
                       <option key={s}>{s}</option>
                     ))}
                   </select>
