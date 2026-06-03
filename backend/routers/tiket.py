@@ -195,12 +195,28 @@ class TiketService:
         if not tiket:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tiket tidak ditemukan.")
 
-        # Pengecekan OBAC tanpa try-except, karena jika error akan dilempar ke router
-        sec_helper.cek_kepemilikan_tiket(
-            user_email=self.user_data["email"],
-            ticket_owner_email=tiket.email_mahasiswa,
-            user_role=self.user_data["role"]
-        )
+        try:
+            # Pengecekan OBAC
+            sec_helper.cek_kepemilikan_tiket(
+                user_email=self.user_data["email"],
+                ticket_owner_email=tiket.email_mahasiswa,
+                user_role=self.user_data["role"]
+            )
+        except HTTPException as e:
+            # 1. TANGKAP ERROR: Jika masuk sini, berarti akses ditolak.
+            # 2. CATAT KE LOG: Kita masukkan ke database sebelum program berhenti.
+            log_penolakan = models.AuditLog(
+                email_aktor=self.user_data["email"],
+                role_aktor=self.user_data["role"],
+                aksi=f"Akses Ilegal Terdeteksi: Mencoba membuka tiket {id_tiket} milik {tiket.email_mahasiswa}",
+                status="Failed",
+                # waktu=get_waktu_wib() # Sesuaikan jika kamu pakai default=get_waktu_wib di models.py
+            )
+            self.db.add(log_penolakan)
+            self.db.commit()
+            
+            # 3. LEMPAR KEMBALI ERROR-NYA: Agar frontend tetap menampilkan "Akses Ditolak"
+            raise e
             # Bangun response serializable secara eksplisit sebelum DB session ditutup
         tanggapan_obj = None
         if getattr(tiket, 'tanggapan', None):
