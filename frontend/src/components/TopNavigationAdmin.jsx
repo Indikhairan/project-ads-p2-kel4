@@ -53,9 +53,9 @@ export const TopNavigationAdmin = () => {
 
     // Baru hapus token dan pindah halaman
     localStorage.removeItem("sapa_ipb_token");
-    localStorage.removeItem(\"sapa_ipb_role\");
-    localStorage.removeItem(\"nama_lengkap\");
-    navigate(\"/login\");
+    localStorage.removeItem("sapa_ipb_role");
+    localStorage.removeItem("nama_lengkap");
+    navigate("/login");
   };
 
   useEffect(() => {
