@@ -111,9 +111,6 @@ const ModalProfilMahasiswa = ({ mahasiswa, onClose }) => {
             {[
               { label: "Program Studi", value: mahasiswa.prodi },
               { label: "Fakultas", value: mahasiswa.fakultas },
-              { label: "Angkatan", value: mahasiswa.angkatan },
-              { label: "Status Akademik", value: mahasiswa.statusAkademik, green: true },
-              { label: "IPK", value: mahasiswa.ipk },
             ].map(({ label, value, green }) => (
               <div key={label} className="flex gap-3 py-1.5 text-sm">
                 <span className="w-36 text-gray-500 shrink-0">{label}</span>
