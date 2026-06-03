@@ -109,7 +109,7 @@ export const NotifikasiPage = () => {
           return;
         }
 
-        const res = await fetch(`${API_BASE_URL}/notifikasi`, {
+        const res = await fetch(`${API_BASE_URL}/notifikasi/`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
