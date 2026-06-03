@@ -47,39 +47,77 @@ export const HomepageStaff = () => {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem("sapa_ipb_token");
-    if (!token) {
-      setError("Token tidak ditemukan. Silakan login kembali.");
-      setIsLoading(false);
-      return;
-    }
+    const token = localStorage.getItem("sapa_ipb_token");
+    if (!token) {
+      setError("Token tidak ditemukan. Silakan login kembali.");
+      setIsLoading(false);
+      return;
+    }
 
-    const fetchTickets = async () => {
-      setIsLoading(true);
-      setError("");
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/tiket/`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+    let isFirstLoad = true; // Penanda agar layar loading hanya muncul di awal
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(errorText || "Gagal memuat tiket.");
-        }
+    const fetchTickets = async () => {
+      if (isFirstLoad) setIsLoading(true);
+      setError("");
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/tiket/`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
-        const data = await response.json();
-        setTickets(data || []);
-      } catch (err) {
-        setError(err.message || "Gagal memuat tiket.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText || "Gagal memuat tiket.");
+        }
 
-    fetchTickets();
-  }, []);
+        const data = await response.json();
+        setTickets(data || []);
+      } catch (err) {
+        if (isFirstLoad) setError(err.message || "Gagal memuat tiket.");
+      } finally {
+        setIsLoading(false);
+        isFirstLoad = false;
+      }
+    };
+
+    fetchTickets(); // Panggilan pertama
+
+    // ── POLLING: Auto-refresh data secara diam-diam setiap 5 detik ──
+    const intervalId = setInterval(fetchTickets, 5000);
+    return () => clearInterval(intervalId); // Bersihkan saat pindah halaman
+  }, []);
+
+
+  // ── PERBAIKAN LOGIKA FILTER ──
+  const filtered = tickets.filter((t) => {
+    const matchSearch =
+      (t.subjek || "").toLowerCase().includes(search.toLowerCase()) ||
+      (t.id_tiket || "").toLowerCase().includes(search.toLowerCase()) ||
+      (t.email_mahasiswa || "").toLowerCase().includes(search.toLowerCase());
+
+    const matchStatus =
+    filterStatus === "Semua Status" || t.status === filterStatus;
+
+    // Antisipasi jika t.kategori kosong, cek dari id_layanan
+    const kategoriTeks = t.kategori || t.id_layanan || "";
+    const matchKategori =
+      filterKategori === "Semua Kategori" || kategoriTeks.toLowerCase().includes(filterKategori.toLowerCase());
+
+    // Perbaikan logika jam pada tanggal
+    const tiketDate = t.waktu_submit ? new Date(t.waktu_submit) : null;
+    
+    const dari = dariTanggal ? new Date(dariTanggal) : null;
+    if (dari) dari.setHours(0, 0, 0, 0); // Mulai dari jam 00:00
+
+    const sampai = sampaiTanggal ? new Date(sampaiTanggal) : null;
+    if (sampai) sampai.setHours(23, 59, 59, 999); // Sampai detik terakhir hari itu
+
+    const matchDari = dari && tiketDate ? tiketDate >= dari : true;
+    const matchSampai = sampai && tiketDate ? tiketDate <= sampai : true;
+
+    return matchSearch && matchStatus && matchKategori && matchDari && matchSampai;
+  });
 
   // Parse tanggal dd/mm/yyyy ke Date
   const parseDate = (str) => {
@@ -94,13 +132,6 @@ export const HomepageStaff = () => {
       (t.subjek || "").toLowerCase().includes(search.toLowerCase()) ||
       (t.id_tiket || "").toLowerCase().includes(search.toLowerCase()) ||
       (t.email_mahasiswa || "").toLowerCase().includes(search.toLowerCase());
-
-    const matchStatus =
-      filterStatus === "Semua Status" ||
-      (filterStatus === "Open" && t.status === "open") ||
-      (filterStatus === "Diproses" && t.status === "processing") ||
-      (filterStatus === "Selesai" && t.status === "completed") ||
-      (filterStatus === "Ditolak" && t.status === "rejected");
 
     const matchKategori =
       filterKategori === "Semua Kategori" || (t.kategori || "").toLowerCase() === filterKategori.toLowerCase();
