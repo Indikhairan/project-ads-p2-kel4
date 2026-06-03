@@ -72,7 +72,7 @@ export const RiwayatTiketPage = () => {
       }
 
       try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/tiket`, {
+        const response = await fetch(`${API_BASE_URL}/api/v1/tiket/`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
