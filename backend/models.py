@@ -5,6 +5,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from backend.database import Base
+from backend.security import EncryptedString
 from datetime import datetime, timezone
 
 
@@ -35,7 +36,7 @@ class Mahasiswa(User):
     program_studi = Column(String, nullable=True)
     departemen = Column(String, nullable=True)
     fakultas = Column(String, nullable=True)
-    semester = Column(String, nullable=True)
+    alamat = Column(EncryptedString(), nullable=True)  # 🔐 Encrypted sensitive data
 
     __mapper_args__ = {"polymorphic_identity": "mahasiswa"}
 

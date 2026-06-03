@@ -381,10 +381,9 @@ export const FormPengajuanTiket = ({ onClose, authToken: propToken }) => {
 
       // 1. Setup data dasar tiket wajib untuk semua kategori
       formData.append("id_layanan", kategori === "Persuratan" ? "LYN-SURAT" : "LYN-INFO");
-      formData.append("kategori", kategori === "Informasi" ? "Layanan" : kategori);
+      formData.append("kategori", kategori);
       formData.append("subjek", subjek.trim());
       formData.append("deskripsi", deskripsi.trim());
-      formData.append("semester", ""); // Optional field
 
       // 2. KONDISIONAL: Menyusun data_request dan data mahasiswa
       if (kategori === "Persuratan") {
@@ -411,6 +410,7 @@ export const FormPengajuanTiket = ({ onClose, authToken: propToken }) => {
         formData.append("program_studi", persyaratan.prodi?.trim() || "");
         formData.append("departemen", persyaratan.departemen?.trim() || "");
         formData.append("fakultas", persyaratan.fakultas?.trim() || "");
+        formData.append("alamat", persyaratan.alamat?.trim() || ""); 
 
         // Lampirkan file khusus persuratan
         if (persyaratan.ktmFile instanceof File) {
@@ -430,6 +430,7 @@ export const FormPengajuanTiket = ({ onClose, authToken: propToken }) => {
         formData.append("program_studi", "");
         formData.append("departemen", "");
         formData.append("fakultas", "");
+        formData.append("alamat", "");  // 🔐 Empty for Informasi kategori
       }
 
       // 3. Lampirkan file umum untuk kategori Informasi

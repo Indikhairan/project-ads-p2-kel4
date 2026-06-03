@@ -7,29 +7,17 @@ import { API_BASE_URL } from "../api";
 const ITEMS_OPTIONS = [5, 10, 20];
 
 const StatusBadge = ({ status }) => {
-  if (status === "open")
-    return (
-      <div className="px-3 py-1 bg-blue-50 border border-blue-400 text-blue-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
-        📬 OPEN
-      </div>
-    );
-  if (status === "processing")
-    return (
-      <div className="px-3 py-1 bg-orange-50 border border-orange-400 text-orange-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
-        ⏱ SEDANG DIPROSES
-      </div>
-    );
-  if (status === "completed")
-    return (
-      <div className="px-3 py-1 bg-green-50 border border-green-500 text-green-600 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
-        ✓ SELESAI
-      </div>
-    );
-  return (
-    <div className="px-3 py-1 bg-red-50 border border-red-500 text-red-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
-      ⊘ DITOLAK
-    </div>
-  );
+  const currentStatus = status?.toLowerCase();
+  if (currentStatus === "open") {
+    return <span className="px-3 py-1 bg-blue-50 border border-blue-400 text-blue-500 font-semibold text-xs rounded flex items-center gap-1">📋 OPEN</span>;
+  }
+  if (currentStatus === "diproses" || currentStatus === "processing") {
+    return <span className="px-3 py-1 bg-orange-50 border border-orange-400 text-orange-500 font-semibold text-xs rounded flex items-center gap-1">⏱ DIPROSES</span>;
+  }
+  if (currentStatus === "selesai" || currentStatus === "completed") {
+    return <span className="px-3 py-1 bg-green-50 border border-green-500 text-green-600 font-semibold text-xs rounded flex items-center gap-1">✓ SELESAI</span>;
+  }
+  return <span className="px-3 py-1 bg-red-50 border border-red-500 text-red-500 font-semibold text-xs rounded flex items-center gap-1">⊘ DITOLAK</span>;
 };
 
 export const HomepageStaff = () => {
@@ -70,7 +58,7 @@ export const HomepageStaff = () => {
       setIsLoading(true);
       setError("");
       try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/tiket`, {
+        const response = await fetch(`${API_BASE_URL}/api/v1/tiket/`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },

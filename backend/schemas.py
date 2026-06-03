@@ -1,11 +1,11 @@
 from datetime import datetime
 
 from pydantic import BaseModel, Field, model_validator
-from typing import Optional, Any
+from typing import Optional, Any, Dict, List
 from enum import Enum
 
 class KategoriEnum(str, Enum):
-    layanan = "Layanan"
+    informasi = "Informasi"
     persuratan = "Persuratan"
 
 class TiketBase(BaseModel):
@@ -18,6 +18,7 @@ class TiketBase(BaseModel):
     email_mahasiswa: Optional[str] = None
     nim: Optional[str] = None
     program_studi: Optional[str] = None
+    alamat: Optional[str] = None  # 🔐 Encrypted address
 
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
@@ -30,11 +31,10 @@ class TiketCreate(BaseModel):
     file_lampiran: Optional[str] = None
     nim: Optional[str] = None
     program_studi: Optional[str] = None
+    alamat: Optional[str] = None 
     
-    # TAMBAHKAN FIELD INI AGAR TIDAK ATTRIBUTE ERROR
     departemen: Optional[str] = None
     fakultas: Optional[str] = None
-    semester: Optional[str] = None
     deskripsi: Optional[str] = None
 
     @model_validator(mode='after')
@@ -81,6 +81,17 @@ class TiketResponse(TiketBase):
     program_studi_pengaju: Optional[str] = None
     # Tanggapan staff yang terkait (jika ada)
     tanggapan: Optional[TanggapanResponse] = None
+
+    class Config:
+        from_attributes = True
+
+class AuditLogResponse(BaseModel):
+    time: str
+    email: str
+    role: str
+    activity: str
+    status: str
+    ip_address: str
 
     class Config:
         from_attributes = True
@@ -135,7 +146,8 @@ class UserProfile(BaseModel):
     program_studi: Optional[str] = None
     departemen: Optional[str] = None
     fakultas: Optional[str] = None
-    semester: Optional[int] = None
+    # semester removed
+    alamat: Optional[str] = None  # 🔐 Encrypted address
     # Staff
     nip: Optional[str] = None
     unit_kerja: Optional[str] = None

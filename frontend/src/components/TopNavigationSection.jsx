@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { API_BASE_URL } from "../api";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -6,6 +6,34 @@ export const TopNavigationSection = ({ onBuatTiket, formOpen }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const isActive = (path) => location.pathname === path;
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    const fetchUnreadNotifications = async () => {
+      try {
+        const token = localStorage.getItem("sapa_ipb_token");
+        if (!token) return;
+
+        const res = await fetch(`${API_BASE_URL}/notifikasi/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          const unread = (data || []).filter((n) => !n.is_read).length;
+          setUnreadCount(unread);
+        }
+      } catch (error) {
+        console.error("Error fetching notifications:", error);
+      }
+    };
+
+    fetchUnreadNotifications();
+    // Poll setiap 2 detik
+    const interval = setInterval(fetchUnreadNotifications, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleLogout = async () => {
     const token = localStorage.getItem("sapa_ipb_token");
 
@@ -24,7 +52,9 @@ export const TopNavigationSection = ({ onBuatTiket, formOpen }) => {
 
     // Baru hapus token dan pindah halaman
     localStorage.removeItem("sapa_ipb_token");
-    navigate("/");
+    localStorage.removeItem("sapa_ipb_role");
+    localStorage.removeItem("nama_lengkap");
+    navigate("/login");
   };
 
   return (
@@ -73,12 +103,16 @@ export const TopNavigationSection = ({ onBuatTiket, formOpen }) => {
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate("/notifikasi")}
-          className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-yellow-200 transition-colors"
+          className="relative w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-yellow-200 transition-colors"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#130962" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
             <path d="M13.73 21a2 2 0 0 1-3.46 0" />
           </svg>
+          {unreadCount > 0 && (
+            <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold">
+            </span>
+          )}
         </button>
         <button
           onClick={handleLogout}

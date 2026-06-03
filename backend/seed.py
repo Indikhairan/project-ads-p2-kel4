@@ -1,5 +1,9 @@
 from backend.database import db_manager
 from backend import models
+from datetime import datetime, timedelta, timezone
+
+# Ganti utcnow() menjadi now(timezone.utc)
+waktu_sekarang_wib = datetime.now(timezone.utc) + timedelta(hours=7)
 
 def seed_data():
     db = db_manager.SessionLocal()

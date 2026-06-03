@@ -10,7 +10,7 @@ import { API_BASE_URL } from "../api";
 const StatusBadge = ({ status }) => {
   const currentStatus = status?.toLowerCase();
   if (currentStatus === "open") {
-    return <span className="px-3 py-1 bg-blue-50 border border-blue-400 text-blue-500 font-semibold text-xs rounded flex items-center gap-1">📬 OPEN</span>;
+    return <span className="px-3 py-1 bg-blue-50 border border-blue-400 text-blue-500 font-semibold text-xs rounded flex items-center gap-1">📋 OPEN</span>;
   }
   if (currentStatus === "diproses" || currentStatus === "processing") {
     return <span className="px-3 py-1 bg-orange-50 border border-orange-400 text-orange-500 font-semibold text-xs rounded flex items-center gap-1">⏱ DIPROSES</span>;
@@ -69,6 +69,9 @@ export const DetailTiketPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [verifyStatus, setVerifyStatus] = useState("idle"); 
+  const [ticketLogs, setTicketLogs] = useState([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [logError, setLogError] = useState("");
 
   useEffect(() => {
     const fetchTicketFromDB = async () => {
@@ -159,6 +162,41 @@ export const DetailTiketPage = () => {
   };
 
   // Fungsi Verifikasi TTD Digital langsung ke Backend
+  useEffect(() => {
+    const fetchTicketLogs = async () => {
+      if (!id) return;
+      setIsLoadingLogs(true);
+      setLogError("");
+
+      try {
+        const token = localStorage.getItem("sapa_ipb_token");
+        if (!token) {
+          throw new Error("Silakan login terlebih dahulu untuk melihat log aktivitas.");
+        }
+
+        const res = await fetch(`${API_BASE_URL}/api/v1/tiket/${encodeURIComponent(id)}/logs`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || "Gagal memuat log aktivitas.");
+        }
+
+        setTicketLogs(data);
+      } catch (e) {
+        console.error("Error fetching ticket logs:", e);
+        setLogError(e.message || "Gagal memuat log aktivitas.");
+      } finally {
+        setIsLoadingLogs(false);
+      }
+    };
+
+    fetchTicketLogs();
+  }, [id]);
+
   const handleVerifikasi = async () => {
     if (!ticket) return;
     setVerifyStatus("loading");
@@ -167,7 +205,7 @@ export const DetailTiketPage = () => {
       const token = localStorage.getItem("sapa_ipb_token");
       const cleanId = String(id).replace('#', ''); 
       
-      const res = await fetch(`${API_BASE_URL}/api/v1/tiket/${cleanId}/verifikasi`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/tiket/${encodeURIComponent(cleanId)}/verifikasi`, {
         method: "GET",
         headers: { 
           "Authorization": `Bearer ${token}` 
@@ -236,7 +274,7 @@ export const DetailTiketPage = () => {
               <div className="rounded-lg overflow-hidden border border-gray-200">
                 <SectionHeader icon="📋" title="INFORMASI PENGAJUAN" />
                 <div className="p-5">
-                  <InfoRow label="Kategori" value={ticket.kategori || ticket.id_layanan || "-"} />
+                  <InfoRow label="Kategori" value={ticket.kategori || "-"} />
                   <InfoRow label="Pengaju" value={ticket.email_mahasiswa || "-"} />
                   <InfoRow label="Tanggal" value={ticket.waktu_submit ? new Date(ticket.waktu_submit).toLocaleString("id-ID") : "-"} />
                   <InfoRow label="Keterangan" value={ticket.subjek || ticket.deskripsi || "-"} />
@@ -306,19 +344,28 @@ export const DetailTiketPage = () => {
               <div className="rounded-lg overflow-hidden border border-gray-200">
                 <SectionHeader icon="🕐" title="LOG AKTIVITAS" />
                 <div className="p-5">
-                  {!ticket.log || ticket.log.length === 0 ? (
+                  {isLoadingLogs ? (
+                    <p className="text-gray-500 italic text-sm text-center py-6">Memuat log aktivitas...</p>
+                  ) : logError ? (
+                    <p className="text-red-500 italic text-sm text-center py-6">{logError}</p>
+                  ) : ticketLogs.length === 0 ? (
                     <p className="text-gray-400 italic text-sm text-center py-6">Tidak ada log aktivitas.</p>
                   ) : (
                     <div className="flex flex-col">
-                      {ticket.log.map((item, idx) => (
+                      {ticketLogs.map((item, idx) => (
                         <div key={idx} className="flex gap-3">
                           <div className="flex flex-col items-center">
-                            <div className={`w-3 h-3 rounded-full ${item.color || 'bg-blue-500'} shrink-0 mt-0.5`} />
-                            {idx < ticket.log.length - 1 && <div className="w-px flex-1 bg-gray-200 my-1" />}
+                            <div className="w-3 h-3 rounded-full bg-blue-500 shrink-0 mt-0.5" />
+                            {idx < ticketLogs.length - 1 && <div className="w-px flex-1 bg-gray-200 my-1" />}
                           </div>
-                          <div className="flex gap-2 pb-4">
-                            <span className="text-xs text-gray-400 shrink-0 w-36">{item.time}</span>
-                            <span className="text-xs text-[#130962] font-medium">{item.text}</span>
+                          <div className="flex flex-col flex-1 pb-4">
+                            <div className="flex flex-col gap-1 sm:gap-0 sm:flex-row sm:items-center sm:justify-between w-full">
+                              <div className="flex gap-2 items-center flex-1 min-w-0">
+                                <span className="text-xs text-gray-400 shrink-0 w-36">{item.time}</span>
+                                <span className="text-xs text-[#130962] font-medium truncate">{item.activity}</span>
+                              </div>
+                              <span className="text-[11px] text-gray-500 whitespace-nowrap">{item.email} · {item.role} · {item.status}</span>
+                            </div>
                           </div>
                         </div>
                       ))}

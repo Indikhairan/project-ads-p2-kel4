@@ -6,31 +6,33 @@ import infografisPanduan from "../assets/infografis-panduan.png";
 // --- HELPER COMPONENTS & FUNCTIONS ---
 
 // 1. Komponen Badge Status Tiket
-    const StatusBadge = ({ status }) => {
-      if (status === "open")
-        return (
-          <div className="px-3 py-1 bg-blue-50 border border-blue-400 text-blue-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
-            📬 OPEN
-          </div>
-        );
-      if (status === "processing")
-        return (
-          <div className="px-3 py-1 bg-orange-50 border border-orange-400 text-orange-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
-            ⏱ SEDANG DIPROSES
-          </div>
-        );
-      if (status === "completed")
-        return (
-          <div className="px-3 py-1 bg-green-50 border border-green-500 text-green-600 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
-            ✓ SELESAI
-          </div>
-        );
-      return (
-        <div className="px-3 py-1 bg-red-50 border border-red-500 text-red-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
-          ⊘ DITOLAK
-        </div>
-      );
-    };
+const StatusBadge = ({ status }) => {
+  const normStatus = (status || "").toLowerCase();
+  
+  if (normStatus === "open")
+    return (
+      <div className="px-3 py-1 bg-blue-50 border border-blue-400 text-blue-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
+        📋 OPEN
+      </div>
+    );
+  if (normStatus === "processing" || normStatus === "diproses")
+    return (
+      <div className="px-3 py-1 bg-orange-50 border border-orange-400 text-orange-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
+        ⏱ DIPROSES
+      </div>
+    );
+  if (normStatus === "completed" || normStatus === "selesai")
+    return (
+      <div className="px-3 py-1 bg-green-50 border border-green-500 text-green-600 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
+        ✓ SELESAI
+      </div>
+    );
+  return (
+    <div className="px-3 py-1 bg-red-50 border border-red-500 text-red-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
+      ⊘ DITOLAK
+    </div>
+  );
+};
 
 // 2. Fungsi Format Waktu (Contoh: 2026-05-30 ... menjadi "30 Mei 2026, 14.36 WIB")
 const formatWaktu = (stringWaktu) => {
@@ -87,9 +89,13 @@ export const AcademicServicesDashboardSection = () => {
 
   // --- LOGIKA KALKULASI RINGKASAN TIKET ---
   const total = tickets.length;
+  const baru = tickets.filter(t => {
+    const s = (t.status || "").toLowerCase();
+    return s === "open";
+  }).length;
   const diproses = tickets.filter(t => {
     const s = (t.status || "").toLowerCase();
-    return s === "diproses" || s === "open" || s === "processing";
+    return s === "diproses" || s === "processing";
   }).length;
   const selesai = tickets.filter(t => {
     const s = (t.status || "").toLowerCase();
@@ -179,7 +185,7 @@ export const AcademicServicesDashboardSection = () => {
                   <span className="text-base">📝</span>
                   <div>
                     <div className="font-medium text-[#130962] text-sm">
-                      {ticket.judul || ticket.title || ticket.id_layanan || "Tiket Layanan"}
+                      {ticket.judul || ticket.title || ticket.id_tiket || "Tiket Layanan"}
                     </div>
                     <div className="italic text-gray-400 text-[11px]">
                       {formatWaktu(ticket.waktu_submit || ticket.waktu || ticket.date)}

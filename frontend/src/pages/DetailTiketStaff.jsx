@@ -3,11 +3,26 @@ import { useNavigate, useParams } from "react-router-dom";
 import { TopNavigationStaff } from "../components/TopNavigationStaff";
 import { API_BASE_URL } from "../api";
 
+// Komponen Badge Status Dinamis sesuai respons Database
+const StatusBadge = ({ status }) => {
+  const currentStatus = status?.toLowerCase();
+  if (currentStatus === "open") {
+    return <span className="px-3 py-1 bg-blue-50 border border-blue-400 text-blue-500 font-semibold text-xs rounded flex items-center gap-1">📋 OPEN</span>;
+  }
+  if (currentStatus === "diproses" || currentStatus === "processing") {
+    return <span className="px-3 py-1 bg-orange-50 border border-orange-400 text-orange-500 font-semibold text-xs rounded flex items-center gap-1">⏱ DIPROSES</span>;
+  }
+  if (currentStatus === "selesai" || currentStatus === "completed") {
+    return <span className="px-3 py-1 bg-green-50 border border-green-500 text-green-600 font-semibold text-xs rounded flex items-center gap-1">✓ SELESAI</span>;
+  }
+  return <span className="px-3 py-1 bg-red-50 border border-red-500 text-red-500 font-semibold text-xs rounded flex items-center gap-1">⊘ DITOLAK</span>;
+};
+
 const STATUS_OPTIONS = [
-  { value: "open", label: "OPEN" },
-  { value: "processing", label: "DIPROSES" },
-  { value: "completed", label: "SELESAI" },
-  { value: "rejected", label: "DITOLAK" },
+  { value: "OPEN", label: "OPEN" },
+  { value: "DIPROSES", label: "DIPROSES" },
+  { value: "SELESAI", label: "SELESAI" },
+  { value: "DITOLAK", label: "DITOLAK" },
 ];
 
 // Lock scroll background saat modal terbuka
@@ -97,7 +112,6 @@ const ModalProfilMahasiswa = ({ mahasiswa, onClose }) => {
               { label: "Program Studi", value: mahasiswa.prodi },
               { label: "Fakultas", value: mahasiswa.fakultas },
               { label: "Angkatan", value: mahasiswa.angkatan },
-              { label: "Semester", value: mahasiswa.semester },
               { label: "Status Akademik", value: mahasiswa.statusAkademik, green: true },
               { label: "IPK", value: mahasiswa.ipk },
             ].map(({ label, value, green }) => (
@@ -167,7 +181,7 @@ const ModalPreviewSurat = ({ mahasiswa, onClose }) => {
             ))}
           </div>
           <p className="mb-4 text-justify">
-            Terdaftar sebagai mahasiswa aktif Program Pendidikan Sarjana (S-1) pada Program Studi {mahasiswa.prodi}, {mahasiswa.fakultas}, Institut Pertanian Bogor semester gasal tahun akademik {today.getFullYear()}/{today.getFullYear() + 1}.
+            Terdaftar sebagai mahasiswa aktif Program Pendidikan Sarjana (S-1) pada Program Studi {mahasiswa.prodi}, {mahasiswa.fakultas}, Institut Pertanian Bogor tahun akademik {today.getFullYear()}/{today.getFullYear() + 1}.
           </p>
           <p className="mb-10 text-justify">
             Demikian Surat Keterangan ini dibuat untuk digunakan sebagaimana mestinya.
@@ -231,7 +245,7 @@ export const DetailTiketStaff = () => {
 
   // State Manajemen Utama
   const [ticket, setTicket] = useState(null);
-  const [status, setStatus] = useState("Open");
+  const [status, setStatus] = useState("OPEN");
   const [pesan, setPesan] = useState("");
   const [uploadedFile, setUploadedFile] = useState(null);
   const [showProfil, setShowProfil] = useState(false);
@@ -243,6 +257,9 @@ export const DetailTiketStaff = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState("");
+  const [ticketLogs, setTicketLogs] = useState([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [logError, setLogError] = useState("");
 
   // State Keamanan & Form
   const [errorSubmit, setErrorSubmit] = useState("");
@@ -324,7 +341,7 @@ export const DetailTiketStaff = () => {
 
         const data = await response.json();
         setTicket(data);
-        setStatus(data.status || "Open");
+        setStatus(data.status || "OPEN");
       } catch (err) {
         setError(err.message || "Gagal memuat detail tiket.");
       } finally {
@@ -363,6 +380,33 @@ export const DetailTiketStaff = () => {
     };
     fetchKeyStatus();
   }, [token]);
+
+  useEffect(() => {
+    const fetchTicketLogs = async () => {
+      if (!token || !id) return;
+      setIsLoadingLogs(true);
+      setLogError("");
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/v1/tiket/${encodeURIComponent(id)}/logs`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || "Gagal memuat log aktivitas.");
+        }
+
+        setTicketLogs(data);
+      } catch (error) {
+        console.error("Gagal memuat log tiket:", error);
+        setLogError(error.message || "Gagal memuat log aktivitas.");
+      } finally {
+        setIsLoadingLogs(false);
+      }
+    };
+    fetchTicketLogs();
+  }, [id, token]);
 
   const formatDate = (value) => {
     if (!value) return "-";
@@ -418,7 +462,7 @@ export const DetailTiketStaff = () => {
 
       const data = await response.json();
       setTicket(data);
-      setStatus(data.status || "Open");
+      setStatus(data.status || "OPEN");
       setStatusMessage("Status tiket berhasil diperbarui.");
     } catch (err) {
       setErrorStatus(err.message || "Gagal memperbarui status tiket.");
@@ -512,7 +556,7 @@ export const DetailTiketStaff = () => {
       }
 
       setSubmitted(true);
-      setStatus("Selesai"); 
+      setStatus("SELESAI"); 
     } catch (error) {
       setErrorSubmit(error.message); 
     } finally {
@@ -575,7 +619,11 @@ export const DetailTiketStaff = () => {
   }
 
   const mahasiswa = ticket.data_request || {};
-  const logItems = [
+  const logItems = ticketLogs.length > 0 ? ticketLogs.map((log) => ({
+    time: log.time,
+    text: log.activity,
+    color: log.status?.toLowerCase().includes("success") ? "bg-green-500" : log.status?.toLowerCase().includes("failed") ? "bg-red-500" : "bg-blue-500",
+  })) : [
     {
       time: ticket.waktu_submit ? formatDate(ticket.waktu_submit) : "-",
       text: `Tiket dibuat oleh ${ticket.email_mahasiswa}`,
@@ -612,22 +660,7 @@ export const DetailTiketStaff = () => {
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-3">
                 <p className="text-[#130962] text-sm font-semibold">STATUS :</p>
-                <div className="relative">
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                    className={`border rounded-lg px-3 py-1.5 text-sm font-semibold appearance-none pr-7 focus:outline-none focus:border-[#130962] bg-white border-gray-300 ${statusColor}`}
-                  >
-                    {STATUS_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
-                  </span>
-                </div>
+                <StatusBadge status={status} />
               </div>
               <button
                 onClick={handleUpdateStatus}
@@ -878,12 +911,23 @@ export const DetailTiketStaff = () => {
           <div className="rounded-lg overflow-hidden border border-gray-200">
             <SectionHeader icon="🕐" title="LOG AKTIVITAS" />
             <div className="p-5 flex flex-col gap-3">
-              {logItems.map((item, idx) => (
+              {isLoadingLogs && (
+                <p className="text-gray-500 italic text-sm text-center py-6">Memuat log aktivitas...</p>
+              )}
+              {logError && !isLoadingLogs && (
+                <p className="text-red-500 italic text-sm text-center py-6">{logError}</p>
+              )}
+              {!isLoadingLogs && logItems.map((item, idx) => (
                 <div key={idx} className="flex items-start gap-3">
                   <div className={`w-2.5 h-2.5 rounded-full ${item.color} shrink-0 mt-1`} />
-                  <div>
-                    <span className="text-xs text-gray-400 mr-2">{item.time}</span>
-                    <span className="text-xs text-[#130962]">{item.text}</span>
+                  <div className="flex flex-col flex-1">
+                    <div className="flex flex-col gap-1 sm:gap-0 sm:flex-row sm:items-center sm:justify-between w-full">
+                      <div className="flex gap-2 items-center flex-1 min-w-0">
+                        <span className="text-xs text-gray-400 mr-2">{item.time}</span>
+                        <span className="text-xs text-[#130962] truncate">{item.text}</span>
+                      </div>
+                      <span className="text-[11px] text-gray-500 whitespace-nowrap">{item.email} · {item.role} · {item.status}</span>
+                    </div>
                   </div>
                 </div>
               ))}

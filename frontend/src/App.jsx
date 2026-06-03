@@ -16,8 +16,8 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Path "/" adalah halaman pertama kali web dibuka (Login) */}
         <Route path="/" element={<LoginPage />} />
+        <Route path="/login" element={<LoginPage />} />
         
         {/* Path "/dashboard" adalah halaman setelah berhasil login */}
         <Route path="/dashboard" element={<HomepageMahasiswa />} />
