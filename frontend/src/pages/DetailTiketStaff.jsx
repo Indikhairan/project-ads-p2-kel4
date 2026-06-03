@@ -3,11 +3,26 @@ import { useNavigate, useParams } from "react-router-dom";
 import { TopNavigationStaff } from "../components/TopNavigationStaff";
 import { API_BASE_URL } from "../api";
 
+// Komponen Badge Status Dinamis sesuai respons Database
+const StatusBadge = ({ status }) => {
+  const currentStatus = status?.toLowerCase();
+  if (currentStatus === "open") {
+    return <span className="px-3 py-1 bg-blue-50 border border-blue-400 text-blue-500 font-semibold text-xs rounded flex items-center gap-1">📋 OPEN</span>;
+  }
+  if (currentStatus === "diproses" || currentStatus === "processing") {
+    return <span className="px-3 py-1 bg-orange-50 border border-orange-400 text-orange-500 font-semibold text-xs rounded flex items-center gap-1">⏱ DIPROSES</span>;
+  }
+  if (currentStatus === "selesai" || currentStatus === "completed") {
+    return <span className="px-3 py-1 bg-green-50 border border-green-500 text-green-600 font-semibold text-xs rounded flex items-center gap-1">✓ SELESAI</span>;
+  }
+  return <span className="px-3 py-1 bg-red-50 border border-red-500 text-red-500 font-semibold text-xs rounded flex items-center gap-1">⊘ DITOLAK</span>;
+};
+
 const STATUS_OPTIONS = [
-  { value: "Open", label: "OPEN" },
-  { value: "Diproses", label: "DIPROSES" },
-  { value: "Selesai", label: "SELESAI" },
-  { value: "Ditolak", label: "DITOLAK" },
+  { value: "OPEN", label: "OPEN" },
+  { value: "DIPROSES", label: "DIPROSES" },
+  { value: "SELESAI", label: "SELESAI" },
+  { value: "DITOLAK", label: "DITOLAK" },
 ];
 
 // Lock scroll background saat modal terbuka
@@ -230,7 +245,7 @@ export const DetailTiketStaff = () => {
 
   // State Manajemen Utama
   const [ticket, setTicket] = useState(null);
-  const [status, setStatus] = useState("Open");
+  const [status, setStatus] = useState("OPEN");
   const [pesan, setPesan] = useState("");
   const [uploadedFile, setUploadedFile] = useState(null);
   const [showProfil, setShowProfil] = useState(false);
@@ -326,7 +341,7 @@ export const DetailTiketStaff = () => {
 
         const data = await response.json();
         setTicket(data);
-        setStatus(data.status || "Open");
+        setStatus(data.status || "OPEN");
       } catch (err) {
         setError(err.message || "Gagal memuat detail tiket.");
       } finally {
@@ -447,7 +462,7 @@ export const DetailTiketStaff = () => {
 
       const data = await response.json();
       setTicket(data);
-      setStatus(data.status || "Open");
+      setStatus(data.status || "OPEN");
       setStatusMessage("Status tiket berhasil diperbarui.");
     } catch (err) {
       setErrorStatus(err.message || "Gagal memperbarui status tiket.");
@@ -541,7 +556,7 @@ export const DetailTiketStaff = () => {
       }
 
       setSubmitted(true);
-      setStatus("Selesai"); 
+      setStatus("SELESAI"); 
     } catch (error) {
       setErrorSubmit(error.message); 
     } finally {
@@ -645,22 +660,7 @@ export const DetailTiketStaff = () => {
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-3">
                 <p className="text-[#130962] text-sm font-semibold">STATUS :</p>
-                <div className="relative">
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                    className={`border rounded-lg px-3 py-1.5 text-sm font-semibold appearance-none pr-7 focus:outline-none focus:border-[#130962] bg-white border-gray-300 ${statusColor}`}
-                  >
-                    {STATUS_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
-                  </span>
-                </div>
+                <StatusBadge status={status} />
               </div>
               <button
                 onClick={handleUpdateStatus}
