@@ -172,5 +172,5 @@ http://localhost:5173
 Analisis dan Desain Sistem (ADS)
 
 Departemen Ilmu Komputer  
-Fakultas Matematika dan Ilmu Pengetahuan Alam  
+Sekolah Sains Data, Matematika, dan Informatika  
 IPB University
