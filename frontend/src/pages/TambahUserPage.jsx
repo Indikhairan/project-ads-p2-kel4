@@ -64,7 +64,7 @@ const ModalResetKey = ({ user, onConfirm, onCancel }) => (
   <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4">
     <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full flex flex-col items-center text-center">
       <div className="w-14 h-14 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ca8a04" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffe030" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 5a4 4 0 0 1 4 4v3h1a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h1V9a4 4 0 0 1 4-4z" />
           <path d="M8 13h8" />
         </svg>
@@ -75,7 +75,7 @@ const ModalResetKey = ({ user, onConfirm, onCancel }) => (
       </p>
       <div className="flex gap-3 w-full">
         <button onClick={onCancel} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors">Batal</button>
-        <button onClick={onConfirm} className="flex-1 py-2.5 bg-yellow-500 text-white font-semibold rounded-xl text-sm hover:bg-yellow-600 transition-colors">Reset Key</button>
+        <button onClick={onConfirm} className="flex-1 py-2.5 bg-[#ffe030] text-white font-semibold rounded-xl text-sm hover:bg-yellow-600 transition-colors">Reset Key</button>
       </div>
     </div>
   </div>
