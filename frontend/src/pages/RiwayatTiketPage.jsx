@@ -39,8 +39,8 @@ export const RiwayatTiketPage = () => {
   const [tickets, setTickets] = useState([]);
   const [search, setSearch] = useState("");
   const [showSort, setShowSort] = useState(false);
-  const [sortBy, setSortBy] = useState("ID Tiket");
-  const [sortDir, setSortDir] = useState("Ascending");
+  const [sortBy, setSortBy] = useState("Tanggal");
+  const [sortDir, setSortDir] = useState("Descending");
   const [currentPage, setCurrentPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [showChatbot, setShowChatbot] = useState(false);

@@ -31,8 +31,8 @@ export const HomepageStaff = () => {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [showSort, setShowSort] = useState(false);
-  const [sortBy, setSortBy] = useState("ID Tiket");
-  const [sortDir, setSortDir] = useState("Ascending");
+  const [sortBy, setSortBy] = useState("Tanggal");
+  const [sortDir, setSortDir] = useState("Descending");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [showFilter, setShowFilter] = useState(false);
