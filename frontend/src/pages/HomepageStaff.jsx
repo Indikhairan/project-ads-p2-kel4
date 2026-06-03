@@ -126,25 +126,6 @@ export const HomepageStaff = () => {
     return new Date(`${y}-${m}-${d}`);
   };
 
-  // Filter
-  const filtered = tickets.filter((t) => {
-    const matchSearch =
-      (t.subjek || "").toLowerCase().includes(search.toLowerCase()) ||
-      (t.id_tiket || "").toLowerCase().includes(search.toLowerCase()) ||
-      (t.email_mahasiswa || "").toLowerCase().includes(search.toLowerCase());
-
-    const matchKategori =
-      filterKategori === "Semua Kategori" || (t.kategori || "").toLowerCase() === filterKategori.toLowerCase();
-
-    const tiketDate = t.waktu_submit ? new Date(t.waktu_submit) : null;
-    const dari = dariTanggal ? new Date(dariTanggal) : null;
-    const sampai = sampaiTanggal ? new Date(sampaiTanggal) : null;
-    const matchDari = dari ? tiketDate >= dari : true;
-    const matchSampai = sampai ? tiketDate <= sampai : true;
-
-    return matchSearch && matchStatus && matchKategori && matchDari && matchSampai;
-  });
-
   // Sort
   const sorted = [...filtered].sort((a, b) => {
     let valA, valB;
