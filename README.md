@@ -28,9 +28,8 @@ SAPA IPB merupakan platform layanan akademik berbasis web yang dirancang untuk m
 
 ## 👨‍💼 Staff Akademik
 * **Manajemen Antrean Tiket:** Mengakses dashboard khusus untuk melihat dan mengelola seluruh daftar tiket masuk dari mahasiswa.
-* **Pemrosesan & Pembaruan Status:** Memberikan tanggapan resmi, memproses berkas, serta mengubah status tiket hingga selesai (*Resolved/Closed*).
-* **Manajemen Basis Pengetahuan (*Knowledge Base*):** Mengelola artikel dan dokumen panduan akademik yang menjadi referensi data untuk AI Chatbot.
-* **Notifikasi Tiket Masuk:** Menerima pemberitahuan otomatis ketika ada tiket baru yang masuk ke dalam antrean.
+* **Pemrosesan & Pembaruan Status:** Memberikan tanggapan resmi, memproses berkas dengan digital signature, serta mengubah status tiket hingga selesai (*Resolved/Closed*).
+* **Manajemen *Knowledge Base*:** Mengelola artikel dan dokumen panduan akademik yang menjadi referensi data untuk AI Chatbot.
 
 ---
 
@@ -55,15 +54,16 @@ SAPA IPB merupakan platform layanan akademik berbasis web yang dirancang untuk m
 ## 🔹 Alur Staf Akademik
 1. **Masuk Dashboard:** Staf login ke sistem menggunakan akun khusus staf.
 2. **Cek Antrean:** Staf meninjau daftar dokumen tiket masuk dari mahasiswa yang statusnya masih baru (*Open*).
-3. **Validasi & Beri Respon:** Staf memeriksa kelayakan dokumen mahasiswa, memproses permohonan, dan memberikan tanggapan.
+3. **Validasi & Beri Respon:** Staf memeriksa kelayakan dokumen mahasiswa, memproses permohonan, dan memberikan tanggapan disertai digital signature.
 4. **Selesaikan Tiket:** Staf mengubah status tiket menjadi selesai (*Closed*), dan sistem otomatis memicu notifikasi selesai ke halaman mahasiswa.
 
 ---
 
-## 🔹 Alur Administrator
+## 🔹 Alur Admin
 1. **Login Admin:** Admin masuk ke sistem melalui halaman dashboard khusus administrator.
 2. **Kelola Pengguna:** Admin memantau daftar pengguna aktif, mendaftarkan staf baru, atau menonaktifkan akun jika diperlukan.
 3. **Sinkronisasi Data:** Admin memicu proses sinkronisasi berkas panduan akademik terbaru agar AI Chatbot selalu memperbarui basis pengetahuannya.
+4. **Meninjau Log Keamanan:** Admin meninjau dan memantau dashboard yang berisi log keamanan agar segera mengetahui jika ada upaya percobaan penyerangan sistem.
 
 ---
 
@@ -96,13 +96,13 @@ Frontend (React + Vite)
 - Vite
 - Tailwind CSS
 - React Router
-- Axios
 
 ## Backend
 
 - FastAPI
 - SQLAlchemy
 - Pydantic
+- Alembic
 - JWT Authentication
 
 ## Database
@@ -112,7 +112,7 @@ Frontend (React + Vite)
 ## Deployment
 
 - Vercel (Frontend)
-- Railway (Backend)
+- Railway (Backend, Database)
 
 ---
 
@@ -121,11 +121,12 @@ Frontend (React + Vite)
 ## Backend
 
 ```bash
-cd backend
 
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
 
-uvicorn main:app --reload
+python -m backend.seed
+
+uvicorn backend.main:app --reload
 ```
 
 Backend berjalan pada:
@@ -164,6 +165,13 @@ http://localhost:5173
 - User Management
 - Security Key Management
 - Dashboard Monitoring
+
+---
+
+# 🖇️ Deployment Links
+
+- Frontend: https://sapa-ipb.vercel.app/
+- Backend: https://sapa-ipb-production.up.railway.app
 
 ---
 
