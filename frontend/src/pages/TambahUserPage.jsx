@@ -75,7 +75,7 @@ const ModalResetKey = ({ user, onConfirm, onCancel }) => (
       </p>
       <div className="flex gap-3 w-full">
         <button onClick={onCancel} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors">Batal</button>
-        <button onClick={onConfirm} className="flex-1 py-2.5 bg-[#ffe030] text-white font-semibold rounded-xl text-sm hover:bg-yellow-600 transition-colors">Reset Key</button>
+        <button onClick={onConfirm} className="flex-1 py-2.5 bg-[#ffe030] text-[#130962] font-semibold rounded-xl text-sm hover:bg-yellow-600 transition-colors">Reset Key</button>
       </div>
     </div>
   </div>
