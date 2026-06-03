@@ -1,1 +1,176 @@
-# project-ads-p2-kel4
+# 🎓 SAPA IPB (Sistem Administrasi dan Pelayanan Akademik IPB)
+
+SAPA IPB merupakan platform layanan akademik berbasis web yang dirancang untuk memfasilitasi komunikasi antara mahasiswa, staf administrasi, dan administrator dalam proses pengajuan, pengelolaan, serta penyelesaian tiket layanan akademik secara terintegrasi.
+
+---
+
+## 👥 Tim Pengembang
+
+| Nama | Peran |
+|--------|--------|
+| Fadia Syakira Mustaniroh | Project Manager, Backend Developer, UI/UX Designer |
+| Muthia Khansa | Backend Developer, UI/UX Designer |
+| Indriyani Khairan Nisa | Frontend Developer, UI/UX Designer |
+
+---
+
+# 🚀 Fitur Utama
+
+## 👨‍🎓 Mahasiswa
+* **Autentikasi Akun (SSO):** Sistem login praktis dan terintegrasi menggunakan akun Google institusi (`@apps.ipb.ac.id`).
+* **Pengajuan Tiket Layanan:** Membuat tiket permohonan layanan akademik secara terstruktur berdasarkan kategori (Persuratan dan Layanan).
+* **Unggah Dokumen Pendukung:** Menyediakan fitur lampiran berkas pelengkap (seperti KTM, bukti pembayaran UKT, atau surat pengantar) saat membuat tiket (*multipart/form-data*).
+* **Pelacakan Status Real-Time:** Memantau perkembangan, posisi antrean, dan status pengerjaan tiket langsung melalui dashboard.
+* **Sistem Notifikasi:** Menerima pemberitahuan otomatis setiap kali ada pembaruan status pada tiket yang diajukan.
+* **AI Chatbot (SAPA):** Mengakses asisten virtual pintar berbasis kecerdasan buatan untuk menjawab pertanyaan umum seputar info akademik secara instan.
+
+---
+
+## 👨‍💼 Staff Akademik
+* **Manajemen Antrean Tiket:** Mengakses dashboard khusus untuk melihat dan mengelola seluruh daftar tiket masuk dari mahasiswa.
+* **Pemrosesan & Pembaruan Status:** Memberikan tanggapan resmi, memproses berkas, serta mengubah status tiket hingga selesai (*Resolved/Closed*).
+* **Manajemen Basis Pengetahuan (*Knowledge Base*):** Mengelola artikel dan dokumen panduan akademik yang menjadi referensi data untuk AI Chatbot.
+* **Notifikasi Tiket Masuk:** Menerima pemberitahuan otomatis ketika ada tiket baru yang masuk ke dalam antrean.
+
+---
+
+## 👨‍💻 Admin Sistem
+* **Manajemen Akun Pengguna:** Mengelola hak akses dan data seluruh pengguna di dalam sistem (menambah akun staf/admin baru atau menonaktifkan akun).
+* **Monitoring Aktivitas Sistem:** Memantau riwayat log aktivitas dan penggunaan sistem untuk memastikan aplikasi berjalan dengan lancar.
+* **Sinkronisasi Data Chatbot:** Mengelola dan menyinkronkan dokumen *Knowledge Base* ke pangkalan data vektor (*Vector Database*) agar Chatbot selalu memberikan jawaban yang mutakhir.
+
+---
+
+# 🔄 Alur Penggunaan Sistem
+
+## 🔹 Alur Pengguna (Mahasiswa)
+1. **Login:** Mahasiswa masuk ke aplikasi menggunakan akun Google institusi IPB.
+2. **Buat Tiket:** Mahasiswa mengisi formulir pengajuan, memilih kategori layanan, menulis deskripsi, dan mengunggah dokumen pendukung.
+3. **Masuk Antrean:** Tiket otomatis tersimpan ke database dan masuk ke dalam daftar antrean staf akademik.
+4. **Pantau Status:** Mahasiswa mendapatkan notifikasi berkala di dashboard setiap kali staf memperbarui status pengerjaan tiket.
+5. **Tiket Selesai:** Tiket dinyatakan ditutup (*Closed*) setelah staf menyelesaikan permohonan dan memberikan hasil layanan.
+
+---
+
+## 🔹 Alur Staf Akademik
+1. **Masuk Dashboard:** Staf login ke sistem menggunakan akun khusus staf.
+2. **Cek Antrean:** Staf meninjau daftar dokumen tiket masuk dari mahasiswa yang statusnya masih baru (*Open*).
+3. **Validasi & Beri Respon:** Staf memeriksa kelayakan dokumen mahasiswa, memproses permohonan, dan memberikan tanggapan.
+4. **Selesaikan Tiket:** Staf mengubah status tiket menjadi selesai (*Closed*), dan sistem otomatis memicu notifikasi selesai ke halaman mahasiswa.
+
+---
+
+## 🔹 Alur Administrator
+1. **Login Admin:** Admin masuk ke sistem melalui halaman dashboard khusus administrator.
+2. **Kelola Pengguna:** Admin memantau daftar pengguna aktif, mendaftarkan staf baru, atau menonaktifkan akun jika diperlukan.
+3. **Sinkronisasi Data:** Admin memicu proses sinkronisasi berkas panduan akademik terbaru agar AI Chatbot selalu memperbarui basis pengetahuannya.
+
+---
+
+# 🏗️ Arsitektur Sistem
+
+Aplikasi SAPA IPB dibangun menggunakan arsitektur modern berbasis pemisahan penuh (*Decoupled Architecture*):
+
+* **Frontend Layer (React.js):** Bertanggung jawab atas visualisasi antarmuka pengguna, manajemen status aplikasi di sisi klien, dan penanganan interaksi form pengajuan. Di-deploy menggunakan platform **Vercel**.
+* **Backend Layer (FastAPI):** Bertindak sebagai *core engine* penyedia RESTful API yang mengelola logika bisnis autentikasi, manajemen status tiket, sistem notifikasi, dan pengelolaan basis pengetahuan. Di-deploy menggunakan platform **Railway**.
+* **Database Layer (PostgreSQL):** Berfungsi sebagai tempat penyimpanan data relasional yang persisten untuk data pengguna, informasi tiket, dan log sistem.
+* **AI Engine Layer (RAG Chatbot):** Modul kecerdasan buatan yang terintegrasi dengan Large Language Model (LLM) dan pangkalan data vektor untuk menyajikan layanan tanya-jawab akademik otomatis berbasis dokumen panduan IPB.
+
+```
+Frontend (React + Vite)
+          │
+          ▼
+ Backend API (FastAPI)
+          │
+          ▼
+ PostgreSQL Database
+```
+
+---
+
+# 🛠️ Tech Stack
+
+## Frontend
+
+- React
+- Vite
+- Tailwind CSS
+- React Router
+- Axios
+
+## Backend
+
+- FastAPI
+- SQLAlchemy
+- Pydantic
+- JWT Authentication
+
+## Database
+
+- PostgreSQL
+
+## Deployment
+
+- Vercel (Frontend)
+- Railway (Backend)
+
+---
+
+# 🚀 Menjalankan Project Secara Lokal
+
+## Backend
+
+```bash
+cd backend
+
+pip install -r requirements.txt
+
+uvicorn main:app --reload
+```
+
+Backend berjalan pada:
+
+```text
+http://localhost:8000
+```
+
+---
+
+## Frontend
+
+```bash
+cd frontend
+
+npm install
+
+npm run dev
+```
+
+Frontend berjalan pada:
+
+```text
+http://localhost:5173
+```
+
+---
+
+# 📌 Modul Sistem
+
+- Authentication & Authorization
+- Ticket Management
+- Knowledge Base Management
+- Chatbot SAPA
+- Notification System
+- User Management
+- Security Key Management
+- Dashboard Monitoring
+
+---
+
+# 📚 Mata Kuliah
+
+Analisis dan Desain Sistem (ADS)
+
+Departemen Ilmu Komputer  
+Fakultas Matematika dan Ilmu Pengetahuan Alam  
+IPB University
