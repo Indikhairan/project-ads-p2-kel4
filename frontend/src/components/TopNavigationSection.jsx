@@ -30,7 +30,7 @@ export const TopNavigationSection = ({ onBuatTiket, formOpen }) => {
 
     fetchUnreadNotifications();
     // Poll setiap 2 detik
-    const interval = setInterval(fetchUnreadNotifications, 300);
+    const interval = setInterval(fetchUnreadNotifications, 5000);
     return () => clearInterval(interval);
   }, []);
 
