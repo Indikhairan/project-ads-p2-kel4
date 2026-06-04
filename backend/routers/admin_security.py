@@ -219,25 +219,21 @@ class AdminSecurityService:
 
 # Pastikan Depends(get_db) masuk ke parameter!
 @router.get("/security/stats")
-def get_security_stats(
-    request: Request,
-    db: Session = Depends(get_db),
-    user_data: dict = Depends(sec_helper.require_roles("admin")),
-):
+def get_security_stats(request: Request, db: Session = Depends(get_db)):
     """Statistik keamanan (Authentication & Authorization)."""
+    user_data = sec_helper.ekstrak_token(request)
+    sec_helper.cek_role(user_data, db, request, "admin")
+
     service = AdminSecurityService(db) # Masukkan db ke Service
     return service.get_security_stats()
 
 
 @router.get("/security/logs", response_model=List[AuditLogResponse])
-def get_audit_logs(
-    request: Request,
-    db: Session = Depends(get_db),
-    page: int = 1,
-    limit: int = 10,
-    user_data: dict = Depends(sec_helper.require_roles("admin")),
-):
+def get_audit_logs(request: Request, db: Session = Depends(get_db), page: int = 1, limit: int = 10):
     """Ambil audit log dari database (Accounting)."""
+    user_data = sec_helper.ekstrak_token(request)
+    sec_helper.cek_role(user_data, db, request, "admin")
+
     service = AdminSecurityService(db) # Masukkan db ke Service
     return service.get_audit_logs(page=page, limit=limit)
 
@@ -246,18 +242,20 @@ def get_audit_logs(
 def tambah_user_manual(
     payload: TambahUserPayload,
     request: Request,
-    db: Session = Depends(get_db),
-    user_data: dict = Depends(sec_helper.require_roles("admin")),
+    db: Session = Depends(get_db)
 ):
     """Daftarkan user baru secara manual oleh Admin."""
+    user_data = sec_helper.ekstrak_token(request)
+    sec_helper.cek_role(user_data, db, request, "admin")
+
     service = AdminSecurityService(db)
     hasil = service.tambah_user_manual(payload)
-
+    
     # --- TANAM LOG UNTUK PENAMBAHAN USER BARU ---
     sec_helper.log_aktivitas(
-        db=db,
-        aksi=f"Tambah user baru: {payload.email} ({payload.role})",
-        request=request,
+        db=db, 
+        aksi=f"Tambah user baru: {payload.email} ({payload.role})", 
+        request=request
     )
-
+    
     return hasil

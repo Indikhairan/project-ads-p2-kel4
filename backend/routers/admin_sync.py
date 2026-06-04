@@ -19,7 +19,11 @@ os.makedirs(DATA_DIR, exist_ok=True)
 
 # 1. GET DATA DASHBOARD
 @router.get("/")
-def lihat_data_sinkronisasi(request: Request, db: Session = Depends(get_db), user_info: dict = Depends(sec_helper.require_roles("admin"))):
+def lihat_data_sinkronisasi(request: Request, db: Session = Depends(get_db)):
+    user_info = sec_helper.ekstrak_token(request)
+    
+    # GUNAKAN SATPAM PINTAR (Otomatis catat log kalau ada pelanggaran RBAC)
+    sec_helper.cek_role(user_info, db, request, "admin")
     
     pending = db.query(models.KnowledgeBase).filter_by(status="Pending").all()
     approved = db.query(models.KnowledgeBase).filter_by(status="Approved").all()
@@ -37,9 +41,12 @@ def setujui_ingest(
     doc_id: int, 
     request: Request,
     background_tasks: BackgroundTasks, 
-    db: Session = Depends(get_db),
-    user_info: dict = Depends(sec_helper.require_roles("admin")),
+    db: Session = Depends(get_db)
 ):
+    user_info = sec_helper.ekstrak_token(request)
+    
+    # GUNAKAN SATPAM PINTAR
+    sec_helper.cek_role(user_info, db, request, "admin")
     email_admin = user_info["email"]
 
     doc = db.query(models.KnowledgeBase).filter(models.KnowledgeBase.id_kb == doc_id).first()
@@ -80,9 +87,12 @@ def setujui_ingest(
 def tolak_dokumen(
     doc_id: int, 
     request: Request, 
-    db: Session = Depends(get_db),
-    user_info: dict = Depends(sec_helper.require_roles("admin")),
+    db: Session = Depends(get_db)
 ):
+    user_info = sec_helper.ekstrak_token(request)
+    
+    # GUNAKAN SATPAM PINTAR
+    sec_helper.cek_role(user_info, db, request, "admin")
     email_admin = user_info["email"]
 
     # Cari dokumen di database
