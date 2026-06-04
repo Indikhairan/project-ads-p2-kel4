@@ -31,8 +31,8 @@ export const HomepageStaff = () => {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [showSort, setShowSort] = useState(false);
-  const [sortBy, setSortBy] = useState("Tanggal");
-  const [sortDir, setSortDir] = useState("Descending");
+  const [sortBy, setSortBy] = useState("ID Tiket");
+  const [sortDir, setSortDir] = useState("Ascending");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [showFilter, setShowFilter] = useState(false);
@@ -47,77 +47,39 @@ export const HomepageStaff = () => {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem("sapa_ipb_token");
-    if (!token) {
-      setError("Token tidak ditemukan. Silakan login kembali.");
-      setIsLoading(false);
-      return;
-    }
+    const token = localStorage.getItem("sapa_ipb_token");
+    if (!token) {
+      setError("Token tidak ditemukan. Silakan login kembali.");
+      setIsLoading(false);
+      return;
+    }
 
-    let isFirstLoad = true; // Penanda agar layar loading hanya muncul di awal
+    const fetchTickets = async () => {
+      setIsLoading(true);
+      setError("");
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/tiket/`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
-    const fetchTickets = async () => {
-      if (isFirstLoad) setIsLoading(true);
-      setError("");
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/tiket/`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText || "Gagal memuat tiket.");
+        }
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(errorText || "Gagal memuat tiket.");
-        }
+        const data = await response.json();
+        setTickets(data || []);
+      } catch (err) {
+        setError(err.message || "Gagal memuat tiket.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-        const data = await response.json();
-        setTickets(data || []);
-      } catch (err) {
-        if (isFirstLoad) setError(err.message || "Gagal memuat tiket.");
-      } finally {
-        setIsLoading(false);
-        isFirstLoad = false;
-      }
-    };
-
-    fetchTickets(); // Panggilan pertama
-
-    // ── POLLING: Auto-refresh data secara diam-diam setiap 5 detik ──
-    const intervalId = setInterval(fetchTickets, 5000);
-    return () => clearInterval(intervalId); // Bersihkan saat pindah halaman
-  }, []);
-
-
-  // ── PERBAIKAN LOGIKA FILTER ──
-  const filtered = tickets.filter((t) => {
-    const matchSearch =
-      (t.subjek || "").toLowerCase().includes(search.toLowerCase()) ||
-      (t.id_tiket || "").toLowerCase().includes(search.toLowerCase()) ||
-      (t.email_mahasiswa || "").toLowerCase().includes(search.toLowerCase());
-
-    const matchStatus =
-    filterStatus === "Semua Status" || t.status === filterStatus;
-
-    // Antisipasi jika t.kategori kosong, cek dari id_layanan
-    const kategoriTeks = t.kategori || t.id_layanan || "";
-    const matchKategori =
-      filterKategori === "Semua Kategori" || kategoriTeks.toLowerCase().includes(filterKategori.toLowerCase());
-
-    // Perbaikan logika jam pada tanggal
-    const tiketDate = t.waktu_submit ? new Date(t.waktu_submit) : null;
-    
-    const dari = dariTanggal ? new Date(dariTanggal) : null;
-    if (dari) dari.setHours(0, 0, 0, 0); // Mulai dari jam 00:00
-
-    const sampai = sampaiTanggal ? new Date(sampaiTanggal) : null;
-    if (sampai) sampai.setHours(23, 59, 59, 999); // Sampai detik terakhir hari itu
-
-    const matchDari = dari && tiketDate ? tiketDate >= dari : true;
-    const matchSampai = sampai && tiketDate ? tiketDate <= sampai : true;
-
-    return matchSearch && matchStatus && matchKategori && matchDari && matchSampai;
-  });
+    fetchTickets();
+  }, []);
 
   // Parse tanggal dd/mm/yyyy ke Date
   const parseDate = (str) => {
@@ -125,6 +87,31 @@ export const HomepageStaff = () => {
     const [d, m, y] = str.split("/");
     return new Date(`${y}-${m}-${d}`);
   };
+
+  // Filter
+  const filtered = tickets.filter((t) => {
+    const matchSearch =
+      (t.subjek || "").toLowerCase().includes(search.toLowerCase()) ||
+      (t.id_tiket || "").toLowerCase().includes(search.toLowerCase()) ||
+      (t.email_mahasiswa || "").toLowerCase().includes(search.toLowerCase());
+
+    const matchStatus =
+      filterStatus === "Semua Status" ||
+      (filterStatus === "Diproses" && ["Open", "Diproses"].includes(t.status)) ||
+      (filterStatus === "Selesai" && t.status === "Selesai") ||
+      (filterStatus === "Ditolak" && t.status === "Ditolak");
+
+    const matchKategori =
+      filterKategori === "Semua Kategori" || (t.kategori || "").toLowerCase() === filterKategori.toLowerCase();
+
+    const tiketDate = t.waktu_submit ? new Date(t.waktu_submit) : null;
+    const dari = dariTanggal ? new Date(dariTanggal) : null;
+    const sampai = sampaiTanggal ? new Date(sampaiTanggal) : null;
+    const matchDari = dari ? tiketDate >= dari : true;
+    const matchSampai = sampai ? tiketDate <= sampai : true;
+
+    return matchSearch && matchStatus && matchKategori && matchDari && matchSampai;
+  });
 
   // Sort
   const sorted = [...filtered].sort((a, b) => {
@@ -231,7 +218,7 @@ export const HomepageStaff = () => {
                     onChange={(e) => { setFilterStatus(e.target.value); resetPage(); }}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm appearance-none focus:outline-none focus:border-[#130962] bg-white text-[#130962]"
                   >
-                    {["Semua Status", "Open", "Diproses", "Selesai", "Ditolak"].map((s) => (
+                    {["Semua Status", "Diproses", "Selesai", "Ditolak"].map((s) => (
                       <option key={s}>{s}</option>
                     ))}
                   </select>

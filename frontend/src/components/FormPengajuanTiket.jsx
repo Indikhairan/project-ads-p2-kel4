@@ -44,9 +44,7 @@ const SuccessModal = ({ onClose }) => (
         </svg>
       </div>
       <h3 className="font-bold text-[#130962] text-xl mb-2">Tiket Berhasil Diajukan!</h3>
-      <p className="text-gray-400 text-sm mb-6">
-    Tiket Anda telah berhasil dikirim dengan status <span className="font-semibold text-blue-500">OPEN</span>. Staff akademik akan segera memproses permohonan Anda.
-  </p>
+      <p className="text-gray-400 text-sm mb-6">Tiket Anda telah berhasil dikirim. Kami akan segera memproses permohonan Anda.</p>
       <button onClick={onClose} className="w-full py-2.5 bg-[#130962] text-white font-semibold rounded-xl hover:bg-[#1a237e] transition-colors text-sm">
         Kembali ke Beranda
       </button>

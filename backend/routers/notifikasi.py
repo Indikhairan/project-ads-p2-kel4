@@ -68,13 +68,12 @@ class NotifikasiService:
     def _get_user_notifikasi_query(self, email: str, role: str):
         """Instance Method (Abstraction): Mengisolasi logic filtering query berdasarkan role."""
         if role == "mahasiswa":
-            # Gunakan relational query JOIN untuk lebih robust
-            return self.db.query(models.Notifikasi).join(
-                models.TiketLayanan,
-                models.Notifikasi.id_tiket == models.TiketLayanan.id_tiket
-            ).filter(
-                models.TiketLayanan.email_mahasiswa == email
-            )
+            tiket_ids = [
+                t.id_tiket for t in self.db.query(models.TiketLayanan.id_tiket).filter(
+                    models.TiketLayanan.email_mahasiswa == email
+                ).all()
+            ]
+            return self.db.query(models.Notifikasi).filter(models.Notifikasi.id_tiket.in_(tiket_ids))
         
         elif role in ["staff", "admin"]:
             return self.db.query(models.Notifikasi).filter(models.Notifikasi.id_kb.isnot(None))
@@ -88,7 +87,6 @@ class NotifikasiService:
             return []
         
         notifikasi = query.order_by(models.Notifikasi.waktu.desc()).all()
-        print(f"[NOTIF QUERY DEBUG] email={email}, role={role}, total_notifikasi={len(notifikasi)}")
         return [self._enrich(n) for n in notifikasi]
 
     def dapatkan_jumlah_unread(self, email: str, role: str) -> int:

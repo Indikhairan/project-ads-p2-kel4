@@ -18,10 +18,10 @@ const StatusBadge = ({ status }) => {
   if (status === "Diproses")
     return (
       <div className="px-3 py-1 bg-orange-50 border border-orange-400 text-orange-500 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
-        ⏱ SEDANG DIPROSES
+        ⏱ DIPROSES
       </div>
     );
-  if (status === "completed")
+  if (status === "Selesai")
     return (
       <div className="px-3 py-1 bg-green-50 border border-green-500 text-green-600 font-semibold text-[11px] rounded flex items-center gap-1 whitespace-nowrap">
         ✓ SELESAI
@@ -39,8 +39,8 @@ export const RiwayatTiketPage = () => {
   const [tickets, setTickets] = useState([]);
   const [search, setSearch] = useState("");
   const [showSort, setShowSort] = useState(false);
-  const [sortBy, setSortBy] = useState("Tanggal");
-  const [sortDir, setSortDir] = useState("Descending");
+  const [sortBy, setSortBy] = useState("ID Tiket");
+  const [sortDir, setSortDir] = useState("Ascending");
   const [currentPage, setCurrentPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [showChatbot, setShowChatbot] = useState(false);
