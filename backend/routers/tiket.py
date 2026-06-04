@@ -369,13 +369,19 @@ class TiketService:
         )
 
         # 🔔 Buat notifikasi otomatis untuk mahasiswa
-        pesan_notif = f"Tiket Anda telah ditanggapi oleh staff akademik."
-        NotifikasiService.buat_notifikasi_otomatis(
-            db=self.db,
-            id_tiket=id_tiket,
-            pesan=pesan_notif
-        )
-        logger.info(f"Notifikasi berhasil dikirim untuk tiket {id_tiket}")
+        try:
+            pesan_notif = f"Tiket Anda telah ditanggapi oleh staff akademik."
+            logger.info(f"[NOTIF DEBUG] Akan membuat notifikasi untuk tiket {id_tiket}")
+            NotifikasiService.buat_notifikasi_otomatis(
+                db=self.db,
+                id_tiket=id_tiket,
+                pesan=pesan_notif
+            )
+            logger.info(f"[NOTIF DEBUG] Notifikasi berhasil dibuat untuk tiket {id_tiket}")
+        except Exception as e:
+            logger.error(f"[NOTIF ERROR] Gagal membuat notifikasi untuk tiket {id_tiket}: {str(e)}", exc_info=True)
+            # Jangan crash response, notifikasi adalah feature tambahan
+            pass
 
         return {
             "status": "success",
