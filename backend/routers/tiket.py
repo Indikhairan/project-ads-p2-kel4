@@ -13,7 +13,6 @@ from pydantic import ValidationError
 from backend.database import get_db
 from backend import models, schemas
 from backend.security import sec_helper
-from backend.routers.notifikasi import NotifikasiService
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -368,20 +367,17 @@ class TiketService:
             ip_address=self.ip_address
         )
 
-        # 🔔 Buat notifikasi otomatis untuk mahasiswa
-        try:
-            pesan_notif = f"Tiket Anda telah ditanggapi oleh staff akademik."
-            logger.info(f"[NOTIF DEBUG] Akan membuat notifikasi untuk tiket {id_tiket}")
-            NotifikasiService.buat_notifikasi_otomatis(
-                db=self.db,
-                id_tiket=id_tiket,
-                pesan=pesan_notif
-            )
-            logger.info(f"[NOTIF DEBUG] Notifikasi berhasil dibuat untuk tiket {id_tiket}")
-        except Exception as e:
-            logger.error(f"[NOTIF ERROR] Gagal membuat notifikasi untuk tiket {id_tiket}: {str(e)}", exc_info=True)
-            # Jangan crash response, notifikasi adalah feature tambahan
-            pass
+        # 🔔 Buat notifikasi untuk mahasiswa (SAMA SEPERTI update_status_tiket)
+        notifikasi_pesan = f"Tiket Anda telah ditanggapi oleh staff akademik."
+        notifikasi_baru = models.Notifikasi(
+            id_notifikasi=str(uuid.uuid4()),
+            pesan=notifikasi_pesan,
+            id_tiket=id_tiket,
+            is_read=False
+        )
+        self.db.add(notifikasi_baru)
+        self.db.commit()
+        logger.info(f"Notifikasi berhasil dibuat untuk tiket {id_tiket}")
 
         return {
             "status": "success",
