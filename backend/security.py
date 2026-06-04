@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from fastapi import HTTPException, status, Request
 from sqlalchemy.orm import Session
+from fastapi import Depends
+from backend.database import get_db
 from sqlalchemy.types import TypeDecorator, String as SAString
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
@@ -119,6 +121,41 @@ class SecurityService:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Akses ditolak. Fitur ini hanya untuk {', '.join(roles_diizinkan)}."
             )
+
+    def require_roles(self, *roles_diizinkan):
+        """
+        Menghasilkan dependency FastAPI yang memverifikasi token dan role.
+        Gunakan di route signature seperti: `user = Depends(sec_helper.require_roles('admin'))`.
+        Ketika role tidak cocok, dependency ini akan menulis audit log dan melempar 403.
+        """
+        def _dependency(request: Request, db: Session = Depends(get_db)) -> dict:
+            # Verifikasi token dan ambil user data
+            user_data = self.ekstrak_token(request)
+
+            role_user = user_data.get("role", "Guest")
+            if role_user not in roles_diizinkan:
+                url_target = request.url.path
+                # Catat pelanggaran RBAC
+                try:
+                    self.log_aktivitas(
+                        db=db,
+                        aksi=f"Akses terlarang ke {url_target} (Butuh: {', '.join(roles_diizinkan)})",
+                        request=request,
+                        email=user_data.get("email"),
+                        role=user_data.get("role"),
+                        status_log="Failed (RBAC - Forbidden)"
+                    )
+                except Exception:
+                    pass
+
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Akses ditolak. Fitur ini hanya untuk {', '.join(roles_diizinkan)}."
+                )
+
+            return user_data
+
+        return _dependency
 
     def cek_kepemilikan_tiket(self, user_email: str, ticket_owner_email: str, user_role: str):
         """

@@ -53,11 +53,7 @@ class UserUpdate(BaseModel):
     fakultas: Optional[str] = None
 
 @router.get("/")
-def lihat_semua_pengguna(request: Request, db: Session = Depends(get_db)):
-    # SATPAM PINTAR: Validasi Token & Peran Admin
-    user_info = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_info, db, request, "admin")
-    
+def lihat_semua_pengguna(request: Request, db: Session = Depends(get_db), user_info: dict = Depends(sec_helper.require_roles("admin"))):
     pengguna = db.query(models.User).all()
     
     hasil = [
@@ -73,9 +69,7 @@ def lihat_semua_pengguna(request: Request, db: Session = Depends(get_db)):
     return {"status": "success", "data": hasil}
 
 @router.post("/", status_code=201)
-def tambah_pengguna(data: UserCreate, request: Request, db: Session = Depends(get_db)):
-    user_info = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_info, db, request, "admin")
+def tambah_pengguna(data: UserCreate, request: Request, db: Session = Depends(get_db), user_info: dict = Depends(sec_helper.require_roles("admin"))):
 
     if db.query(models.User).filter(models.User.email == data.email).first():
         raise HTTPException(status_code=400, detail="Email sudah terdaftar!")
@@ -115,9 +109,7 @@ def tambah_pengguna(data: UserCreate, request: Request, db: Session = Depends(ge
     return {"status": "success", "message": f"Pengguna {data.nama_lengkap} ({role_user}) berhasil ditambahkan."}
 
 @router.put("/{email}")
-def edit_pengguna(email: str, data: UserUpdate, request: Request, db: Session = Depends(get_db)):
-    user_info = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_info, db, request, "admin")
+def edit_pengguna(email: str, data: UserUpdate, request: Request, db: Session = Depends(get_db), user_info: dict = Depends(sec_helper.require_roles("admin"))):
 
     # Cari user di base table
     user = db.query(models.User).filter(models.User.email == email).first()
@@ -168,9 +160,7 @@ def edit_pengguna(email: str, data: UserUpdate, request: Request, db: Session = 
     return {"status": "success", "message": f"Data pengguna {email} berhasil diperbarui."}
 
 @router.delete("/{email}")
-def nonaktifkan_pengguna(email: str, request: Request, db: Session = Depends(get_db)):
-    user_info = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_info, db, request, "admin")
+def nonaktifkan_pengguna(email: str, request: Request, db: Session = Depends(get_db), user_info: dict = Depends(sec_helper.require_roles("admin"))):
 
     user = db.query(models.User).filter(models.User.email == email).first()
     if not user:
@@ -193,10 +183,7 @@ def nonaktifkan_pengguna(email: str, request: Request, db: Session = Depends(get
     return {"status": "success", "message": f"Pengguna {email} berhasil dinonaktifkan dari sistem."}
 
 @router.post("/{email}/reset-kunci")
-def reset_kunci_staff(email: str, request: Request, db: Session = Depends(get_db)):
-    # 1. SATPAM PINTAR: Validasi Peran Admin
-    user_info = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_info, db, request, "admin")
+def reset_kunci_staff(email: str, request: Request, db: Session = Depends(get_db), user_info: dict = Depends(sec_helper.require_roles("admin"))):
 
     # 2. Cari user di database
     user = db.query(models.User).filter(models.User.email == email).first()
