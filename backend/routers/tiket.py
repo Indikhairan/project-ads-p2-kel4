@@ -3,7 +3,6 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
 import json
 import hashlib
 import uuid
@@ -14,6 +13,7 @@ from pydantic import ValidationError
 from backend.database import get_db
 from backend import models, schemas
 from backend.security import sec_helper
+from backend.routers.notifikasi import NotifikasiService
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -72,7 +72,7 @@ async def _simpan_file(upload_file: UploadFile, subfolder: str = "") -> str:
 
 class TiketService:
     VALID_STATUSES = {"Open", "Diproses", "Selesai", "Ditolak"}
-    VALID_KATEGORIS = {"Informasi", "Persuratan"}
+    VALID_KATEGORIS = {"Layanan", "Persuratan"}
 
     def __init__(self, db: Session, user_data: dict, ip_address: str):
         self.db = db
@@ -108,6 +108,8 @@ class TiketService:
             mahasiswa.departemen = payload.departemen
         if not mahasiswa.fakultas and payload.fakultas:
             mahasiswa.fakultas = payload.fakultas
+        if not mahasiswa.semester and payload.semester:
+            mahasiswa.semester = payload.semester
         if not mahasiswa.alamat and payload.alamat:
             mahasiswa.alamat = payload.alamat  # 🔐 Auto-encrypted by EncryptedString
 
@@ -160,32 +162,19 @@ class TiketService:
 
     def lihat_daftar_tiket(self) -> List[models.TiketLayanan]:
         role = self.user_data["role"]
-        try:
-            if role == "mahasiswa":
-                return self.db.query(models.TiketLayanan).filter(
-                    models.TiketLayanan.email_mahasiswa == self.user_data["email"]
-                ).order_by(models.TiketLayanan.waktu_submit.desc()).all()
-            if role in ["staff", "admin"]:
-                return self.db.query(models.TiketLayanan).order_by(
-                    models.TiketLayanan.waktu_submit.desc()
-                ).all()
+        if role == "mahasiswa":
+            return self.db.query(models.TiketLayanan).filter(
+                models.TiketLayanan.email_mahasiswa == self.user_data["email"]
+            ).order_by(models.TiketLayanan.waktu_submit.desc()).all()
+        if role in ["staff", "admin"]:
+            return self.db.query(models.TiketLayanan).order_by(
+                models.TiketLayanan.waktu_submit.desc()
+            ).all()
 
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Role tidak dikenali."
-            )
-        except HTTPException:
-            raise
-        except Exception as e:
-            # Log error dan rollback untuk menghindari transaction aborted state
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Error fetching tiket list: {str(e)}", exc_info=True)
-            self.db.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Error fetching tiket: {str(e)}"
-            )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Role tidak dikenali."
+        )
 
     def detail_tiket(self, id_tiket: str) -> models.TiketLayanan:
         tiket = self.db.query(models.TiketLayanan).filter(
@@ -195,28 +184,12 @@ class TiketService:
         if not tiket:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tiket tidak ditemukan.")
 
-        try:
-            # Pengecekan OBAC
-            sec_helper.cek_kepemilikan_tiket(
-                user_email=self.user_data["email"],
-                ticket_owner_email=tiket.email_mahasiswa,
-                user_role=self.user_data["role"]
-            )
-        except HTTPException as e:
-            # 1. TANGKAP ERROR: Jika masuk sini, berarti akses ditolak.
-            # 2. CATAT KE LOG: Kita masukkan ke database sebelum program berhenti.
-            log_penolakan = models.AuditLog(
-                email_aktor=self.user_data["email"],
-                role_aktor=self.user_data["role"],
-                aksi=f"Akses Ilegal Terdeteksi: Mencoba membuka tiket {id_tiket} milik {tiket.email_mahasiswa}",
-                status="Failed",
-                # waktu=get_waktu_wib() # Sesuaikan jika kamu pakai default=get_waktu_wib di models.py
-            )
-            self.db.add(log_penolakan)
-            self.db.commit()
-            
-            # 3. LEMPAR KEMBALI ERROR-NYA: Agar frontend tetap menampilkan "Akses Ditolak"
-            raise e
+        # Pengecekan OBAC tanpa try-except, karena jika error akan dilempar ke router
+        sec_helper.cek_kepemilikan_tiket(
+            user_email=self.user_data["email"],
+            ticket_owner_email=tiket.email_mahasiswa,
+            user_role=self.user_data["role"]
+        )
             # Bangun response serializable secara eksplisit sebelum DB session ditutup
         tanggapan_obj = None
         if getattr(tiket, 'tanggapan', None):
@@ -232,58 +205,25 @@ class TiketService:
                 "waktu": t.waktu,
             }
 
-        hasil = {
-            "id_tiket": tiket.id_tiket,
-            "id": tiket.id_tiket,
-            "id_layanan": tiket.id_layanan,
-            "kategori": tiket.kategori,
-            "subjek": tiket.subjek,
-            "deskripsi": tiket.deskripsi,
-            "data_request": tiket.data_request,
-            "file_lampiran": tiket.file_lampiran,
-            "email_mahasiswa": tiket.email_mahasiswa,
-            "nim_pengaju": tiket.nim_pengaju,
-            "program_studi_pengaju": tiket.program_studi_pengaju,
-            "status": tiket.status,
-            "waktu_submit": tiket.waktu_submit,
-            "email_staff": tiket.email_staff,
-            "tanggapan": tanggapan_obj,
-        }
+            hasil = {
+                "id_tiket": tiket.id_tiket,
+                "id": tiket.id_tiket,
+                "id_layanan": tiket.id_layanan,
+                "kategori": tiket.kategori,
+                "subjek": tiket.subjek,
+                "deskripsi": tiket.deskripsi,
+                "data_request": tiket.data_request,
+                "file_lampiran": tiket.file_lampiran,
+                "email_mahasiswa": tiket.email_mahasiswa,
+                "nim_pengaju": tiket.nim_pengaju,
+                "program_studi_pengaju": tiket.program_studi_pengaju,
+                "status": tiket.status,
+                "waktu_submit": tiket.waktu_submit,
+                "email_staff": tiket.email_staff,
+                "tanggapan": tanggapan_obj,
+            }
 
-        return hasil
-
-    def get_ticket_logs(self, id_tiket: str) -> list[dict]:
-        tiket = self.db.query(models.TiketLayanan).filter(
-            models.TiketLayanan.id_tiket == id_tiket
-        ).first()
-
-        if not tiket:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tiket tidak ditemukan.")
-
-        sec_helper.cek_kepemilikan_tiket(
-            user_email=self.user_data["email"],
-            ticket_owner_email=tiket.email_mahasiswa,
-            user_role=self.user_data["role"]
-        )
-
-        logs_db = self.db.query(models.AuditLog).filter(
-            models.AuditLog.aksi.ilike(f"%{id_tiket}%")
-        ).order_by(models.AuditLog.waktu.desc()).all()
-
-        tz_jkt = ZoneInfo("Asia/Jakarta")
-        formatted_logs = []
-        for log in logs_db:
-            waktu_wib = log.waktu.astimezone(tz_jkt)
-            formatted_logs.append({
-                "time": waktu_wib.strftime("%Y-%m-%d %H:%M"),
-                "email": log.email_aktor,
-                "role": log.role_aktor,
-                "activity": log.aksi,
-                "status": log.status,
-                "ip_address": log.ip_address or "Unknown"
-            })
-
-        return formatted_logs
+            return hasil
 
     def update_status_tiket(self, id_tiket: str, payload: schemas.TiketUpdate) -> models.TiketLayanan:
         if payload.status not in self.VALID_STATUSES:
@@ -428,6 +368,15 @@ class TiketService:
             ip_address=self.ip_address
         )
 
+        # 🔔 Buat notifikasi otomatis untuk mahasiswa
+        pesan_notif = f"Tiket Anda telah ditanggapi oleh staff akademik."
+        NotifikasiService.buat_notifikasi_otomatis(
+            db=self.db,
+            id_tiket=id_tiket,
+            pesan=pesan_notif
+        )
+        logger.info(f"Notifikasi berhasil dikirim untuk tiket {id_tiket}")
+
         return {
             "status": "success",
             "message": "Tiket berhasil ditanggapi dan diamankan dengan Cloud Digital Signature."
@@ -452,14 +401,15 @@ async def buat_tiket(
     program_studi: Optional[str] = Form(None, description="Program studi mahasiswa"),
     departemen: Optional[str] = Form(None, description="Departemen"),
     fakultas: Optional[str] = Form(None, description="Fakultas/Sekolah"),
+    semester: Optional[str] = Form(None, description="Semester aktif."),
     alamat: Optional[str] = Form(None, description="Alamat lengkap mahasiswa (🔐 encrypted)"),
     ktm_file: Optional[UploadFile] = File(None, description="File KTM"),
     ukt_file: Optional[UploadFile] = File(None, description="Bukti Pembayaran UKT"),
     lampiran_file: Optional[UploadFile] = File(None, description="File lampiran tambahan untuk persuratan"),
     file_lampiran: Optional[UploadFile] = File(None, description="File lampiran untuk kategori informasi"),
 ):
-    user_data = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_data, db, request, "mahasiswa")
+    user_data: dict = Depends(sec_helper.require_roles("mahasiswa"))
+    # FastAPI will inject `user_data` via dependency; keep `request` and `db` for other use
 
     # ── 0. Parse JSON string menjadi dict ──
     try:
@@ -518,7 +468,7 @@ async def buat_tiket(
             program_studi=program_studi,
             departemen=departemen,
             fakultas=fakultas,
-            # semester removed
+            semester=semester,
             alamat=alamat,  # 🔐 Encrypted address from form
         )
     except ValidationError as exc:
@@ -538,74 +488,40 @@ async def buat_tiket(
 
 @router.get("/", response_model=List[schemas.TiketResponse])
 def lihat_daftar_tiket(request: Request, db: Session = Depends(get_db)):
-    try:
-        user_data = sec_helper.ekstrak_token(request)
-        
-        # Mengizinkan semua role untuk melihat daftar, filter data di-handle oleh Service
-        sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
-        
-        service = TiketService(db=db, user_data=user_data, ip_address=request.client.host)
-        return service.lihat_daftar_tiket()
-    except Exception as e:
-        # Rollback transaction jika ada error untuk menghindari "transaction aborted" state
-        db.rollback()
-        raise
-
-@router.get("/{id_tiket}/logs", response_model=List[schemas.AuditLogResponse])
-def get_ticket_logs(id_tiket: str, request: Request, db: Session = Depends(get_db)):
-    user_data = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
-
+    user_data: dict = Depends(sec_helper.require_roles("mahasiswa", "staff", "admin"))
     service = TiketService(db=db, user_data=user_data, ip_address=request.client.host)
-    return service.get_ticket_logs(id_tiket)
-
+    return service.lihat_daftar_tiket()
 
 @router.get("/{id_tiket}", response_model=schemas.TiketResponse)
-def detail_tiket(id_tiket: str, request: Request, db: Session = Depends(get_db)):
-    try:
-        user_data = sec_helper.ekstrak_token(request)
-        
-        # Semua role bisa akses endpoint ini, tapi akan dihadang oleh OBAC di dalam service
-        sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
-        
-        tiket = db.query(models.TiketLayanan).filter(
-            models.TiketLayanan.id_tiket == id_tiket
-        ).first()
+def detail_tiket(id_tiket: str, request: Request, db: Session = Depends(get_db), user_data: dict = Depends(sec_helper.require_roles("mahasiswa", "staff", "admin"))):
+    
+    tiket = db.query(models.TiketLayanan).filter(
+        models.TiketLayanan.id_tiket == id_tiket
+    ).first()
 
-        if not tiket:
-            raise HTTPException(status_code=404, detail="Tiket tidak ditemukan.")
+    if not tiket:
+        raise HTTPException(status_code=404, detail="Tiket tidak ditemukan.")
 
-        # Pengecekan OBAC
-        sec_helper.cek_kepemilikan_tiket(
-            user_email=user_data["email"],
-            ticket_owner_email=tiket.email_mahasiswa,
-            user_role=user_data["role"]
-        )
-        
-        # Return raw tiket object — Pydantic akan serialize via from_attributes=True
-        return tiket
-    except HTTPException:
-        raise
-    except Exception as e:
-        # Rollback transaction jika ada error
-        db.rollback()
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.error(f"Error fetching tiket detail: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error fetching tiket: {str(e)}")
+    # Pengecekan OBAC (cek_kepemilikan_tiket sekarang menerima db/request untuk logging jika diperlukan)
+    sec_helper.cek_kepemilikan_tiket(
+        user_email=user_data["email"],
+        ticket_owner_email=tiket.email_mahasiswa,
+        user_role=user_data["role"],
+        db=db,
+        request=request,
+    )
+    
+    # Return raw tiket object — Pydantic akan serialize via from_attributes=True
+    return tiket
 
 @router.put("/{id_tiket}", response_model=schemas.TiketResponse)
 def update_status_tiket(
     id_tiket: str,
     payload: schemas.TiketUpdate,
     request: Request,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user_data: dict = Depends(sec_helper.require_roles("staff", "admin")),
 ):
-    user_data = sec_helper.ekstrak_token(request)
-    
-    # 1. SATPAM PINTAR: Validasi Role
-    sec_helper.cek_role(user_data, db, request, "staff", "admin")
-    
     service = TiketService(db=db, user_data=user_data, ip_address=request.client.host)
     hasil_tiket = service.update_status_tiket(id_tiket, payload)
     
@@ -621,14 +537,14 @@ async def tanggapi_tiket(
     pesan: str = Form(...),   
     passphrase: str = Form(...),                      
     file_lampiran: UploadFile = File(None),        
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user_data: dict = Depends(sec_helper.require_roles("staff")),
 ):
     """
     Staff menanggapi tiket dengan mengunggah dokumen dan menguncinya menggunakan Passphrase (Sistem Cloud Signature).
     """
     # 1. Ekstrak user dan validasi Role
-    user_data = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_data, db, request, "staff")
+    # `user_data` sudah di-inject dari dependency RBAC
     
     # 2. Baca isi file yang di-upload secara Asynchronous (agar server tidak hang)
     isi_lampiran = await file_lampiran.read() if file_lampiran else None
@@ -650,12 +566,11 @@ async def tanggapi_tiket(
     return hasil
 
 @router.get("/{id_tiket}/verifikasi")
-def verifikasi_dokumen(id_tiket: str, request: Request, db: Session = Depends(get_db)):
+def verifikasi_dokumen(id_tiket: str, request: Request, db: Session = Depends(get_db), user_data: dict = Depends(sec_helper.require_roles("mahasiswa", "staff", "admin"))):
     """Mahasiswa mengecek keaslian dokumen balasan dari Staff"""
     
     # Pastikan user sudah login
-    user_data = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
+    # `user_data` tersedia dari dependency; further OBAC checks will be applied as needed
 
     tiket = db.query(models.TiketLayanan).filter(models.TiketLayanan.id_tiket == id_tiket).first()
     if not tiket or not tiket.tanggapan:
