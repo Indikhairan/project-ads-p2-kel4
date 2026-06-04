@@ -19,10 +19,10 @@ const StatusBadge = ({ status }) => {
 };
 
 const STATUS_OPTIONS = [
-  { value: "OPEN", label: "OPEN" },
-  { value: "DIPROSES", label: "DIPROSES" },
-  { value: "SELESAI", label: "SELESAI" },
-  { value: "DITOLAK", label: "DITOLAK" },
+  { value: "Open", label: "OPEN" },
+  { value: "Diproses", label: "DIPROSES" },
+  { value: "Selesai", label: "SELESAI" },
+  { value: "Ditolak", label: "DITOLAK" },
 ];
 
 // Lock scroll background saat modal terbuka
@@ -111,9 +111,6 @@ const ModalProfilMahasiswa = ({ mahasiswa, onClose }) => {
             {[
               { label: "Program Studi", value: mahasiswa.prodi },
               { label: "Fakultas", value: mahasiswa.fakultas },
-              { label: "Angkatan", value: mahasiswa.angkatan },
-              { label: "Status Akademik", value: mahasiswa.statusAkademik, green: true },
-              { label: "IPK", value: mahasiswa.ipk },
             ].map(({ label, value, green }) => (
               <div key={label} className="flex gap-3 py-1.5 text-sm">
                 <span className="w-36 text-gray-500 shrink-0">{label}</span>
@@ -429,9 +426,11 @@ export const DetailTiketStaff = () => {
     return String(payload);
   };
 
-  const statusColor =
-    status === "Selesai" ? "text-green-600" :
-    status === "Ditolak" ? "text-red-500" : "text-orange-500";
+const statusColor =
+    status?.toLowerCase() === "selesai" ? "text-green-600" :
+    status?.toLowerCase() === "ditolak" ? "text-red-500" : 
+    status?.toLowerCase() === "open" ? "text-blue-500" : 
+    status?.toLowerCase() === "diproses" ? "text-orange-500" : "text-gray-500"; // default abu-abu untuk status tak dikenal
 
   const handleUpdateStatus = async () => {
     if (!ticket) return;
@@ -660,7 +659,27 @@ export const DetailTiketStaff = () => {
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-3">
                 <p className="text-[#130962] text-sm font-semibold">STATUS :</p>
-                <StatusBadge status={status} />
+                <div className="relative">
+                  <select
+                    value={status}
+                    onChange={(e) => {
+                      setStatus(e.target.value);
+                      setErrorStatus("");
+                      setStatusMessage("");
+                    }}
+                    className={`border rounded-lg pl-3 pr-8 py-1.5 text-sm font-bold appearance-none focus:outline-none focus:border-[#130962] bg-white border-gray-300 ${statusColor} transition-colors`}
+                  >
+                    {STATUS_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </span>
+                </div>
+                {/* StatusBadge kita hapus dari sini karena warnanya sudah masuk ke dalam teks Dropdown */}
               </div>
               <button
                 onClick={handleUpdateStatus}
