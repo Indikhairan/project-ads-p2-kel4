@@ -165,14 +165,14 @@ class TiketService:
                 return self.db.query(models.TiketLayanan).filter(
                     models.TiketLayanan.email_mahasiswa == self.user_data["email"]
                 ).order_by(models.TiketLayanan.waktu_submit.desc()).all()
-            if role in ["staff", "admin"]:
+            if role == "staff":
                 return self.db.query(models.TiketLayanan).order_by(
                     models.TiketLayanan.waktu_submit.desc()
                 ).all()
 
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Role tidak dikenali."
+                detail="Role tidak diizinkan untuk melihat daftar tiket."
             )
         except HTTPException:
             raise
@@ -550,8 +550,8 @@ def lihat_daftar_tiket(request: Request, db: Session = Depends(get_db)):
     try:
         user_data = sec_helper.ekstrak_token(request)
         
-        # Mengizinkan semua role untuk melihat daftar, filter data di-handle oleh Service
-        sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
+        # Mengizinkan hanya mahasiswa dan staff untuk melihat daftar
+        sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff")
         
         service = TiketService(db=db, user_data=user_data, ip_address=request.client.host)
         return service.lihat_daftar_tiket()
@@ -563,7 +563,7 @@ def lihat_daftar_tiket(request: Request, db: Session = Depends(get_db)):
 @router.get("/{id_tiket}/logs", response_model=List[schemas.AuditLogResponse])
 def get_ticket_logs(id_tiket: str, request: Request, db: Session = Depends(get_db)):
     user_data = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
+    sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff")
 
     service = TiketService(db=db, user_data=user_data, ip_address=request.client.host)
     return service.get_ticket_logs(id_tiket)
@@ -574,8 +574,8 @@ def detail_tiket(id_tiket: str, request: Request, db: Session = Depends(get_db))
     try:
         user_data = sec_helper.ekstrak_token(request)
         
-        # Semua role bisa akses endpoint ini, tapi akan dihadang oleh OBAC di dalam service
-        sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
+        # Hanya mahasiswa dan staff
+        sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff")
         
         tiket = db.query(models.TiketLayanan).filter(
             models.TiketLayanan.id_tiket == id_tiket
@@ -613,7 +613,7 @@ def update_status_tiket(
     user_data = sec_helper.ekstrak_token(request)
     
     # 1. SATPAM PINTAR: Validasi Role
-    sec_helper.cek_role(user_data, db, request, "staff", "admin")
+    sec_helper.cek_role(user_data, db, request, "staff")
     
     service = TiketService(db=db, user_data=user_data, ip_address=request.client.host)
     hasil_tiket = service.update_status_tiket(id_tiket, payload)
@@ -664,7 +664,7 @@ def verifikasi_dokumen(id_tiket: str, request: Request, db: Session = Depends(ge
     
     # Pastikan user sudah login
     user_data = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
+    sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff")
 
     tiket = db.query(models.TiketLayanan).filter(models.TiketLayanan.id_tiket == id_tiket).first()
     if not tiket or not tiket.tanggapan:
@@ -734,7 +734,7 @@ def _build_file_response(filepath: str):
 @router.get("/{id_tiket}/download-request")
 def download_request_file(id_tiket: str, request: Request, db: Session = Depends(get_db)):
     user_data = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
+    sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff")
 
     tiket = db.query(models.TiketLayanan).filter(models.TiketLayanan.id_tiket == id_tiket).first()
     if not tiket or not tiket.file_lampiran:
@@ -753,7 +753,7 @@ def download_request_file(id_tiket: str, request: Request, db: Session = Depends
 @router.get("/{id_tiket}/download-response")
 def download_response_file(id_tiket: str, request: Request, db: Session = Depends(get_db)):
     user_data = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff", "admin")
+    sec_helper.cek_role(user_data, db, request, "mahasiswa", "staff")
 
     tiket = db.query(models.TiketLayanan).filter(models.TiketLayanan.id_tiket == id_tiket).first()
     if not tiket or not getattr(tiket, 'tanggapan', None) or not tiket.tanggapan.file_output:

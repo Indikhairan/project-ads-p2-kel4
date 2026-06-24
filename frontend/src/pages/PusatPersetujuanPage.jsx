@@ -134,6 +134,7 @@ export const PusatPersetujuanPage = () => {
   const [previewItem, setPreviewItem] = useState(null);
   const [toast, setToast] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isVerifyingAccess, setIsVerifyingAccess] = useState(true);
   const [error, setError] = useState(null);
 
   const showToast = (message, type) => {
@@ -158,6 +159,7 @@ export const PusatPersetujuanPage = () => {
 
       if (response.status === 403) {
         setAccessDenied(true);
+        setIsVerifyingAccess(false);
         setIsLoading(false);
         return;
       }
@@ -174,6 +176,7 @@ export const PusatPersetujuanPage = () => {
       console.error(err);
       setError("Gagal memuat data. Periksa koneksi atau login ulang.");
     } finally {
+      setIsVerifyingAccess(false);
       setIsLoading(false);
     }
   };
@@ -229,6 +232,10 @@ export const PusatPersetujuanPage = () => {
       showToast(err.message || "Gagal tolak dokumen", "error");
     }
   };
+
+  if (isVerifyingAccess) {
+    return <main className="bg-[#f8f9fa] w-full min-h-screen flex-1"></main>;
+  }
 
   if (accessDenied) {
     return (

@@ -235,6 +235,7 @@ export const TambahUserPage = () => {
   const [resetTarget, setResetTarget] = useState(null);
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isVerifyingAccess, setIsVerifyingAccess] = useState(true);
   const [error, setError] = useState("");
 
   const showToast = (message) => {
@@ -260,6 +261,7 @@ export const TambahUserPage = () => {
     if (!token) {
       setError("Token tidak ditemukan. Silakan login ulang.");
       setLoading(false);
+      setIsVerifyingAccess(false);
       return;
     }
 
@@ -274,6 +276,7 @@ export const TambahUserPage = () => {
       }
       if (response.status === 403) {
         setAccessDenied(true);
+        setIsVerifyingAccess(false);
         setLoading(false);
         return;
       }
@@ -287,6 +290,7 @@ export const TambahUserPage = () => {
     } catch (err) {
       setError(err.message || "Terjadi kesalahan saat memuat data.");
     } finally {
+      setIsVerifyingAccess(false);
       setLoading(false);
     }
   };
@@ -437,6 +441,10 @@ export const TambahUserPage = () => {
     u.email.toLowerCase().includes(search.toLowerCase()) ||
     u.role.toLowerCase().includes(search.toLowerCase())
   );
+
+  if (isVerifyingAccess) {
+    return <main className="bg-[#f8f9fa] w-full min-h-screen flex-1"></main>;
+  }
 
   if (accessDenied) {
     return (

@@ -320,6 +320,7 @@ export const KnowledgeBasePage = () => {
   const [hapusTarget, setHapusTarget] = useState(null);
   const [toast, setToast] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isVerifyingAccess, setIsVerifyingAccess] = useState(true);
   const [error, setError] = useState(null);
 
   const showToast = (message) => {
@@ -344,6 +345,7 @@ export const KnowledgeBasePage = () => {
 
       if (response.status === 403) {
         setAccessDenied(true);
+        setIsVerifyingAccess(false);
         setIsLoading(false);
         return;
       }
@@ -356,8 +358,9 @@ export const KnowledgeBasePage = () => {
       setArticles(mapBackendKB(data));
     } catch (err) {
       console.error(err);
-      setError("Gagal memuat Knowledge Base. Periksa koneksi atau login ulang.");
+      setError("Gagal memuat data Knowledge Base. Periksa koneksi.");
     } finally {
+      setIsVerifyingAccess(false);
       setIsLoading(false);
     }
   };
@@ -424,6 +427,10 @@ export const KnowledgeBasePage = () => {
     a.judul.toLowerCase().includes(search.toLowerCase()) ||
     a.kategori.toLowerCase().includes(search.toLowerCase())
   );
+
+  if (isVerifyingAccess) {
+    return <main className="bg-[#f8f9fa] w-full min-h-screen flex-1"></main>;
+  }
 
   if (accessDenied) {
     return (

@@ -23,7 +23,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 def lihat_dokumen(request: Request, search: str = None, db: Session = Depends(get_db)):
     # SATPAM PINTAR: Validasi Token & Role
     user_info = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_info, db, request, "staff", "admin") # Beri akses ke Admin juga untuk melihat
+    sec_helper.cek_role(user_info, db, request, "staff")
     
     query = db.query(models.KnowledgeBase)
     if search:
@@ -129,7 +129,7 @@ def hapus_dokumen(id: int, request: Request, db: Session = Depends(get_db)):
 def download_dokumen(id: int, request: Request, db: Session = Depends(get_db)):
     # 1. SATPAM PINTAR: Validasi Token & Role
     user_info = sec_helper.ekstrak_token(request)
-    sec_helper.cek_role(user_info, db, request, "staff", "admin")
+    sec_helper.cek_role(user_info, db, request, "staff")
     
     # 2. Cari dokumen di database
     doc = db.query(models.KnowledgeBase).filter(models.KnowledgeBase.id_kb == id).first()
