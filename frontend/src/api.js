@@ -16,8 +16,8 @@ export const apiFetch = async (path, opts = {}) => {
         localStorage.removeItem("sapa_ipb_token");
         
         // Cek posisi URL sekarang. Ubah '/login' menjadi '/' jika login page-mu ada di root.
-        if (window.location.pathname !== "/") {
-            window.location.href = "/"; // Arahkan kembali ke beranda/halaman login utama
+        if (window.location.pathname !== "/" && window.location.pathname !== "/login") {
+            window.location.href = "/login?timeout=1"; // Arahkan kembali ke beranda/halaman login utama dengan pesan timeout
         }
         
         return Promise.reject(new Error("Session expired")); 

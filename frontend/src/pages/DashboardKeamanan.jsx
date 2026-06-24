@@ -72,7 +72,7 @@ export const DashboardKeamanan = () => {
         if (resStats.status === 401 || resLogs.status === 401) {
           clearInterval(intervalId); 
           localStorage.removeItem("sapa_ipb_token"); // Hapus token busuk
-          navigate("/login"); // Otomatis redirect ke login
+          navigate("/login?timeout=1"); // Otomatis redirect ke login dengan pesan timeout
           return;
         }
 

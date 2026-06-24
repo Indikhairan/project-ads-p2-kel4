@@ -15,7 +15,7 @@ export const HomepageMahasiswa = () => {
   React.useEffect(() => {
     const token = localStorage.getItem("sapa_ipb_token");
     if (!token) {
-      window.location.href = "/login";
+      window.location.href = "/login?timeout=1";
       return;
     }
     try {
@@ -24,7 +24,7 @@ export const HomepageMahasiswa = () => {
         setAccessDenied(true);
       }
     } catch (e) {
-      window.location.href = "/login";
+      window.location.href = "/login?timeout=1";
     } finally {
       setIsVerifyingAccess(false);
     }

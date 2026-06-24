@@ -87,7 +87,7 @@ export const HomepageStaff = () => {
 
         if (response.status === 401) {
           localStorage.removeItem("sapa_ipb_token");
-          navigate("/login");
+          navigate("/login?timeout=1");
           return;
         }
 

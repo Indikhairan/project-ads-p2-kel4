@@ -1,12 +1,24 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { GoogleLogin } from "@react-oauth/google";
 import image5 from "../assets/image-5.png";
 import { API_BASE_URL } from "../api";
 
 export const LoginPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isLoading, setIsLoading] = useState(false);
+  const [timeoutMessage, setTimeoutMessage] = useState("");
+
+  // Cek pesan timeout dari query parameter
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("timeout") === "1") {
+      setTimeoutMessage("Session Anda telah berakhir (Timeout). Silakan login kembali.");
+      // Opsional: Hapus query parameter dari URL biar ga muncul terus saat di-refresh
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [location]);
 
   // Cek apakah user sudah punya token di brankas browser.
   // Kalau ada, langsung tendang ke dashboard tanpa harus login lagi!
@@ -86,6 +98,12 @@ export const LoginPage = () => {
           alt="Logo IPB"
           className="w-[130px] h-[130px] object-contain mb-10"
         />
+
+        {timeoutMessage && (
+          <div className="w-full mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-center font-medium text-sm">
+            {timeoutMessage}
+          </div>
+        )}
 
         {/* Ganti elemen <button> buatan kita dengan komponen bawaan Google */}
         <div className="mb-5 flex justify-center w-full">
