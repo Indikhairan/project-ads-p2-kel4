@@ -120,19 +120,40 @@ class SecurityService:
                 detail=f"Akses ditolak. Fitur ini hanya untuk {', '.join(roles_diizinkan)}."
             )
 
-    def cek_kepemilikan_tiket(self, user_email: str, ticket_owner_email: str, user_role: str):
+    def cek_kepemilikan_tiket(self, user_email: str, ticket_owner_email: str, user_role: str, id_tiket: str, request: Request, db):
         """
         Staff dan admin boleh akses semua tiket.
         Mahasiswa hanya boleh akses tiket miliknya sendiri.
         """
         if user_role in ["staff", "admin"]:
+            self.log_aktivitas(
+                db=db,
+                aksi=f"Akses tiket {id_tiket} oleh {user_role}",
+                request=request,
+                status_log="Success (OBAC)"
+            )
             return True
             
         if user_email != ticket_owner_email:
+            self.log_aktivitas(
+                db=db,
+                aksi=f"Akses Ilegal: {user_email} mencoba membuka tiket {id_tiket} milik {ticket_owner_email}",
+                request=request,
+                status_log="Failed (OBAC - Unauthorized)"
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Akses ditolak! Ini bukan tiket milik Anda."
             )
+            
+        # Jika mahasiswa mengakses tiketnya sendiri
+        self.log_aktivitas(
+            db=db,
+            aksi=f"Akses tiket {id_tiket} miliknya sendiri",
+            request=request,
+            status_log="Success (OBAC)"
+        )
+        return True
 
     # Accounting
     def log_aktivitas(
