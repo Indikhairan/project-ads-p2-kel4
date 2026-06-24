@@ -62,6 +62,22 @@ export const HomepageStaff = () => {
     const fetchTickets = async () => {
       if (isFirstLoad) setIsLoading(true);
       setError("");
+      
+      // Parse token to check role
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.role !== "staff") {
+          setAccessDenied(true);
+          setIsVerifyingAccess(false);
+          setIsLoading(false);
+          return;
+        }
+      } catch (e) {
+        setError("Token tidak valid.");
+        setIsVerifyingAccess(false);
+        setIsLoading(false);
+        return;
+      }
       try {
         const response = await fetch(`${API_BASE_URL}/api/v1/tiket/`, {
           headers: {
