@@ -130,6 +130,8 @@ class SecurityService:
                 db=db,
                 aksi=f"Akses tiket {id_tiket} oleh {user_role}",
                 request=request,
+                email=user_email,
+                role=user_role,
                 status_log="Success (OBAC)"
             )
             return True
@@ -139,6 +141,8 @@ class SecurityService:
                 db=db,
                 aksi=f"Akses Ilegal: {user_email} mencoba membuka tiket {id_tiket} milik {ticket_owner_email}",
                 request=request,
+                email=user_email,
+                role=user_role,
                 status_log="Failed (OBAC - Unauthorized)"
             )
             raise HTTPException(
@@ -151,6 +155,8 @@ class SecurityService:
             db=db,
             aksi=f"Akses tiket {id_tiket} miliknya sendiri",
             request=request,
+            email=user_email,
+            role=user_role,
             status_log="Success (OBAC)"
         )
         return True

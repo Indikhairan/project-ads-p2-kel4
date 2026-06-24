@@ -170,12 +170,12 @@ class AdminSecurityService:
             status_normalized = "success" if "Success" in (log.status or "") else "failed"
             formatted_logs.append({
                 "time": waktu_wib.strftime("%H:%M"), 
-                "email": log.email_aktor,
-                "role": log.role_aktor,
-                "activity": log.aksi,
+                "email": log.email_aktor or "Unknown",
+                "role": log.role_aktor or "Unknown",
+                "activity": log.aksi or "-",
                 # Berikan kedua nama field untuk kompatibilitas: 'status' (normalized) dan 'raw_status'
                 "status": status_normalized,
-                "raw_status": log.status,
+                "raw_status": log.status or "-",
                 # Frontend sekarang juga mencari 'ip', jadi sediakan 'ip' plus legacy 'ip_address'
                 "ip": log.ip_address or "Unknown",
                 "ip_address": log.ip_address or "Unknown"
