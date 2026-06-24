@@ -33,6 +33,7 @@ export const DashboardKeamanan = () => {
   const [stats, setStats] = useState(null);
   const [logs, setLogs] = useState([]); // Data asli disimpan di sini
   const [errorMsg, setErrorMsg] = useState("");
+  const [accessDenied, setAccessDenied] = useState(false);
 
   // Pagination Table -> SEKARANG MENGGUNAKAN logs BUKAN recentActivity
   const [currentPage, setCurrentPage] = useState(1);
@@ -68,11 +69,16 @@ export const DashboardKeamanan = () => {
           })
         ]);
 
-        // CEK JIKA AKSES DITOLAK (401 atau 403)
-        if (resStats.status === 401 || resStats.status === 403 || resLogs.status === 401 || resLogs.status === 403) {
+        if (resStats.status === 401 || resLogs.status === 401) {
           clearInterval(intervalId); 
           localStorage.removeItem("sapa_ipb_token"); // Hapus token busuk
           navigate("/login"); // Otomatis redirect ke login
+          return;
+        }
+
+        if (resStats.status === 403 || resLogs.status === 403) {
+          clearInterval(intervalId);
+          setAccessDenied(true);
           return;
         }
 
@@ -132,6 +138,40 @@ export const DashboardKeamanan = () => {
       <main className="bg-[#f8f9fa] w-full min-h-screen flex flex-col items-center justify-center gap-2">
         <span className="text-4xl">🛑</span>
         <p className="text-red-500 font-bold">{errorMsg}</p>
+      </main>
+    );
+  }
+
+  if (accessDenied) {
+    return (
+      <main className="bg-[#f8f9fa] w-full min-h-screen flex flex-col">
+        <TopNavigationAdmin />
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="bg-white max-w-md w-full rounded-2xl shadow-xl border border-gray-100 p-8 text-center flex flex-col items-center">
+            <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                <path d="M12 8v4" />
+                <path d="M12 16h.01" />
+              </svg>
+            </div>
+            <h1 className="font-bold text-[#130962] text-2xl mb-3">Akses Ditolak</h1>
+            <p className="text-gray-500 text-sm mb-8 leading-relaxed">
+              Mohon maaf, Anda tidak memiliki izin (Role) untuk mengakses halaman ini. 
+              Silakan kembali ke halaman sebelumnya.
+            </p>
+            <button 
+              onClick={() => navigate(-1)}
+              className="w-full py-3.5 bg-[#130962] text-white font-bold rounded-xl hover:bg-[#1a237e] transition-colors flex items-center justify-center gap-2"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12" />
+                <polyline points="12 19 5 12 12 5" />
+              </svg>
+              Kembali
+            </button>
+          </div>
+        </div>
       </main>
     );
   }

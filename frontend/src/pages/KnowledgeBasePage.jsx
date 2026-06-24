@@ -313,6 +313,7 @@ const KBCard = ({ artikel, onHapus }) => {
 
 export const KnowledgeBasePage = () => {
   const navigate = useNavigate();
+  const [accessDenied, setAccessDenied] = useState(false);
   const [articles, setArticles] = useState([]);
   const [search, setSearch] = useState("");
   const [showTambahForm, setShowTambahForm] = useState(false);
@@ -334,6 +335,18 @@ export const KnowledgeBasePage = () => {
       const response = await fetch(`${API_BASE_URL}/api/v1/staff/knowledge-base/`, {
         headers: getAuthHeaders(),
       });
+
+      if (response.status === 401) {
+        localStorage.removeItem("sapa_ipb_token");
+        navigate("/login");
+        return;
+      }
+
+      if (response.status === 403) {
+        setAccessDenied(true);
+        setIsLoading(false);
+        return;
+      }
 
       if (!response.ok) {
         throw new Error("Gagal memuat data Knowledge Base");
@@ -411,6 +424,40 @@ export const KnowledgeBasePage = () => {
     a.judul.toLowerCase().includes(search.toLowerCase()) ||
     a.kategori.toLowerCase().includes(search.toLowerCase())
   );
+
+  if (accessDenied) {
+    return (
+      <main className="bg-[#f8f9fa] w-full min-h-screen flex flex-col">
+        <TopNavigationStaff />
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="bg-white max-w-md w-full rounded-2xl shadow-xl border border-gray-100 p-8 text-center flex flex-col items-center">
+            <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                <path d="M12 8v4" />
+                <path d="M12 16h.01" />
+              </svg>
+            </div>
+            <h1 className="font-bold text-[#130962] text-2xl mb-3">Akses Ditolak</h1>
+            <p className="text-gray-500 text-sm mb-8 leading-relaxed">
+              Mohon maaf, Anda tidak memiliki izin (Role) untuk mengakses halaman ini. 
+              Silakan kembali ke halaman sebelumnya.
+            </p>
+            <button 
+              onClick={() => navigate(-1)}
+              className="w-full py-3.5 bg-[#130962] text-white font-bold rounded-xl hover:bg-[#1a237e] transition-colors flex items-center justify-center gap-2"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12" />
+                <polyline points="12 19 5 12 12 5" />
+              </svg>
+              Kembali
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="bg-[#f8f9fa] w-full min-h-screen flex flex-col">

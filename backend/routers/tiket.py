@@ -202,6 +202,15 @@ class TiketService:
                 ticket_owner_email=tiket.email_mahasiswa,
                 user_role=self.user_data["role"]
             )
+            
+            sec_helper.log_aktivitas(
+                db=self.db,
+                aksi=f"Akses detail tiket {id_tiket} berhasil",
+                email=self.user_data["email"],
+                role=self.user_data["role"],
+                status_log="Success (OBAC)",
+                ip_address=self.ip_address
+            )
         except HTTPException as e:
             # 1. TANGKAP ERROR: Jika masuk sini, berarti akses ditolak.
             # 2. CATAT KE LOG: Kita masukkan ke database sebelum program berhenti.
@@ -209,7 +218,7 @@ class TiketService:
                 email_aktor=self.user_data["email"],
                 role_aktor=self.user_data["role"],
                 aksi=f"Akses Ilegal Terdeteksi: Mencoba membuka tiket {id_tiket} milik {tiket.email_mahasiswa}",
-                status="Failed",
+                status="Failed (OBAC)",
                 # waktu=get_waktu_wib() # Sesuaikan jika kamu pakai default=get_waktu_wib di models.py
             )
             self.db.add(log_penolakan)
