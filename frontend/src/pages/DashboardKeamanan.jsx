@@ -124,9 +124,9 @@ export const DashboardKeamanan = () => {
 
   // 2. Bar Chart (Distribusi Authorization)
   const authorizationData = dataAktif ? [
-    { name: "Authorized (All)", value: dataAktif.authorization.authorized_total },
-    { name: "Role-Based (RBAC)", value: dataAktif.authorization.rbac_count },
-    { name: "Object-Based (OBAC)", value: dataAktif.authorization.obac_count },
+    { name: "Authorized (Success)", value: dataAktif.authorization.authorized_total },
+    { name: "Blocked by RBAC", value: dataAktif.authorization.rbac_count },
+    { name: "Blocked by OBAC", value: dataAktif.authorization.obac_count },
   ] : [];
 
   // 3. Line Chart (Aktivitas Login per-Jam Hari Ini)

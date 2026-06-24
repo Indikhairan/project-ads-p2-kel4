@@ -105,8 +105,8 @@ class AdminSecurityService:
 
             # --- PERBAIKAN PENGHITUNGAN GRAFIK DI SINI ---
             authz_total_hari_ini = sum(1 for log in log_akses_hari_ini if "Success" in log.status)
-            authz_rbac_hari_ini = sum(1 for log in log_akses_hari_ini if "RBAC" in log.status)
-            authz_obac_hari_ini = sum(1 for log in log_akses_hari_ini if "OBAC" in log.status)
+            authz_rbac_hari_ini = sum(1 for log in log_akses_hari_ini if "Failed" in log.status and "RBAC" in log.status)
+            authz_obac_hari_ini = sum(1 for log in log_akses_hari_ini if "Failed" in log.status and "OBAC" in log.status)
 
         total_login_hari_ini = login_sukses_hari_ini + login_gagal_hari_ini
         persentase_sukses = round((login_sukses_hari_ini / total_login_hari_ini * 100), 1) if total_login_hari_ini > 0 else 0.0
