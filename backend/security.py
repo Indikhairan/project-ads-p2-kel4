@@ -211,6 +211,9 @@ class SecurityService:
     @staticmethod
     def buat_pasangan_kunci():
         """Menghasilkan pasangan Private Key dan Public Key RSA 2048-bit."""
+        import time
+        start_time = time.perf_counter()
+
         private_key = rsa.generate_private_key(
             public_exponent=65537,
             key_size=2048,
@@ -229,11 +232,17 @@ class SecurityService:
             format=serialization.PublicFormat.SubjectPublicKeyInfo
         )
 
+        elapsed_time = (time.perf_counter() - start_time) * 1000
+        print(f"📊 [LEVEL 3 - RSA] Generate RSA Keypair selesai dalam {elapsed_time:.2f} ms")
+
         return pem_private.decode('utf-8'), pem_public.decode('utf-8')
 
     @staticmethod
     def _get_fernet_from_passphrase(passphrase: str) -> Fernet:
         """Helper: Mengubah string Passphrase menjadi kunci gembok Fernet (AES)."""
+        import time
+        start_time = time.perf_counter()
+
         salt = b'sapa_ipb_secret_salt_2026' 
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
@@ -242,6 +251,10 @@ class SecurityService:
             iterations=100000,
         )
         key = base64.urlsafe_b64encode(kdf.derive(passphrase.encode()))
+        
+        elapsed_time = (time.perf_counter() - start_time) * 1000
+        print(f"📊 [LEVEL 3 - AES] Derivasi Kunci PBKDF2 (100k iterasi) selesai dalam {elapsed_time:.2f} ms")
+        
         return Fernet(key)
 
     def bungkus_kunci_privat(self, pem_privat: str, passphrase: str) -> str:
@@ -251,14 +264,25 @@ class SecurityService:
 
     def buka_bungkus_kunci_privat(self, kunci_terenkripsi: str, passphrase: str) -> bytes:
         """Membuka (dekripsi AES) Private Key RSA menggunakan Passphrase."""
+        import time
+        start_time = time.perf_counter()
+        
         try:
             f = self._get_fernet_from_passphrase(passphrase)
-            return f.decrypt(kunci_terenkripsi.encode())
+            hasil = f.decrypt(kunci_terenkripsi.encode())
+            
+            elapsed_time = (time.perf_counter() - start_time) * 1000
+            print(f"📊 [LEVEL 3 - AES] Buka Bungkus Kunci (Dekripsi AES) total memakan {elapsed_time:.2f} ms")
+            
+            return hasil
         except Exception:
             raise ValueError("Passphrase salah! Gagal membuka kunci.")
 
     def buat_digital_signature(self, payload: str, private_key_pem: bytes) -> str:
         """Menandatangani payload menggunakan Private Key RSA yang sudah terbuka."""
+        import time
+        start_time = time.perf_counter()
+        
         private_key = serialization.load_pem_private_key(
             private_key_pem,
             password=None,
@@ -271,11 +295,18 @@ class SecurityService:
             ),
             hashes.SHA256()
         )
+        
+        elapsed_time = (time.perf_counter() - start_time) * 1000
+        print(f"📊 [LEVEL 3 - RSA] Pembuatan Tanda Tangan Digital (Sign RSA-PSS) selesai dalam {elapsed_time:.2f} ms")
+        
         # Return dalam bentuk Base64 agar bisa disimpan ke database sebagai Text
         return base64.b64encode(signature).decode('utf-8')
     
     def verifikasi_digital_signature(self, payload: str, signature_b64: str, public_key_pem: str) -> bool:
         """Memverifikasi Tanda Tangan Digital menggunakan Public Key."""
+        import time
+        start_time = time.perf_counter()
+        
         try:
             # 1. Ubah teks PEM menjadi objek Public Key
             public_key = serialization.load_pem_public_key(public_key_pem.encode('utf-8'))
@@ -293,8 +324,14 @@ class SecurityService:
                 ),
                 hashes.SHA256()
             )
+            
+            elapsed_time = (time.perf_counter() - start_time) * 1000
+            print(f"📊 [LEVEL 3 - RSA] Verifikasi Tanda Tangan (Verify RSA-PSS) BERHASIL dalam {elapsed_time:.2f} ms")
+            
             return True # Kalau tidak ada error, berarti VALID!
         except Exception:
+            elapsed_time = (time.perf_counter() - start_time) * 1000
+            print(f"📊 [LEVEL 3 - RSA] Verifikasi Tanda Tangan (Verify RSA-PSS) GAGAL dalam {elapsed_time:.2f} ms")
             return False # Kalau gagal diverifikasi, berarti PALSU/BERUBAH!
 
 # objek sec_helper yang akan di import ke file router

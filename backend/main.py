@@ -30,6 +30,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+import time
+from fastapi import Request
+
+@app.middleware("http")
+async def measure_total_time(request: Request, call_next):
+    """Middleware Level 2: Mengukur Total Waktu Endpoint"""
+    start_time = time.perf_counter()
+    response = await call_next(request)
+    elapsed_time = (time.perf_counter() - start_time) * 1000
+    
+    # Hanya log API request, abaikan preflight OPTIONS
+    if request.method != "OPTIONS":
+        print(f"⏱️ [LEVEL 2 - ENDPOINT] {request.method} {request.url.path} selesai (TOTAL: {elapsed_time:.2f} ms)")
+        
+    return response
+
 # Menghubungkan semua router ke main app
 app.include_router(auth.router)
 app.include_router(tiket.router)
