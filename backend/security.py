@@ -36,12 +36,24 @@ class EncryptedString(TypeDecorator):
             return value
         if not isinstance(value, str):
             raise ValueError("EncryptedString hanya mendukung nilai string")
-        return self.fernet.encrypt(value.encode()).decode()
+            
+        import time
+        start_time = time.perf_counter()
+        hasil = self.fernet.encrypt(value.encode()).decode()
+        elapsed_time = (time.perf_counter() - start_time) * 1000
+        print(f"📊 [LEVEL 3 - Kriptografi (AES)] Penyimpanan Data PII Mahasiswa memakan {elapsed_time:.2f} ms")
+        return hasil
 
     def process_result_value(self, value, dialect):
         if value is None:
             return value
-        return self.fernet.decrypt(value.encode()).decode()
+            
+        import time
+        start_time = time.perf_counter()
+        hasil = self.fernet.decrypt(value.encode()).decode()
+        elapsed_time = (time.perf_counter() - start_time) * 1000
+        print(f"📊 [LEVEL 3 - Kriptografi (AES)] Pembacaan Data PII Mahasiswa memakan {elapsed_time:.2f} ms")
+        return hasil
 
 class SecurityService:
     def __init__(self):
@@ -56,23 +68,37 @@ class SecurityService:
     # Authentication
     def buat_token_akses(self, data: dict) -> str:
         """Buat JWT access token dengan expiry."""
+        import time
+        start_time = time.perf_counter()
+        
         to_encode = data.copy()
         expire = datetime.utcnow() + timedelta(minutes=self.expire_minutes)
         to_encode.update({"exp": expire})
         
         encoded_jwt = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
+        
+        elapsed_time = (time.perf_counter() - start_time) * 1000
+        print(f"📊 [LEVEL 3 - Authentication] Pembuatan JWT Token memakan {elapsed_time:.2f} ms")
         return encoded_jwt
 
     def verifikasi_token(self, token: str) -> dict:
         """Verifikasi JWT — kembalikan payload atau error."""
+        import time
+        start_time = time.perf_counter()
         try:
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
+            elapsed_time = (time.perf_counter() - start_time) * 1000
+            print(f"📊 [LEVEL 3 - Authentication] Verifikasi JWT Token memakan {elapsed_time:.2f} ms")
             return {"status": "success", "data": payload}
 
         except jwt.ExpiredSignatureError:
+            elapsed_time = (time.perf_counter() - start_time) * 1000
+            print(f"📊 [LEVEL 3 - Authentication] Verifikasi JWT Token (GAGAL - Expired) memakan {elapsed_time:.2f} ms")
             return {"status": "error", "message": "Session timeout, silakan login ulang."}
 
         except jwt.InvalidTokenError:
+            elapsed_time = (time.perf_counter() - start_time) * 1000
+            print(f"📊 [LEVEL 3 - Authentication] Verifikasi JWT Token (GAGAL - Invalid) memakan {elapsed_time:.2f} ms")
             return {"status": "error", "message": "Token tidak valid. Unauthorized."}
 
     def ekstrak_token(self, request: Request) -> dict:
@@ -100,6 +126,9 @@ class SecurityService:
         Mengecek apakah role user ada di dalam daftar roles_diizinkan.
         Jika tidak, tolak akses dan catat aktivitas ilegal tersebut (RBAC Failed).
         """
+        import time
+        start_time = time.perf_counter()
+        
         role_user = user_data.get("role", "Guest")
         
         if role_user not in roles_diizinkan:
@@ -114,17 +143,26 @@ class SecurityService:
                 status_log="Failed (RBAC - Forbidden)"
             )
             
+            elapsed_time = (time.perf_counter() - start_time) * 1000
+            print(f"📊 [LEVEL 3 - Authorization] Pengecekan Hak Akses (RBAC/OBAC) (Ditolak) memakan {elapsed_time:.2f} ms")
+            
             # 3. Tendang user-nya
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Akses ditolak. Fitur ini hanya untuk {', '.join(roles_diizinkan)}."
             )
+            
+        elapsed_time = (time.perf_counter() - start_time) * 1000
+        print(f"📊 [LEVEL 3 - Authorization] Pengecekan Hak Akses (RBAC/OBAC) memakan {elapsed_time:.2f} ms")
 
     def cek_kepemilikan_tiket(self, user_email: str, ticket_owner_email: str, user_role: str, id_tiket: str, request: Request, db):
         """
         Staff dan admin boleh akses semua tiket.
         Mahasiswa hanya boleh akses tiket miliknya sendiri.
         """
+        import time
+        start_time = time.perf_counter()
+        
         if user_role in ["staff", "admin"]:
             self.log_aktivitas(
                 db=db,
@@ -134,6 +172,8 @@ class SecurityService:
                 role=user_role,
                 status_log="Success (OBAC)"
             )
+            elapsed_time = (time.perf_counter() - start_time) * 1000
+            print(f"📊 [LEVEL 3 - Authorization] Pengecekan Hak Akses (RBAC/OBAC) memakan {elapsed_time:.2f} ms")
             return True
             
         if user_email != ticket_owner_email:
@@ -145,6 +185,8 @@ class SecurityService:
                 role=user_role,
                 status_log="Failed (OBAC - Unauthorized)"
             )
+            elapsed_time = (time.perf_counter() - start_time) * 1000
+            print(f"📊 [LEVEL 3 - Authorization] Pengecekan Hak Akses (RBAC/OBAC) (Ditolak) memakan {elapsed_time:.2f} ms")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Akses ditolak! Ini bukan tiket milik Anda."
@@ -159,6 +201,8 @@ class SecurityService:
             role=user_role,
             status_log="Success (OBAC)"
         )
+        elapsed_time = (time.perf_counter() - start_time) * 1000
+        print(f"📊 [LEVEL 3 - Authorization] Pengecekan Hak Akses (RBAC/OBAC) memakan {elapsed_time:.2f} ms")
         return True
 
     # Accounting
@@ -176,6 +220,9 @@ class SecurityService:
         Fungsi cerdas untuk mencatat log.
         Bisa mengekstrak data otomatis dari 'request', atau menerima input manual.
         """
+        import time
+        start_time = time.perf_counter()
+        
         # 1. Cari IP Address (Otomatis dari request jika tidak diisi manual)
         if not ip_address and request:
             ip_address = request.client.host
@@ -207,6 +254,9 @@ class SecurityService:
         )
         db.add(new_log)
         db.commit()
+        
+        elapsed_time = (time.perf_counter() - start_time) * 1000
+        print(f"📊 [LEVEL 3 - Accounting] Pencatatan Aktivitas (Audit Log) memakan {elapsed_time:.2f} ms")
 
     @staticmethod
     def buat_pasangan_kunci():
@@ -233,7 +283,7 @@ class SecurityService:
         )
 
         elapsed_time = (time.perf_counter() - start_time) * 1000
-        print(f"📊 [LEVEL 3 - RSA] Generate RSA Keypair selesai dalam {elapsed_time:.2f} ms")
+        print(f"📊 [LEVEL 3 - Kriptografi (RSA)] Pembangkitan Pasangan Kunci (2048-bit) memakan {elapsed_time:.2f} ms")
 
         return pem_private.decode('utf-8'), pem_public.decode('utf-8')
 
@@ -253,26 +303,32 @@ class SecurityService:
         key = base64.urlsafe_b64encode(kdf.derive(passphrase.encode()))
         
         elapsed_time = (time.perf_counter() - start_time) * 1000
-        print(f"📊 [LEVEL 3 - AES] Derivasi Kunci PBKDF2 (100k iterasi) selesai dalam {elapsed_time:.2f} ms")
+        print(f"📊 [LEVEL 3 - Kriptografi (AES)] Konversi Passphrase ke Kunci memakan {elapsed_time:.2f} ms")
         
         return Fernet(key)
 
     def bungkus_kunci_privat(self, pem_privat: str, passphrase: str) -> str:
         """Membungkus (enkripsi AES) Private Key RSA menggunakan Passphrase."""
         f = self._get_fernet_from_passphrase(passphrase)
-        return f.encrypt(pem_privat.encode()).decode()
+        
+        import time
+        start_time = time.perf_counter()
+        hasil = f.encrypt(pem_privat.encode()).decode()
+        elapsed_time = (time.perf_counter() - start_time) * 1000
+        print(f"📊 [LEVEL 3 - Kriptografi (AES)] Enkripsi Kunci Privat memakan {elapsed_time:.2f} ms")
+        
+        return hasil
 
     def buka_bungkus_kunci_privat(self, kunci_terenkripsi: str, passphrase: str) -> bytes:
         """Membuka (dekripsi AES) Private Key RSA menggunakan Passphrase."""
-        import time
-        start_time = time.perf_counter()
-        
         try:
             f = self._get_fernet_from_passphrase(passphrase)
-            hasil = f.decrypt(kunci_terenkripsi.encode())
             
+            import time
+            start_time = time.perf_counter()
+            hasil = f.decrypt(kunci_terenkripsi.encode())
             elapsed_time = (time.perf_counter() - start_time) * 1000
-            print(f"📊 [LEVEL 3 - AES] Buka Bungkus Kunci (Dekripsi AES) total memakan {elapsed_time:.2f} ms")
+            print(f"📊 [LEVEL 3 - Kriptografi (AES)] Dekripsi Kunci Privat memakan {elapsed_time:.2f} ms")
             
             return hasil
         except Exception:
@@ -297,7 +353,7 @@ class SecurityService:
         )
         
         elapsed_time = (time.perf_counter() - start_time) * 1000
-        print(f"📊 [LEVEL 3 - RSA] Pembuatan Tanda Tangan Digital (Sign RSA-PSS) selesai dalam {elapsed_time:.2f} ms")
+        print(f"📊 [LEVEL 3 - Kriptografi (RSA)] Pembuatan Tanda Tangan Digital (RSA-PSS) memakan {elapsed_time:.2f} ms")
         
         # Return dalam bentuk Base64 agar bisa disimpan ke database sebagai Text
         return base64.b64encode(signature).decode('utf-8')
@@ -326,12 +382,12 @@ class SecurityService:
             )
             
             elapsed_time = (time.perf_counter() - start_time) * 1000
-            print(f"📊 [LEVEL 3 - RSA] Verifikasi Tanda Tangan (Verify RSA-PSS) BERHASIL dalam {elapsed_time:.2f} ms")
+            print(f"📊 [LEVEL 3 - Kriptografi (RSA)] Verifikasi Tanda Tangan Digital (RSA-PSS) memakan {elapsed_time:.2f} ms")
             
             return True # Kalau tidak ada error, berarti VALID!
         except Exception:
             elapsed_time = (time.perf_counter() - start_time) * 1000
-            print(f"📊 [LEVEL 3 - RSA] Verifikasi Tanda Tangan (Verify RSA-PSS) GAGAL dalam {elapsed_time:.2f} ms")
+            print(f"📊 [LEVEL 3 - Kriptografi (RSA)] Verifikasi Tanda Tangan Digital (RSA-PSS) (GAGAL) memakan {elapsed_time:.2f} ms")
             return False # Kalau gagal diverifikasi, berarti PALSU/BERUBAH!
 
 # objek sec_helper yang akan di import ke file router

@@ -356,7 +356,12 @@ class TiketService:
         if isi_lampiran and nama_lampiran:
             upload_dir = "uploads"
             os.makedirs(upload_dir, exist_ok=True)
+            
+            import time
+            start_hash_time = time.perf_counter()
             hash_lampiran = hashlib.sha256(isi_lampiran).hexdigest()
+            elapsed_hash_time = (time.perf_counter() - start_hash_time) * 1000
+            print(f"📊 [LEVEL 3 - Kriptografi (SHA-256)] Pembangkitan Nilai Hash Dokumen memakan {elapsed_hash_time:.2f} ms")
             nama_file_tersimpan = f"{upload_dir}/{uuid.uuid4()}_{nama_lampiran}"
             logger.info(f"Menyimpan lampiran ke {nama_file_tersimpan} dengan hash {hash_lampiran}")
             with open(nama_file_tersimpan, "wb") as f:
