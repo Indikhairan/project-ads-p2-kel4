@@ -202,7 +202,7 @@ class SecurityService:
             status_log="Success (OBAC)"
         )
         elapsed_time = (time.perf_counter() - start_time) * 1000
-        print(f"📊 [LEVEL 3 - Authorization] Pengecekan Hak Akses (RBAC) memakan {elapsed_time:.4f} ms")
+        print(f"📊 [LEVEL 3 - Authorization] Pengecekan Kepemilikan (OBAC) memakan {elapsed_time:.4f} ms")
         return True
 
     # Accounting
