@@ -50,7 +50,11 @@ class EncryptedString(TypeDecorator):
             
         import time
         start_time = time.perf_counter()
-        hasil = self.fernet.decrypt(value.encode()).decode()
+        try:
+            hasil = self.fernet.decrypt(value.encode()).decode()
+        except Exception:
+            # Fallback jika data di DB tidak dienkripsi atau SECRET_KEY berubah
+            hasil = value
         elapsed_time = (time.perf_counter() - start_time) * 1000
         print(f"📊 [LEVEL 3 - Kriptografi (AES)] Pembacaan Data PII Mahasiswa memakan {elapsed_time:.4f} ms")
         return hasil
