@@ -238,9 +238,10 @@ class SecurityService:
                     email = email or user_data.get("email", "Unknown")
                     role = role or user_data.get("role", "Guest")
             except Exception:
-                # Jika token expired/tidak valid/tidak ada
-                email = email or "Unknown"
-                role = role or "Guest"
+                pass
+                
+            email = email or "Unknown"
+            role = role or "Guest"
 
         # 3. Tulis ke Database
         waktu_jkt = datetime.now(ZoneInfo("Asia/Jakarta"))

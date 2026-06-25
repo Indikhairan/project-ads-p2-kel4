@@ -266,8 +266,8 @@ class TiketService:
             waktu_wib = log.waktu.astimezone(tz_jkt)
             formatted_logs.append({
                 "time": waktu_wib.strftime("%Y-%m-%d %H:%M"),
-                "email": log.email_aktor,
-                "role": log.role_aktor,
+                "email": log.email_aktor or "Unknown",
+                "role": log.role_aktor or "Unknown",
                 "activity": log.aksi,
                 "status": log.status,
                 "ip_address": log.ip_address or "Unknown"
