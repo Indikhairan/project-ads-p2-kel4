@@ -144,7 +144,7 @@ class SecurityService:
             )
             
             elapsed_time = (time.perf_counter() - start_time) * 1000
-            print(f"📊 [LEVEL 3 - Authorization] Pengecekan Hak Akses (RBAC/OBAC) (Ditolak) memakan {elapsed_time:.4f} ms")
+            print(f"📊 [LEVEL 3 - Authorization] Pengecekan Hak Akses (RBAC) (Ditolak) memakan {elapsed_time:.4f} ms")
             
             # 3. Tendang user-nya
             raise HTTPException(
@@ -153,7 +153,7 @@ class SecurityService:
             )
             
         elapsed_time = (time.perf_counter() - start_time) * 1000
-        print(f"📊 [LEVEL 3 - Authorization] Pengecekan Hak Akses (RBAC/OBAC) memakan {elapsed_time:.4f} ms")
+        print(f"📊 [LEVEL 3 - Authorization] Pengecekan Hak Akses (RBAC) memakan {elapsed_time:.4f} ms")
 
     def cek_kepemilikan_tiket(self, user_email: str, ticket_owner_email: str, user_role: str, id_tiket: str, request: Request, db):
         """
@@ -173,7 +173,7 @@ class SecurityService:
                 status_log="Success (OBAC)"
             )
             elapsed_time = (time.perf_counter() - start_time) * 1000
-            print(f"📊 [LEVEL 3 - Authorization] Pengecekan Hak Akses (RBAC/OBAC) memakan {elapsed_time:.4f} ms")
+            print(f"📊 [LEVEL 3 - Authorization] Pengecekan Kepemilikan (OBAC) memakan {elapsed_time:.4f} ms")
             return True
             
         if user_email != ticket_owner_email:
@@ -186,7 +186,7 @@ class SecurityService:
                 status_log="Failed (OBAC - Unauthorized)"
             )
             elapsed_time = (time.perf_counter() - start_time) * 1000
-            print(f"📊 [LEVEL 3 - Authorization] Pengecekan Hak Akses (RBAC/OBAC) (Ditolak) memakan {elapsed_time:.4f} ms")
+            print(f"📊 [LEVEL 3 - Authorization] Pengecekan Kepemilikan (OBAC) (Ditolak) memakan {elapsed_time:.4f} ms")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Akses ditolak! Ini bukan tiket milik Anda."
@@ -202,7 +202,7 @@ class SecurityService:
             status_log="Success (OBAC)"
         )
         elapsed_time = (time.perf_counter() - start_time) * 1000
-        print(f"📊 [LEVEL 3 - Authorization] Pengecekan Hak Akses (RBAC/OBAC) memakan {elapsed_time:.4f} ms")
+        print(f"📊 [LEVEL 3 - Authorization] Pengecekan Hak Akses (RBAC) memakan {elapsed_time:.4f} ms")
         return True
 
     # Accounting
