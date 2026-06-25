@@ -767,6 +767,7 @@ const statusColor =
                         value={passphrase}
                         onChange={(e) => setPassphrase(e.target.value)}
                         placeholder="Buat Passphrase Baru"
+                        autoComplete="new-password"
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-10 text-sm focus:outline-none focus:border-[#130962]"
                       />
                       <button
@@ -785,6 +786,7 @@ const statusColor =
                         value={passphraseConfirm}
                         onChange={(e) => setPassphraseConfirm(e.target.value)}
                         placeholder="Konfirmasi Passphrase"
+                        autoComplete="new-password"
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-10 text-sm focus:outline-none focus:border-[#130962]"
                       />
                       <button
@@ -847,6 +849,7 @@ const statusColor =
                         value={passphrase}
                         onChange={(e) => { setPassphrase(e.target.value); setErrorSubmit(""); }}
                         placeholder="Masukkan Passphrase Anda"
+                        autoComplete="new-password"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 pr-10 text-sm focus:outline-none focus:border-[#130962]"
                       />
                       <button
